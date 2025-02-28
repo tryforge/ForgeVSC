@@ -1,6 +1,6 @@
 {
-  "name": "forgescript",
-  "displayName": "ForgeScript",
+  "name": "forge.extension",
+  "displayName": "ForgeExtension",
   "description": "",
   "version": "0.0.1",
   "engines": {
@@ -9,15 +9,33 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:javascript"
+  ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
+    "languages": [
       {
-        "command": "forgescript.test",
-        "title": "Test"
+        "id": "javascript",
+        "aliases": [
+          "JavaScript",
+          "js"
+        ],
+        "extensions": [
+          ".js"
+        ]
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Autocomplete",
+      "properties": {
+        "Autocomplete.functionsURL": {
+          "type": "string",
+          "default": "https://raw.githubusercontent.com/tryforge/ForgeScript/main/metadata/functions.json"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
