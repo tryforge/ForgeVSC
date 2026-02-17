@@ -1,31 +1,65 @@
 {
-  "name": "forge.extension",
-  "displayName": "ForgeExtension",
-  "description": "",
+  "name": "forge.vsc",
+  "displayName": "ForgeVSC",
+  "description": "Official Visual Studio Code Extension for ForgeScript.",
+  "publisher": "tryforge",
   "version": "0.0.1",
+  "icon": "./assets/ForgeScript.png",
+  "main": "./out/extension.js",
   "engines": {
     "vscode": "^1.96.0"
   },
   "categories": [
+    "Programming Languages",
+    "Visualization",
     "Other"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tryforge/ForgeVSC.git"
+  },
   "activationEvents": [
     "onLanguage:javascript"
   ],
-  "main": "./out/extension.js",
   "contributes": {
     "languages": [
       {
-        "id": "javascript",
+        "id": "forge",
         "aliases": [
-          "JavaScript",
-          "js"
+          "Forge",
+          "ForgeScript",
+          "forgescript"
         ],
         "extensions": [
-          ".js"
+          ".fs"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "dark": "./assets/ForgeScript.png",
+          "light": "./assets/ForgeScript.png"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "scopeName": "forgescript.template",
+        "path": "./syntaxes/forge.tmLanguage.json",
+        "injectTo": [
+          "source.js",
+          "source.ts"
         ]
       }
     ],
+    "configurationDefaults": {
+      "[javascript]": {
+        "editor.quickSuggestions": {
+          "other": true,
+          "comments": false,
+          "strings": true
+        },
+        "editor.suggestOnTriggerCharacters": true
+      }
+    },
     "configuration": {
       "type": "object",
       "title": "Autocomplete",
@@ -46,6 +80,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@tryforge/forgescript": "^2.6.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/vscode": "^1.96.0",
@@ -55,8 +90,5 @@
     "@vscode/test-electron": "^2.4.1",
     "eslint": "^9.16.0",
     "typescript": "^5.7.2"
-  },
-  "dependencies": {
-    "@tryforge/forgescript": "^2.1.0"
   }
 }

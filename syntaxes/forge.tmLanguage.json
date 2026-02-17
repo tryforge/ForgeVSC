@@ -1,0 +1,18 @@
+{
+  "scopeName": "forgescript.template",
+  "injectionSelector": "L:source.js string.quoted.template",
+  "patterns": [
+    {
+      "name": "support.function.forgescript",
+      "match": "\\$[a-zA-Z_]+"
+    },
+    {
+      "name": "punctuation.section.brackets.begin.forgescript",
+      "match": "\\["
+    },
+    {
+      "name": "punctuation.section.brackets.end.forgescript",
+      "match": "\\]"
+    }
+  ]
+}
