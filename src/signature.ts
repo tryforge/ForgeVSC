@@ -1,23 +1,24 @@
+import { findFunction, FunctionArgumentRegex, generateUsage, locateCodeBlock } from "."
 import { IArg } from "@tryforge/forgescript"
-import { generateUsage, getFunctions, isInsideCode } from "./extension"
 import * as vscode from "vscode"
 
 export class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider {
 	async provideSignatureHelp(document: vscode.TextDocument, position: vscode.Position) {
-		if (!isInsideCode(document, position)) return null
+		if (!locateCodeBlock(document, position)) return null
 
 		const text = document.lineAt(position).text.substring(0, position.character)
-		const match = text.match(/\$([a-zA-Z_]+)\[([^\]]*)$/)
+		const match = text.match(FunctionArgumentRegex)
 		if (!match) return null
 
 		const fnName: `$${string}` = `$${match[1]}`
 		const argsTyped = match[2]
 
-		const functions = await getFunctions()
-		const fn = functions.find((x) => x.name === fnName || (x.aliases ?? []).includes(fnName))
+		const fn = await findFunction(fnName)
 		if (!fn) return null
 
 		const args: IArg<any>[] = fn.args ?? []
+		if (args.length === 0) return null
+
 		const help = new vscode.SignatureHelp()
 		const sig = new vscode.SignatureInformation(generateUsage(fn, true))
 
@@ -30,9 +31,13 @@ export class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider 
 			return param
 		})
 
-		const activeParam = argsTyped.split(";").length - 1
+		const typedCount = argsTyped.trim() === "" ? 0 : argsTyped.split(";").length
+		const hasRest = args.at(-1)?.rest === true
 
-        help.signatures = [sig]
+		if (!hasRest && typedCount > args.length) return null
+		const activeParam = Math.max(typedCount - 1, 0)
+
+		help.signatures = [sig]
 		help.activeSignature = 0
 		help.activeParameter = Math.min(activeParam, args.length - 1)
 

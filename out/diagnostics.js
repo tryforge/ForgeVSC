@@ -33,40 +33,127 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.splitArgs = splitArgs;
+exports.findMatchingBracket = findMatchingBracket;
 exports.validateDocument = validateDocument;
-const extension_1 = require("./extension");
+const _1 = require(".");
 const vscode = __importStar(require("vscode"));
+/**
+ * Splits an argument string into an array of arguments.
+ * @param argString The argument string.
+ * @returns
+ */
+function splitArgs(argString) {
+    if (argString === undefined)
+        return [];
+    const args = [];
+    let current = "";
+    let depth = 0;
+    for (let i = 0; i < argString.length; i++) {
+        const check = (i === 0 || argString[i - 1] !== "\\");
+        const char = argString[i];
+        if (char === "[" && check)
+            depth++;
+        else if (char === "]" && check)
+            depth--;
+        if (char === ";" && depth === 0) {
+            args.push(current);
+            current = "";
+        }
+        else
+            current += char;
+    }
+    args.push(current);
+    return args;
+}
+/**
+ * Finds the matching bracket from the start index.
+ * @param input The input text.
+ * @param openIndex The index of the opening bracket.
+ * @returns
+ */
+function findMatchingBracket(input, openIndex) {
+    let depth = 1;
+    for (let i = openIndex + 1; i < input.length; i++) {
+        const c = input[i];
+        const prev = input[i - 1];
+        if (prev === "\\")
+            continue;
+        if (c === "[")
+            depth++;
+        else if (c === "]") {
+            depth--;
+            if (depth === 0)
+                return i;
+        }
+    }
+    return -1;
+}
 async function validateDocument(document, collection) {
-    if (!document || document.languageId !== "javascript")
+    if (!document || !_1.languages.includes(document.languageId))
         return;
-    const functions = await (0, extension_1.getFunctions)();
     const diagnostics = [];
     const text = document.getText();
-    const Regex = /\$[a-zA-Z_]+\[?[^\]\n]*\]?/g;
+    // const Regex = /^\$!?#?(?:@\[[^\]]*\])?/
     let match;
-    while ((match = Regex.exec(text))) {
-        const full = match[0];
-        const nameMatch = full.match(/\$[a-zA-Z_]+/);
-        if (!nameMatch)
+    while ((match = _1.FunctionScanRegex.exec(text))) {
+        const start = document.positionAt(match.index);
+        if (!(0, _1.locateCodeBlock)(document, start))
             continue;
-        const fnName = nameMatch[0];
-        const hasBrackets = full.includes("[");
-        const hasClosing = full.includes("]");
-        const fn = functions.find((x) => x.name === fnName || (x.aliases ?? []).includes(fnName));
+        const full = match[0];
+        const fnName = (0, _1.extractFunctionName)(full, true);
+        if (!fnName)
+            continue;
+        const fn = await (0, _1.findFunction)(fnName);
         if (!fn)
             continue;
-        const acceptsArgs = fn.brackets !== undefined && fn.args?.length;
+        // Invalid operator order
+        const { isInvalidOrder, rawPrefix } = (0, _1.validateOperatorPrefix)(full);
+        if (isInvalidOrder) {
+            const offset = rawPrefix.length;
+            const opStart = document.positionAt(match.index + 1);
+            const opEnd = document.positionAt(match.index + offset);
+            diagnostics.push(new vscode.Diagnostic(new vscode.Range(opStart, opEnd), `Function \`${fn.name}\` has invalid operator order`, vscode.DiagnosticSeverity.Error));
+            continue;
+        }
+        const args = fn.args ?? [];
+        const acceptsArgs = fn.brackets !== undefined && args.length > 0;
         const requiresArgs = fn.brackets;
-        const start = document.positionAt(match.index);
+        const hasOpening = full.endsWith("[");
+        const openIndex = hasOpening ? (match.index + full.length - 1) : -1;
         const end = document.positionAt(match.index + full.length);
         const range = new vscode.Range(start, end);
-        // Missing brackets but required
-        if (requiresArgs && !hasBrackets) {
-            diagnostics.push(new vscode.Diagnostic(range, `Function ${fnName} requires brackets`, vscode.DiagnosticSeverity.Error));
+        // Missing required brackets
+        if (requiresArgs && !hasOpening) {
+            diagnostics.push(new vscode.Diagnostic(range, `Function \`${fn.name}\` requires brackets`, vscode.DiagnosticSeverity.Error));
+            continue;
         }
-        // Missing closing bracket
-        else if (acceptsArgs && hasBrackets && !hasClosing) {
-            diagnostics.push(new vscode.Diagnostic(range, `Function ${fnName} is missing brace closure`, vscode.DiagnosticSeverity.Error));
+        if (args.length === 0)
+            continue;
+        if (acceptsArgs && hasOpening) {
+            const closeIndex = findMatchingBracket(text, openIndex);
+            // Missing closing bracket
+            if (closeIndex === -1) {
+                diagnostics.push(new vscode.Diagnostic(range, `Function \`${fn.name}\` is missing brace closure`, vscode.DiagnosticSeverity.Error));
+                continue;
+            }
+            const argString = text.slice(openIndex + 1, closeIndex);
+            const providedArgs = splitArgs(argString);
+            // Too few arguments
+            for (let i = 0; i < args.length; i++) {
+                const expected = args[i];
+                const provided = providedArgs[i];
+                if (expected.required && provided === undefined) {
+                    const argStart = document.positionAt(openIndex + 1);
+                    const argEnd = document.positionAt(closeIndex);
+                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(argStart, argEnd), `Function \`${fn.name}\` is missing argument \`${expected.name}\``, vscode.DiagnosticSeverity.Error));
+                }
+            }
+            // Too many arguments
+            if (providedArgs.length > args.length && !args.at(-1)?.rest) {
+                const end = document.positionAt(closeIndex + 1);
+                diagnostics.push(new vscode.Diagnostic(new vscode.Range(start, end), `Function \`${fn.name}\` expects ${args.length} argument${args.length === 1 ? "" : "s"} at most, received ${providedArgs.length}`, vscode.DiagnosticSeverity.Error));
+            }
         }
     }
     collection.set(document.uri, diagnostics);

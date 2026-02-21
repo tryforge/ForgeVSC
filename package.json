@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "Official Visual Studio Code Extension for ForgeScript.",
   "publisher": "tryforge",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "engines": {
@@ -19,7 +19,10 @@
     "url": "git+https://github.com/tryforge/ForgeVSC.git"
   },
   "activationEvents": [
-    "onLanguage:javascript"
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescriptreact"
   ],
   "contributes": {
     "languages": [
@@ -42,31 +45,55 @@
     ],
     "grammars": [
       {
-        "scopeName": "forgescript.template",
+        "scopeName": "forge.inject",
         "path": "./syntaxes/forge.tmLanguage.json",
         "injectTo": [
           "source.js",
-          "source.ts"
+          "source.ts",
+          "source.jsx",
+          "source.tsx"
         ]
       }
     ],
     "configurationDefaults": {
-      "[javascript]": {
-        "editor.quickSuggestions": {
-          "other": true,
-          "comments": false,
-          "strings": true
-        },
-        "editor.suggestOnTriggerCharacters": true
-      }
-    },
-    "configuration": {
-      "type": "object",
-      "title": "Autocomplete",
-      "properties": {
-        "Autocomplete.functionsURL": {
-          "type": "string",
-          "default": "https://raw.githubusercontent.com/tryforge/ForgeScript/main/metadata/functions.json"
+      "editor.quickSuggestions": {
+        "other": true,
+        "comments": false,
+        "strings": true
+      },
+      "editor.suggestOnTriggerCharacters": true,
+      "editor.semanticHighlighting.enabled": true,
+      "editor.tokenColorCustomizations": {
+        "textMateRules": [
+          {
+            "scope": "forge.function.bracket.open",
+            "settings": {
+              "foreground": "#ffd700"
+            }
+          },
+          {
+            "scope": "forge.function.bracket.close",
+            "settings": {
+              "foreground": "#ffd700"
+            }
+          },
+          {
+            "scope": "forge.function.semicolon",
+            "settings": {
+              "foreground": "#c586c0"
+            }
+          },
+          {
+            "scope": "forge.function.dollar",
+            "settings": {
+              "foreground": "#fe7ceb"
+            }
+          }
+        ]
+      },
+      "editor.semanticTokenColorCustomizations": {
+        "rules": {
+          "function": "#ac75ff"
         }
       }
     }

@@ -33,29 +33,77 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.languages = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LoosePrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionNameRegex = exports.FunctionRegex = exports.OperatorPrefixRegex = exports.LooseOperatorChain = exports.OperatorChain = void 0;
 exports.activate = activate;
 exports.getForgePackages = getForgePackages;
 exports.fetchFunctions = fetchFunctions;
 exports.getFunctions = getFunctions;
-exports.isInsideCode = isInsideCode;
+exports.locateCodeBlock = locateCodeBlock;
 exports.generateUsage = generateUsage;
+exports.findFunction = findFunction;
+exports.extractFunctionName = extractFunctionName;
+exports.validateOperatorPrefix = validateOperatorPrefix;
 exports.registerAutocompletion = registerAutocompletion;
 exports.registerHover = registerHover;
 exports.deactivate = deactivate;
-const signature_1 = require("./signature");
-const diagnostics_1 = require("./diagnostics");
+const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
+let functionsPromise = null;
 let functions = null;
+let Logger;
+exports.OperatorChain = String.raw `(?:!?#?(?:@\[[^\]]?\])?)?`;
+exports.LooseOperatorChain = String.raw `(?:[!#]|(?:@\[[^\]]?\]))*`;
+exports.OperatorPrefixRegex = /^\$(!)?(#)?(?:@\[([^\]]*)\])?/;
+exports.FunctionRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z_]+`);
+exports.FunctionNameRegex = new RegExp(String.raw `\$${exports.OperatorChain}([a-zA-Z_]+)`);
+exports.FunctionArgumentRegex = new RegExp(String.raw `\$${exports.OperatorChain}([a-zA-Z_]+)\[([^\]]*)$`);
+exports.FunctionAutocompleteRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z_]*$`);
+exports.FunctionScanRegex = new RegExp(String.raw `\$${exports.LooseOperatorChain}[a-zA-Z_]+(?:\[)?`, "g");
+exports.LooseFunctionNameRegex = new RegExp(String.raw `^\$${exports.LooseOperatorChain}([a-zA-Z_]+)`);
+exports.LoosePrefixRegex = new RegExp(String.raw `^\$${exports.LooseOperatorChain}`);
+exports.InvalidOperatorRegex = /#.*!|@\[\].*!|@\[\].*#/;
+exports.OperatorInfo = {
+    "!": {
+        name: "Negation Operator",
+        description: `The negation operator disables any possible output of a function. This can be useful for functions that return a "status" after execution, such as booleans or numbers.`,
+    },
+    "#": {
+        name: "Silent Operator",
+        description: "The silent operator will suppress any error a function might throw and stops further code execution as well.",
+    },
+    "@": {
+        name: "Count Operator",
+        description: "The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**.",
+    }
+};
+exports.languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"];
 async function activate(ctx) {
+    Logger = vscode.window.createOutputChannel("ForgeVSC", { log: true });
+    Logger.show(true);
+    Logger.appendLine("Starting extension...");
+    (0, _1.registerHighlighting)(ctx);
     const diagnostics = vscode.languages.createDiagnosticCollection("forge");
     ctx.subscriptions.push(diagnostics);
-    (0, diagnostics_1.validateDocument)(vscode.window.activeTextEditor?.document, diagnostics);
-    ctx.subscriptions.push(vscode.workspace.onDidChangeTextDocument((e) => (0, diagnostics_1.validateDocument)(e.document, diagnostics)), vscode.workspace.onDidOpenTextDocument((doc) => (0, diagnostics_1.validateDocument)(doc, diagnostics)));
-    ctx.subscriptions.push(vscode.languages.registerSignatureHelpProvider("javascript", new signature_1.ForgeSignatureHelpProvider(), "[", ";"));
-    await registerAutocompletion(ctx);
+    (0, _1.validateDocument)(vscode.window.activeTextEditor?.document, diagnostics);
+    ctx.subscriptions.push(vscode.workspace.onDidChangeTextDocument((event) => {
+        (0, _1.validateDocument)(event.document, diagnostics);
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || (event.document !== editor.document))
+            return;
+        for (const change of event.contentChanges) {
+            if (change.text === "" || change.text.includes(";")) {
+                vscode.commands.executeCommand("editor.action.triggerParameterHints");
+                break;
+            }
+        }
+    }), vscode.workspace.onDidOpenTextDocument((doc) => (0, _1.validateDocument)(doc, diagnostics)));
+    ctx.subscriptions.push(vscode.languages.registerSignatureHelpProvider(exports.languages, new _1.ForgeSignatureHelpProvider(), "[", ";", "]"));
+    ctx.subscriptions.push(vscode.languages.registerInlineCompletionItemProvider(exports.languages, new _1.ForgeInlineCompletionItemProvider()));
     await registerHover(ctx);
+    await registerAutocompletion(ctx);
+    Logger.appendLine("Extension started successfully!");
 }
 /**
  * Returns all forge packages of the workspace.
@@ -82,17 +130,25 @@ async function fetchFunctions() {
         return [];
     const root = folders[0].uri.fsPath;
     const pkgNames = getForgePackages();
+    let def = "@tryforge/forgescript";
     let extensionFunctions = [];
+    let failedFetch = [];
+    let fetchMain = false;
+    const appendPackage = (data, pkgName) => data.map((x) => ({ ...x, package: pkgName }));
     for (const pkgName of pkgNames) {
         const pkgPath = path.join(root, "node_modules", pkgName, "package.json");
-        if (!fs.existsSync(pkgPath))
+        if (!fs.existsSync(pkgPath)) {
+            if (pkgName !== def)
+                failedFetch.push(pkgName);
             continue;
+        }
         try {
             const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
             const localMeta = path.join(root, "node_modules", pkgName, "metadata", "functions.json");
             if (fs.existsSync(localMeta)) {
                 const data = JSON.parse(fs.readFileSync(localMeta, "utf8"));
-                extensionFunctions.push(...data);
+                const meta = appendPackage(data, pkgName);
+                extensionFunctions.push(...meta);
                 continue;
             }
             if ("repository" in pkg && pkg.repository?.url) {
@@ -104,36 +160,69 @@ async function fetchFunctions() {
                 const res = await fetch(metaUrl).catch(() => undefined);
                 if (res?.ok) {
                     const data = await res.json();
-                    extensionFunctions.push(...data);
+                    const meta = appendPackage(data, pkgName);
+                    extensionFunctions.push(...meta);
                 }
+            }
+            else {
+                if (pkgName !== def)
+                    failedFetch.push(pkgName);
+                else
+                    fetchMain = true;
             }
         }
         catch { }
     }
     let main = [];
-    if (!pkgNames.includes("@tryforge/forgescript")) {
+    if (!pkgNames.includes(def) || !fs.existsSync(path.join(root, "node_modules")) || fetchMain) {
         const mainUrl = "https://raw.githubusercontent.com/tryforge/ForgeScript/main/metadata/functions.json";
         const mainRes = await fetch(mainUrl).catch(() => undefined);
-        main = mainRes?.ok ? await mainRes.json() : [];
+        if (mainRes?.ok) {
+            const data = await mainRes.json();
+            const meta = appendPackage(data, def);
+            main = meta;
+        }
+        else {
+            failedFetch.unshift(def);
+            main = [];
+        }
     }
-    return [...main, ...extensionFunctions];
+    const metadata = [...main, ...extensionFunctions];
+    const failed = failedFetch.length;
+    const fetched = pkgNames.length - failed;
+    Logger.appendLine(`Fetched metadata from ${metadata.length} functions across ${fetched} package${fetched === 1 ? "" : "s"}.`);
+    if (failed) {
+        const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
+        Logger.appendLine(text);
+        vscode.window.showErrorMessage(text);
+    }
+    return metadata;
 }
 /**
  * Returns all cached functions.
  * @returns
  */
 async function getFunctions() {
-    if (!functions)
-        functions = await fetchFunctions();
-    return functions;
+    if (functions)
+        return functions;
+    if (!functionsPromise) {
+        functionsPromise = (async () => {
+            const res = await fetchFunctions();
+            functions = res;
+            return res;
+        })().finally(() => {
+            functionsPromise = null;
+        });
+    }
+    return functionsPromise;
 }
 /**
- * Checks whether the current position is inside the code.
+ * Locates the code block and returns relevant data.
  * @param document The text document.
  * @param position The current position of the cursor.
  * @returns
  */
-function isInsideCode(document, position) {
+function locateCodeBlock(document, position) {
     const text = document.getText();
     const offset = document.offsetAt(position);
     const CodeRegex = /code:\s*(["`])([\s\S]*?)\1/g;
@@ -144,10 +233,11 @@ function isInsideCode(document, position) {
         const start = match.index + match[0].indexOf(quoteChar) + 1;
         const end = start + content.length;
         if (offset >= start && offset <= end) {
-            return true;
+            const slice = text.slice(start, offset);
+            return { start, end, quoteChar, slice };
         }
     }
-    return false;
+    return null;
 }
 /**
  * Generates the usage string for a function.
@@ -163,54 +253,84 @@ function generateUsage(fn, withTypes = false) {
     return fn.name + usage;
 }
 /**
+ * Finds a function by its name.
+ * @param name The function name.
+ */
+async function findFunction(name) {
+    name = name.toLowerCase();
+    return (await getFunctions()).find((x) => x.name.toLowerCase() === name || (x.aliases ?? []).map((a) => a.toLowerCase()).includes(name));
+}
+/**
+ * Extracts the function name from input.
+ * @param input The input text.
+ * @param loose Whether to extract loosely.
+ * @returns
+ */
+function extractFunctionName(input, loose = false) {
+    const match = input.match(loose ? exports.LooseFunctionNameRegex : exports.FunctionNameRegex);
+    if (!match)
+        return null;
+    return `$${match[1]}`;
+}
+/**
+ * Validates the operator prefix order from the input.
+ * @param input The input text.
+ * @returns
+ */
+function validateOperatorPrefix(input) {
+    const rawPrefix = input.match(exports.LoosePrefixRegex)?.[0] ?? "$";
+    const normalizedPrefix = rawPrefix.replace(/@\[[^\]]*\]/g, "@[]");
+    const isInvalidOrder = exports.InvalidOperatorRegex.test(normalizedPrefix);
+    return { rawPrefix, normalizedPrefix, isInvalidOrder };
+}
+/**
  * Registers the autocompletion for functions.
  * @param ctx The extension context.
  */
 async function registerAutocompletion(ctx) {
     const functions = await getFunctions();
-    const provider = vscode.languages.registerCompletionItemProvider("javascript", {
-        provideCompletionItems(document, position) {
-            if (!isInsideCode(document, position))
+    const provider = vscode.languages.registerCompletionItemProvider(exports.languages, {
+        async provideCompletionItems(document, position) {
+            if (!locateCodeBlock(document, position))
                 return;
             const line = document.lineAt(position).text;
             const before = line.substring(0, position.character);
             // Enum autocompletion
-            const argMatch = before.match(/\$([a-zA-Z_]+)\[([^\]]*)$/);
+            const argMatch = before.match(exports.FunctionArgumentRegex);
             if (argMatch) {
                 const fnName = `$${argMatch[1]}`;
                 const argsTyped = argMatch[2];
-                const fn = functions.find((x) => x.name === fnName || (x.aliases ?? []).includes(fnName));
-                if (!fn || !fn.args)
-                    return;
-                const args = fn.args;
-                const activeIndex = argsTyped.split(";").length - 1;
-                const activeArg = args[activeIndex];
-                if (!activeArg)
-                    return;
-                const enumValues = activeArg.enum;
-                if (!enumValues)
-                    return;
-                const currentValueMatch = argsTyped.match(/([^;]*)$/);
-                const currentValue = currentValueMatch?.[1] ?? "";
-                return enumValues.map((val) => {
-                    const item = new vscode.CompletionItem(val, vscode.CompletionItemKind.EnumMember);
-                    item.insertText = val;
-                    const start = position.translate(0, -currentValue.length);
-                    item.range = new vscode.Range(start, position);
-                    return item;
-                });
+                const fn = await findFunction(fnName);
+                if (fn?.args) {
+                    const args = fn.args;
+                    const activeIndex = argsTyped.split(";").length - 1;
+                    const activeArg = args[activeIndex];
+                    const enumValues = activeArg?.enum || (activeArg.type === "Boolean" ? ["true", "false"] : undefined);
+                    if (enumValues) {
+                        const currentValueMatch = argsTyped.match(/([^;]*)$/);
+                        const currentValue = currentValueMatch?.[1] ?? "";
+                        return enumValues.map((val) => {
+                            const item = new vscode.CompletionItem(val, vscode.CompletionItemKind.EnumMember);
+                            const start = position.translate(0, -currentValue.length);
+                            item.insertText = val;
+                            item.range = new vscode.Range(start, position);
+                            return item;
+                        });
+                    }
+                }
             }
             // Function autocompletion
-            const match = before.match(/\$[a-zA-Z_]*$/);
-            if (!match)
+            const match = before.match(exports.FunctionAutocompleteRegex);
+            if (!match || validateOperatorPrefix(match[0]).isInvalidOrder)
                 return;
             return functions.flatMap((fn) => {
                 const names = [fn.name, ...(fn.aliases ?? [])];
                 return names.map((name) => {
                     const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function);
-                    item.insertText = fn.name;
+                    item.insertText = name + (fn.brackets ? "[" : "");
                     item.detail = generateUsage(fn);
-                    item.documentation = new vscode.MarkdownString(`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}`);
+                    item.documentation = new vscode.MarkdownString(`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\``);
+                    item.kind = vscode.CompletionItemKind.Function;
                     if (fn.deprecated)
                         item.tags = [vscode.CompletionItemTag.Deprecated];
                     const startPos = position.translate(0, -match[0].length);
@@ -227,25 +347,51 @@ async function registerAutocompletion(ctx) {
  * @param ctx The extension context.
  */
 async function registerHover(ctx) {
-    const functions = await getFunctions();
-    const provider = vscode.languages.registerHoverProvider("javascript", {
-        provideHover(document, position) {
-            if (!isInsideCode(document, position))
+    const provider = vscode.languages.registerHoverProvider(exports.languages, {
+        async provideHover(document, position) {
+            if (!locateCodeBlock(document, position))
                 return;
-            const range = document.getWordRangeAtPosition(position, /\$[a-zA-Z_]+/);
-            if (!range)
-                return;
-            const word = document.getText(range);
-            const fn = functions.find((x) => x.name === word);
-            if (!fn)
-                return;
-            const md = new vscode.MarkdownString();
-            md.appendCodeblock(`${generateUsage(fn)}${fn.output ? `: ` + fn.output.join(", ") : ""}\n`);
-            md.appendText(`${fn.description}\n`);
-            md.appendMarkdown(`---\n`);
-            md.appendMarkdown(`##### v${fn.version} | [Documentation](https://docs.botforge.org/function/${fn.name})`);
-            md.isTrusted = true;
-            return new vscode.Hover(md);
+            // Operator hover
+            const operatorRange = document.getWordRangeAtPosition(position, /@\[[^\]]?\]|[!#]/);
+            if (operatorRange && operatorRange.contains(position)) {
+                const opStr = document.getText(operatorRange);
+                const op = (opStr.startsWith("@") ? "@" : opStr);
+                const doc = exports.OperatorInfo[op];
+                if (!doc)
+                    return;
+                const md = new vscode.MarkdownString();
+                md.appendMarkdown(`**${doc.name} (\`${opStr}\`)**\n\n${doc.description}`);
+                return new vscode.Hover(md, operatorRange);
+            }
+            const line = document.lineAt(position.line).text;
+            // const Regex = /\$!?#?(?:@\[[^\]]?\])?[a-zA-Z_]+/g
+            const Regex = /\$!?#?(?:@\[[^\]]?\])?[a-zA-Z_]+(\[)?/g;
+            let match;
+            // Function hover
+            while ((match = Regex.exec(line))) {
+                const hasOpening = match[1] === "[";
+                const start = match.index;
+                let end = start + match[0].length;
+                if (hasOpening)
+                    end--;
+                if (position.character >= start && position.character <= end) {
+                    const fnName = extractFunctionName(match[0]);
+                    if (!fnName)
+                        return;
+                    const fn = await findFunction(fnName);
+                    if (!fn)
+                        return;
+                    const acceptsArgs = fn.brackets !== undefined;
+                    const md = new vscode.MarkdownString();
+                    md.appendCodeblock(`${hasOpening && acceptsArgs ? generateUsage(fn) : fn.name}${fn.output ? `: ` + fn.output.join(", ") : ""}\n`);
+                    md.appendText(`${fn.description}\n`);
+                    md.appendMarkdown(`---\n`);
+                    md.appendMarkdown(`##### v${fn.version} | [Documentation](https://docs.botforge.org/function/${fn.name})`);
+                    md.isTrusted = true;
+                    const range = new vscode.Range(position.line, start, position.line, end);
+                    return new vscode.Hover(md, range);
+                }
+            }
         }
     });
     ctx.subscriptions.push(provider);
