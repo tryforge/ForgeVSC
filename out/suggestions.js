@@ -46,7 +46,10 @@ exports.FunctionHeadRegex = new RegExp(String.raw `(\$${_1.OperatorChain}[a-zA-Z
  * @returns
  */
 function isEscaped(input, i) {
-    return i > 0 && input[i - 1] === "\\";
+    let slashes = 0;
+    for (let j = i - 1; j >= 0 && input[j] === "\\"; j--)
+        slashes++;
+    return slashes % 2 === 1;
 }
 /**
  * Checks whether a function has an unclosed bracket.
@@ -69,7 +72,8 @@ function hasUnclosedBracket(before) {
 class ForgeInlineCompletionItemProvider {
     async provideInlineCompletionItems(document, position) {
         const code = (0, _1.locateCodeBlock)(document, position);
-        if (!code)
+        const config = (0, _1.getExtensionConfig)();
+        if (!code || !config.features.suggestions)
             return null;
         const slice = code.slice.replace(/[ \t\r]+$/g, "");
         const nextChar = document.getText(new vscode.Range(position, position.translate(0, 1)));

@@ -1,4 +1,4 @@
-import { extractFunctionName, findFunction, FunctionScanRegex, languages, locateCodeBlock, validateOperatorPrefix } from "."
+import { extractFunctionName, findFunction, FunctionScanRegex, getExtensionConfig, isEscaped, languages, locateCodeBlock, validateOperatorPrefix } from "."
 import { IArg } from "@tryforge/forgescript"
 import * as vscode from "vscode"
 
@@ -15,13 +15,13 @@ export function splitArgs(argString?: string) {
 	let depth = 0
 
 	for (let i = 0; i < argString.length; i++) {
-		const check = (i === 0 || argString[i - 1] !== "\\")
+		const escaped = isEscaped(argString, i)
 		const char = argString[i]
 
-		if (char === "[" && check) depth++
-		else if (char === "]" && check) depth--
+		if (char === "[" && !escaped) depth++
+		else if (char === "]" && !escaped) depth--
 
-		if (char === ";" && depth === 0) {
+		if (char === ";" && depth === 0 && !escaped) {
 			args.push(current)
 			current = ""
 		} else current += char
@@ -32,7 +32,7 @@ export function splitArgs(argString?: string) {
 }
 
 /**
- * Finds the matching bracket from the start index.
+ * Finds the matching bracket position from the start index.
  * @param input The input text.
  * @param openIndex The index of the opening bracket.
  * @returns 
@@ -42,8 +42,7 @@ export function findMatchingBracket(input: string, openIndex: number) {
 
 	for (let i = openIndex + 1; i < input.length; i++) {
 		const c = input[i]
-		const prev = input[i - 1]
-		if (prev === "\\") continue
+		if (isEscaped(input, i)) continue
 
 		if (c === "[") depth++
 		else if (c === "]") {
@@ -59,7 +58,8 @@ export async function validateDocument(
 	document: vscode.TextDocument | undefined,
 	collection: vscode.DiagnosticCollection
 ) {
-	if (!document || !languages.includes(document.languageId)) return
+	const config = getExtensionConfig()
+	if (!document || !languages.includes(document.languageId) || !config.features.diagnostics) return
 
 	const diagnostics: vscode.Diagnostic[] = []
 	const text = document.getText()

@@ -34,18 +34,50 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ForgeSignatureHelpProvider = void 0;
+exports.findOpeningBracket = findOpeningBracket;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
+// export const FunctionPrefixRegex = /\$!?#?(?:@\[[^\]\n]?\])?[a-zA-Z_]+$/
+/**
+ * Finds the opening bracket position from the input text.
+ * @param input The input text.
+ * @returns
+ */
+function findOpeningBracket(input) {
+    let depth = 0;
+    for (let i = input.length - 1; i >= 0; i--) {
+        const c = input[i];
+        if ((0, _1.isEscaped)(input, i))
+            continue;
+        if (c === "]")
+            depth++;
+        else if (c === "[") {
+            if (depth > 0)
+                depth--;
+            else
+                return i;
+        }
+    }
+    return -1;
+}
 class ForgeSignatureHelpProvider {
     async provideSignatureHelp(document, position) {
-        if (!(0, _1.locateCodeBlock)(document, position))
+        const code = (0, _1.locateCodeBlock)(document, position);
+        const config = (0, _1.getExtensionConfig)();
+        if (!code || !config.features.signatureHelp)
             return null;
-        const text = document.lineAt(position).text.substring(0, position.character);
-        const match = text.match(_1.FunctionArgumentRegex);
+        const text = code.slice;
+        const openIndex = findOpeningBracket(text);
+        if (openIndex === -1)
+            return null;
+        const beforeBracket = text.slice(0, openIndex);
+        const match = beforeBracket.match(new RegExp(_1.FunctionRegex.source + "$"));
         if (!match)
             return null;
-        const fnName = `$${match[1]}`;
-        const argsTyped = match[2];
+        const fnName = (0, _1.extractFunctionName)(match[0]);
+        if (!fnName)
+            return null;
+        const argsTyped = text.slice(openIndex + 1);
         const fn = await (0, _1.findFunction)(fnName);
         if (!fn)
             return null;
@@ -59,7 +91,8 @@ class ForgeSignatureHelpProvider {
             const param = new vscode.ParameterInformation(`${arg.rest ? "..." : ""}${arg.name}${arg.required ? "" : "?"}: ${arg.type}`, new vscode.MarkdownString(`${arg.description}${arg.condition ? "\n\n*(Conditional)*" : ""}\n\n---`));
             return param;
         });
-        const typedCount = argsTyped.trim() === "" ? 0 : argsTyped.split(";").length;
+        const parts = (0, _1.splitArgs)(argsTyped);
+        const typedCount = argsTyped.trim() === "" ? 0 : parts.length;
         const hasRest = args.at(-1)?.rest === true;
         if (!hasRest && typedCount > args.length)
             return null;

@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.languages = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LoosePrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionNameRegex = exports.FunctionRegex = exports.OperatorPrefixRegex = exports.LooseOperatorChain = exports.OperatorChain = void 0;
 exports.activate = activate;
 exports.getForgePackages = getForgePackages;
+exports.overwriteNative = overwriteNative;
 exports.fetchFunctions = fetchFunctions;
 exports.getFunctions = getFunctions;
 exports.locateCodeBlock = locateCodeBlock;
@@ -83,7 +84,11 @@ async function activate(ctx) {
     Logger = vscode.window.createOutputChannel("ForgeVSC", { log: true });
     Logger.show(true);
     Logger.appendLine("Starting extension...");
+    (0, _1.registerCommands)(ctx);
+    await (0, _1.loadExtensionConfig)();
     (0, _1.registerHighlighting)(ctx);
+    const watcher = vscode.workspace.createFileSystemWatcher("**/.forgevsc.json");
+    ctx.subscriptions.push(watcher, watcher.onDidCreate(async () => await (0, _1.loadExtensionConfig)()), watcher.onDidChange(async () => await (0, _1.loadExtensionConfig)()), watcher.onDidDelete(async () => await (0, _1.loadExtensionConfig)()));
     const diagnostics = vscode.languages.createDiagnosticCollection("forge");
     ctx.subscriptions.push(diagnostics);
     (0, _1.validateDocument)(vscode.window.activeTextEditor?.document, diagnostics);
@@ -119,6 +124,22 @@ function getForgePackages() {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
     const deps = [...Object.keys(pkg.dependencies ?? {})];
     return deps.filter((dep) => dep.startsWith("@tryforge/") || dep.includes("forge"));
+}
+/**
+ * Overwrites matching native functions with custom functions.
+ * @param native The native function metadata.
+ * @param custom The custom function metadata.
+ * @returns
+ */
+function overwriteNative(native, custom) {
+    const map = new Map();
+    const overwrite = (data) => {
+        for (const fn of data)
+            map.set(fn.name.toLowerCase(), fn);
+    };
+    overwrite(native);
+    overwrite(custom);
+    return [...map.values()];
 }
 /**
  * Fetches all functions from metadata.
@@ -187,23 +208,28 @@ async function fetchFunctions() {
             main = [];
         }
     }
+    const customPath = (0, _1.getExtensionConfig)().customFunctionsPath;
+    const customFunctions = await (0, _1.loadCustomFunctions)(customPath);
     const metadata = [...main, ...extensionFunctions];
     const failed = failedFetch.length;
     const fetched = pkgNames.length - failed;
     Logger.appendLine(`Fetched metadata from ${metadata.length} functions across ${fetched} package${fetched === 1 ? "" : "s"}.`);
+    if (customPath)
+        Logger.appendLine(`Fetched metadata from ${customFunctions.length} custom functions.`);
     if (failed) {
         const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
         Logger.appendLine(text);
         vscode.window.showErrorMessage(text);
     }
-    return metadata;
+    return overwriteNative(metadata, customFunctions);
 }
 /**
  * Returns all cached functions.
+ * @param force Whether to force fetching.
  * @returns
  */
-async function getFunctions() {
-    if (functions)
+async function getFunctions(force = false) {
+    if (functions && !force)
         return functions;
     if (!functionsPromise) {
         functionsPromise = (async () => {
@@ -225,7 +251,7 @@ async function getFunctions() {
 function locateCodeBlock(document, position) {
     const text = document.getText();
     const offset = document.offsetAt(position);
-    const CodeRegex = /code:\s*(["`])([\s\S]*?)\1/g;
+    const CodeRegex = /code:\s*(["`'])([\s\S]*?)\1/g;
     let match;
     while ((match = CodeRegex.exec(text)) !== null) {
         const quoteChar = match[1];
@@ -291,7 +317,8 @@ async function registerAutocompletion(ctx) {
     const functions = await getFunctions();
     const provider = vscode.languages.registerCompletionItemProvider(exports.languages, {
         async provideCompletionItems(document, position) {
-            if (!locateCodeBlock(document, position))
+            const config = (0, _1.getExtensionConfig)();
+            if (!locateCodeBlock(document, position) || !config.features.autocompletion)
                 return;
             const line = document.lineAt(position).text;
             const before = line.substring(0, position.character);
@@ -327,7 +354,7 @@ async function registerAutocompletion(ctx) {
                 const names = [fn.name, ...(fn.aliases ?? [])];
                 return names.map((name) => {
                     const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function);
-                    item.insertText = name + (fn.brackets ? "[" : "");
+                    item.insertText = name;
                     item.detail = generateUsage(fn);
                     item.documentation = new vscode.MarkdownString(`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\``);
                     item.kind = vscode.CompletionItemKind.Function;
@@ -349,7 +376,8 @@ async function registerAutocompletion(ctx) {
 async function registerHover(ctx) {
     const provider = vscode.languages.registerHoverProvider(exports.languages, {
         async provideHover(document, position) {
-            if (!locateCodeBlock(document, position))
+            const config = (0, _1.getExtensionConfig)();
+            if (!locateCodeBlock(document, position) || !config.features.hoverInfo)
                 return;
             // Operator hover
             const operatorRange = document.getWordRangeAtPosition(position, /@\[[^\]]?\]|[!#]/);
@@ -385,8 +413,10 @@ async function registerHover(ctx) {
                     const md = new vscode.MarkdownString();
                     md.appendCodeblock(`${hasOpening && acceptsArgs ? generateUsage(fn) : fn.name}${fn.output ? `: ` + fn.output.join(", ") : ""}\n`);
                     md.appendText(`${fn.description}\n`);
-                    md.appendMarkdown(`---\n`);
-                    md.appendMarkdown(`##### v${fn.version} | [Documentation](https://docs.botforge.org/function/${fn.name})`);
+                    if (fn.version) {
+                        md.appendMarkdown(`---\n`);
+                        md.appendMarkdown(`##### v${fn.version} | [Documentation](https://docs.botforge.org/function/${fn.name})`);
+                    }
                     md.isTrusted = true;
                     const range = new vscode.Range(position.line, start, position.line, end);
                     return new vscode.Hover(md, range);
@@ -396,5 +426,7 @@ async function registerHover(ctx) {
     });
     ctx.subscriptions.push(provider);
 }
-function deactivate() { }
+function deactivate() {
+    Logger.appendLine("Deactivated extension.");
+}
 //# sourceMappingURL=extension.js.map

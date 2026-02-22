@@ -50,13 +50,13 @@ function splitArgs(argString) {
     let current = "";
     let depth = 0;
     for (let i = 0; i < argString.length; i++) {
-        const check = (i === 0 || argString[i - 1] !== "\\");
+        const escaped = (0, _1.isEscaped)(argString, i);
         const char = argString[i];
-        if (char === "[" && check)
+        if (char === "[" && !escaped)
             depth++;
-        else if (char === "]" && check)
+        else if (char === "]" && !escaped)
             depth--;
-        if (char === ";" && depth === 0) {
+        if (char === ";" && depth === 0 && !escaped) {
             args.push(current);
             current = "";
         }
@@ -67,7 +67,7 @@ function splitArgs(argString) {
     return args;
 }
 /**
- * Finds the matching bracket from the start index.
+ * Finds the matching bracket position from the start index.
  * @param input The input text.
  * @param openIndex The index of the opening bracket.
  * @returns
@@ -76,8 +76,7 @@ function findMatchingBracket(input, openIndex) {
     let depth = 1;
     for (let i = openIndex + 1; i < input.length; i++) {
         const c = input[i];
-        const prev = input[i - 1];
-        if (prev === "\\")
+        if ((0, _1.isEscaped)(input, i))
             continue;
         if (c === "[")
             depth++;
@@ -90,7 +89,8 @@ function findMatchingBracket(input, openIndex) {
     return -1;
 }
 async function validateDocument(document, collection) {
-    if (!document || !_1.languages.includes(document.languageId))
+    const config = (0, _1.getExtensionConfig)();
+    if (!document || !_1.languages.includes(document.languageId) || !config.features.diagnostics)
         return;
     const diagnostics = [];
     const text = document.getText();

@@ -1,4 +1,13 @@
-import { ForgeInlineCompletionItemProvider, ForgeSignatureHelpProvider, registerHighlighting, validateDocument } from "."
+import {
+	ForgeInlineCompletionItemProvider,
+	ForgeSignatureHelpProvider,
+	getExtensionConfig,
+	loadCustomFunctions,
+	loadExtensionConfig,
+	registerCommands,
+	registerHighlighting,
+	validateDocument
+} from "."
 import { IArg, INativeFunction } from "@tryforge/forgescript"
 import * as vscode from "vscode"
 import * as path from "path"
@@ -43,7 +52,18 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	Logger.show(true)
 	Logger.appendLine("Starting extension...")
 
+	registerCommands(ctx)
+
+	await loadExtensionConfig()
 	registerHighlighting(ctx)
+
+	const watcher = vscode.workspace.createFileSystemWatcher("**/.forgevsc.json")
+	ctx.subscriptions.push(
+		watcher,
+		watcher.onDidCreate(async () => await loadExtensionConfig()),
+		watcher.onDidChange(async () => await loadExtensionConfig()),
+		watcher.onDidDelete(async () => await loadExtensionConfig())
+	)
 
 	const diagnostics = vscode.languages.createDiagnosticCollection("forge")
 	ctx.subscriptions.push(diagnostics)
@@ -105,6 +125,24 @@ export function getForgePackages() {
 	const deps = [...Object.keys(pkg.dependencies ?? {})]
 
 	return deps.filter((dep) => dep.startsWith("@tryforge/") || dep.includes("forge"))
+}
+
+/**
+ * Overwrites matching native functions with custom functions.
+ * @param native The native function metadata.
+ * @param custom The custom function metadata.
+ * @returns 
+ */
+export function overwriteNative(native: FunctionMetadata[], custom: FunctionMetadata[]) {
+	const map = new Map<string, FunctionMetadata>()
+	const overwrite = (data: FunctionMetadata[]) => {
+		for (const fn of data) map.set(fn.name.toLowerCase(), fn)
+	}
+
+	overwrite(native)
+	overwrite(custom)
+
+	return [...map.values()]
 }
 
 /**
@@ -178,26 +216,30 @@ export async function fetchFunctions() {
 		}
 	}
 
+	const customPath = getExtensionConfig().customFunctionsPath
+	const customFunctions = await loadCustomFunctions(customPath) as FunctionMetadata[]
 	const metadata = [...main, ...extensionFunctions]
 	const failed = failedFetch.length
 	const fetched = pkgNames.length - failed
 
 	Logger.appendLine(`Fetched metadata from ${metadata.length} functions across ${fetched} package${fetched === 1 ? "" : "s"}.`)
+	if (customPath) Logger.appendLine(`Fetched metadata from ${customFunctions.length} custom functions.`)
 	if (failed) {
 		const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")
 		Logger.appendLine(text)
 		vscode.window.showErrorMessage(text)
 	}
 
-	return metadata
+	return overwriteNative(metadata, customFunctions)
 }
 
 /**
  * Returns all cached functions.
+ * @param force Whether to force fetching.
  * @returns 
  */
-export async function getFunctions() {
-	if (functions) return functions
+export async function getFunctions(force: boolean = false) {
+	if (functions && !force) return functions
 
 	if (!functionsPromise) {
 		functionsPromise = (async () => {
@@ -222,7 +264,7 @@ export function locateCodeBlock(document: vscode.TextDocument, position: vscode.
 	const text = document.getText()
 	const offset = document.offsetAt(position)
 
-	const CodeRegex = /code:\s*(["`])([\s\S]*?)\1/g
+	const CodeRegex = /code:\s*(["`'])([\s\S]*?)\1/g
 	let match: RegExpExecArray | null
 
 	while ((match = CodeRegex.exec(text)) !== null) {
@@ -303,7 +345,8 @@ export async function registerAutocompletion(ctx: vscode.ExtensionContext) {
 
 	const provider = vscode.languages.registerCompletionItemProvider(languages, {
 		async provideCompletionItems(document, position) {
-			if (!locateCodeBlock(document, position)) return
+			const config = getExtensionConfig()
+			if (!locateCodeBlock(document, position) || !config.features.autocompletion) return
 
 			const line = document.lineAt(position).text
 			const before = line.substring(0, position.character)
@@ -348,7 +391,7 @@ export async function registerAutocompletion(ctx: vscode.ExtensionContext) {
 				return names.map((name) => {
 					const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function)
 
-					item.insertText = name + (fn.brackets ? "[" : "")
+					item.insertText = name
 					item.detail = generateUsage(fn)
 					item.documentation = new vscode.MarkdownString(
 						`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\``
@@ -375,7 +418,8 @@ export async function registerAutocompletion(ctx: vscode.ExtensionContext) {
 export async function registerHover(ctx: vscode.ExtensionContext) {
 	const provider = vscode.languages.registerHoverProvider(languages, {
 		async provideHover(document, position) {
-			if (!locateCodeBlock(document, position)) return
+			const config = getExtensionConfig()
+			if (!locateCodeBlock(document, position) || !config.features.hoverInfo) return
 
 			// Operator hover
 			const operatorRange = document.getWordRangeAtPosition(position, /@\[[^\]]?\]|[!#]/)
@@ -415,10 +459,12 @@ export async function registerHover(ctx: vscode.ExtensionContext) {
 						`${hasOpening && acceptsArgs ? generateUsage(fn) : fn.name}${fn.output ? `: ` + (fn.output as Array<any>).join(", ") : ""}\n`
 					)
 					md.appendText(`${fn.description}\n`)
-					md.appendMarkdown(`---\n`)
-					md.appendMarkdown(
-						`##### v${fn.version} | [Documentation](https://docs.botforge.org/function/${fn.name})`
-					)
+					if (fn.version) {
+						md.appendMarkdown(`---\n`)
+						md.appendMarkdown(
+							`##### v${fn.version} | [Documentation](https://docs.botforge.org/function/${fn.name})`
+						)
+					}
 					md.isTrusted = true
 
 					const range = new vscode.Range(position.line, start, position.line, end)
@@ -431,4 +477,6 @@ export async function registerHover(ctx: vscode.ExtensionContext) {
 	ctx.subscriptions.push(provider)
 }
 
-export function deactivate() { }
+export function deactivate() {
+	Logger.appendLine("Deactivated extension.")
+}

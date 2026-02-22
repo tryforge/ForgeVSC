@@ -1,4 +1,4 @@
-import { extractFunctionName, OperatorChain, findFunction, locateCodeBlock } from "."
+import { extractFunctionName, OperatorChain, findFunction, locateCodeBlock, getExtensionConfig } from "."
 import * as vscode from "vscode"
 
 export const FunctionHeadRegex = new RegExp(String.raw`(\$${OperatorChain}[a-zA-Z_]+)$`)
@@ -10,7 +10,9 @@ export const FunctionHeadRegex = new RegExp(String.raw`(\$${OperatorChain}[a-zA-
  * @returns 
  */
 export function isEscaped(input: string, i: number) {
-    return i > 0 && input[i - 1] === "\\"
+    let slashes = 0
+    for (let j = i - 1; j >= 0 && input[j] === "\\"; j--) slashes++
+    return slashes % 2 === 1
 }
 
 /**
@@ -32,7 +34,8 @@ export function hasUnclosedBracket(before: string) {
 export class ForgeInlineCompletionItemProvider implements vscode.InlineCompletionItemProvider {
     async provideInlineCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
         const code = locateCodeBlock(document, position)
-        if (!code) return null
+        const config = getExtensionConfig()
+        if (!code || !config.features.suggestions) return null
 
         const slice = code.slice.replace(/[ \t\r]+$/g, "")
         const nextChar = document.getText(new vscode.Range(position, position.translate(0, 1)))

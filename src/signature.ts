@@ -1,18 +1,49 @@
-import { findFunction, FunctionArgumentRegex, generateUsage, locateCodeBlock } from "."
+import { extractFunctionName, findFunction, FunctionRegex, generateUsage, getExtensionConfig, isEscaped, locateCodeBlock, splitArgs } from "."
 import { IArg } from "@tryforge/forgescript"
 import * as vscode from "vscode"
 
+// export const FunctionPrefixRegex = /\$!?#?(?:@\[[^\]\n]?\])?[a-zA-Z_]+$/
+
+/**
+ * Finds the opening bracket position from the input text.
+ * @param input The input text.
+ * @returns 
+ */
+export function findOpeningBracket(input: string) {
+	let depth = 0
+
+	for (let i = input.length - 1; i >= 0; i--) {
+		const c = input[i]
+		if (isEscaped(input, i)) continue
+
+		if (c === "]") depth++
+		else if (c === "[") {
+			if (depth > 0) depth--
+			else return i
+		}
+	}
+
+	return -1
+}
+
 export class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider {
 	async provideSignatureHelp(document: vscode.TextDocument, position: vscode.Position) {
-		if (!locateCodeBlock(document, position)) return null
+		const code = locateCodeBlock(document, position)
+		const config = getExtensionConfig()
+		if (!code || !config.features.signatureHelp) return null
 
-		const text = document.lineAt(position).text.substring(0, position.character)
-		const match = text.match(FunctionArgumentRegex)
+		const text = code.slice
+		const openIndex = findOpeningBracket(text)
+		if (openIndex === -1) return null
+
+		const beforeBracket = text.slice(0, openIndex)
+		const match = beforeBracket.match(new RegExp(FunctionRegex.source + "$"))
 		if (!match) return null
 
-		const fnName: `$${string}` = `$${match[1]}`
-		const argsTyped = match[2]
+		const fnName = extractFunctionName(match[0])
+		if (!fnName) return null
 
+		const argsTyped = text.slice(openIndex + 1)
 		const fn = await findFunction(fnName)
 		if (!fn) return null
 
@@ -31,7 +62,8 @@ export class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider 
 			return param
 		})
 
-		const typedCount = argsTyped.trim() === "" ? 0 : argsTyped.split(";").length
+		const parts = splitArgs(argsTyped)
+		const typedCount = argsTyped.trim() === "" ? 0 : parts.length
 		const hasRest = args.at(-1)?.rest === true
 
 		if (!hasRest && typedCount > args.length) return null

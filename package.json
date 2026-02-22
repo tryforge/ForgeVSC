@@ -43,6 +43,26 @@
         }
       }
     ],
+    "commands": [
+      {
+        "command": "forgevsc.createConfig",
+        "title": "Create config file (.forgevsc.json)",
+        "category": "ForgeVSC",
+        "icon": {
+          "dark": "./assets/ForgeScript.png",
+          "light": "./assets/ForgeScript.png"
+        }
+      },
+      {
+        "command": "forgevsc.reloadMetadata",
+        "title": "Fetch function metadata. Use with caution!",
+        "category": "ForgeVSC",
+        "icon": {
+          "dark": "./assets/ForgeScript.png",
+          "light": "./assets/ForgeScript.png"
+        }
+      }
+    ],
     "grammars": [
       {
         "scopeName": "forge.inject",
@@ -96,7 +116,16 @@
           "function": "#ac75ff"
         }
       }
-    }
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": [
+          ".forgevsc.json",
+          ".vscode/.forgevsc.json"
+        ],
+        "url": "./forgevsc.schema.json"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

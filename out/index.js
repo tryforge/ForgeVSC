@@ -19,4 +19,7 @@ __exportStar(require("./diagnostics"), exports);
 __exportStar(require("./signature"), exports);
 __exportStar(require("./suggestions"), exports);
 __exportStar(require("./highlights"), exports);
+__exportStar(require("./functions"), exports);
+__exportStar(require("./commands"), exports);
+__exportStar(require("./config"), exports);
 //# sourceMappingURL=index.js.map
