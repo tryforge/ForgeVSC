@@ -1,4 +1,4 @@
-import { extractFunctionName, findFunction, FunctionRegex, generateUsage, getExtensionConfig, isEscaped, locateCodeBlock, splitArgs } from "."
+import { findFunction, FunctionRegex, generateUsage, getExtensionConfig, isEscaped, locateCodeBlock, splitArgs } from "."
 import { IArg } from "@tryforge/forgescript"
 import * as vscode from "vscode"
 
@@ -40,13 +40,11 @@ export class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider 
 		const match = beforeBracket.match(new RegExp(FunctionRegex.source + "$"))
 		if (!match) return null
 
-		const fnName = extractFunctionName(match[0])
-		if (!fnName) return null
-
 		const argsTyped = text.slice(openIndex + 1)
-		const fn = await findFunction(fnName)
-		if (!fn) return null
+		const found = await findFunction(match[0])
+		if (!found) return null
 
+		const fn = found.fn
 		const args: IArg<any>[] = fn.args ?? []
 		if (args.length === 0) return null
 

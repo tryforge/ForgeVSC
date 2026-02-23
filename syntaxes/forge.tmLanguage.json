@@ -4,7 +4,7 @@
   "patterns": [{ "include": "#code-property-string" }],
   "repository": {
     "code-property-string": {
-      "begin": "\\bcode\\b\\s*:\\s*([\"`])",
+      "begin": "\\bcode\\b\\s*:\\s*([\"`'])",
       "beginCaptures": {
         "0": { "name": "meta.forge.code.begin" }
       },

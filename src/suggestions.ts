@@ -1,4 +1,4 @@
-import { extractFunctionName, OperatorChain, findFunction, locateCodeBlock, getExtensionConfig } from "."
+import { OperatorChain, findFunction, locateCodeBlock, getExtensionConfig } from "."
 import * as vscode from "vscode"
 
 export const FunctionHeadRegex = new RegExp(String.raw`(\$${OperatorChain}[a-zA-Z_]+)$`)
@@ -44,10 +44,9 @@ export class ForgeInlineCompletionItemProvider implements vscode.InlineCompletio
         const match = slice.match(FunctionHeadRegex)
         if (match && nextChar !== "[") {
             const full = match[1]
-            const fnName = extractFunctionName(full, true) ?? extractFunctionName(full)
-            if (fnName) {
-                const fn = await findFunction(fnName)
-                if (fn && fn.brackets !== undefined) {
+            const found = await findFunction(full, true)
+            if (found) {
+                if (found.fn.brackets !== undefined) {
                     return [new vscode.InlineCompletionItem("[]", new vscode.Range(position, position))]
                 }
             }

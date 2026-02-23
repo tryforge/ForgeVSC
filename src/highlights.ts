@@ -1,4 +1,4 @@
-import { locateCodeBlock, FunctionScanRegex, extractFunctionName, findFunction, languages } from "."
+import { locateCodeBlock, FunctionScanRegex, findFunction, languages, FunctionPrefixRegex } from "."
 import * as vscode from "vscode"
 
 const legend = new vscode.SemanticTokensLegend(["function"], [])
@@ -18,23 +18,25 @@ export class ForgeSemanticTokensProvider implements vscode.DocumentSemanticToken
         const builder = new vscode.SemanticTokensBuilder(legend)
         const text = document.getText()
 
+        FunctionScanRegex.lastIndex = 0
         let match: RegExpExecArray | null
+
         while ((match = FunctionScanRegex.exec(text))) {
             const start = document.positionAt(match.index)
             if (!locateCodeBlock(document, start)) continue
 
             const full = match[0]
-            const fnName = extractFunctionName(full)
-            if (!fnName) continue
+            const found = await findFunction(full)
+            if (!found) continue
 
-            const fn = await findFunction(fnName)
-            if (!fn) continue
-
+            const { matchedText } = found
             const nameMatch = full.match(/[a-zA-Z_]+/)
             if (!nameMatch || nameMatch.index === undefined) continue
 
+            const prefixMatch = matchedText.match(FunctionPrefixRegex)?.[0] ?? "$"
+            const nameLength = Math.max(matchedText.length - prefixMatch.length, 0)
+
             const offset = match.index + nameMatch.index
-            const nameLength = nameMatch[0].length
             const nameStart = document.positionAt(offset)
 
             builder.push(nameStart.line, nameStart.character, nameLength, 0, 0)

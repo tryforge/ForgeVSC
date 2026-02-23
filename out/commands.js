@@ -37,6 +37,7 @@ exports.registerCommands = registerCommands;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 function registerCommands(ctx) {
+    // Create Config
     ctx.subscriptions.push(vscode.commands.registerCommand("forgevsc.createConfig", async () => {
         const folders = vscode.workspace.workspaceFolders;
         if (!folders?.length) {
@@ -63,6 +64,7 @@ function registerCommands(ctx) {
         await vscode.window.showTextDocument(doc);
         vscode.window.showInformationMessage("Successfully created config file (.forgevsc.json)!");
     }));
+    // Reload Metadata
     ctx.subscriptions.push(vscode.commands.registerCommand("forgevsc.reloadMetadata", async () => {
         await (0, _1.getFunctions)(true);
         vscode.window.showInformationMessage("Successfully fetched metadata!");

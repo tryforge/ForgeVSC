@@ -212,7 +212,7 @@ function resolveWorkspacePath(p) {
     return vscode.Uri.joinPath(folders[0].uri, p);
 }
 /**
- * Reads the directtory safely.
+ * Reads the directory safely.
  * @param uri The directory uri.
  * @returns
  */

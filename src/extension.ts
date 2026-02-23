@@ -5,6 +5,7 @@ import {
 	loadCustomFunctions,
 	loadExtensionConfig,
 	registerCommands,
+	registerFolding,
 	registerHighlighting,
 	validateDocument
 } from "."
@@ -14,21 +15,31 @@ import * as path from "path"
 import * as fs from "fs"
 
 export type FunctionMetadata = Omit<INativeFunction<any>, "execute"> & { package?: string }
+export interface IMetadataCache {
+	version: 1
+	key: string
+	timestamp: number
+	functions: FunctionMetadata[]
+}
+
 let functionsPromise: Promise<FunctionMetadata[]> | null = null
 let functions: FunctionMetadata[] | null = null
-let Logger: vscode.LogOutputChannel
+
+let ExtensionContext: vscode.ExtensionContext
+export let Logger: vscode.LogOutputChannel
 
 export const OperatorChain = String.raw`(?:!?#?(?:@\[[^\]]?\])?)?`
 export const LooseOperatorChain = String.raw`(?:[!#]|(?:@\[[^\]]?\]))*`
 
-export const OperatorPrefixRegex = /^\$(!)?(#)?(?:@\[([^\]]*)\])?/
+export const FunctionPrefixRegex = /^\$(!)?(#)?(?:@\[([^\]]*)\])?/
 export const FunctionRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z_]+`)
 export const FunctionNameRegex = new RegExp(String.raw`\$${OperatorChain}([a-zA-Z_]+)`)
 export const FunctionArgumentRegex = new RegExp(String.raw`\$${OperatorChain}([a-zA-Z_]+)\[([^\]]*)$`)
 export const FunctionAutocompleteRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z_]*$`)
+export const FunctionOpenScanRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z_]+\[`, "g")
 export const FunctionScanRegex = new RegExp(String.raw`\$${LooseOperatorChain}[a-zA-Z_]+(?:\[)?`, "g")
 export const LooseFunctionNameRegex = new RegExp(String.raw`^\$${LooseOperatorChain}([a-zA-Z_]+)`)
-export const LoosePrefixRegex = new RegExp(String.raw`^\$${LooseOperatorChain}`)
+export const LooseFunctionPrefixRegex = new RegExp(String.raw`^\$${LooseOperatorChain}`)
 export const InvalidOperatorRegex = /#.*!|@\[\].*!|@\[\].*#/
 
 export const OperatorInfo = {
@@ -46,16 +57,20 @@ export const OperatorInfo = {
 	}
 }
 export const languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+const MetadataCacheKey = "forgevsc.metadataCache.v1"
 
 export async function activate(ctx: vscode.ExtensionContext) {
+	ExtensionContext = ctx
+
 	Logger = vscode.window.createOutputChannel("ForgeVSC", { log: true })
 	Logger.show(true)
-	Logger.appendLine("Starting extension...")
+	Logger.info("Starting extension...")
 
 	registerCommands(ctx)
-
+	
 	await loadExtensionConfig()
 	registerHighlighting(ctx)
+	registerFolding(ctx)
 
 	const watcher = vscode.workspace.createFileSystemWatcher("**/.forgevsc.json")
 	ctx.subscriptions.push(
@@ -107,7 +122,50 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	await registerHover(ctx)
 	await registerAutocompletion(ctx)
 
-	Logger.appendLine("Extension started successfully!")
+	Logger.info("Extension started successfully!")
+}
+
+/**
+ * Builds a cache key.
+ * @param pkgNames The names of the packages.
+ * @param customPath The custom functions folder path.
+ * @returns 
+ */
+export function buildCacheKey(pkgNames: string[], customPath?: string) {
+	return JSON.stringify({
+		pkgs: [...pkgNames].sort(),
+		custom: customPath ?? ""
+	})
+}
+
+/**
+ * Reads the metadata from cache.
+ * @param key The cache key.
+ * @returns 
+ */
+async function readMetadataCache(key: string) {
+	const data = ExtensionContext.globalState.get<IMetadataCache>(MetadataCacheKey)
+	if (!data) return null
+	if (data.version !== 1) return null
+	if (data.key !== key) return null
+	return data.functions
+}
+
+/**
+ * Writes the metadata to cache.
+ * @param key The cache key.
+ * @param functions The function metadata to store.
+ */
+async function writeMetadataCache(key: string, functions: FunctionMetadata[]) {
+	const payload: IMetadataCache = { version: 1, key, timestamp: Date.now(), functions }
+	await ExtensionContext.globalState.update(MetadataCacheKey, payload)
+}
+
+/**
+ * Clears the metadata from cache.
+ */
+async function clearMetadataCache() {
+	await ExtensionContext.globalState.update(MetadataCacheKey, undefined)
 }
 
 /**
@@ -147,14 +205,25 @@ export function overwriteNative(native: FunctionMetadata[], custom: FunctionMeta
 
 /**
  * Fetches all functions from metadata.
+ * @param force Whether to force fetching.
  * @returns 
  */
-export async function fetchFunctions() {
+export async function fetchFunctions(force: boolean = false) {
 	const folders = vscode.workspace.workspaceFolders
 	if (!folders) return []
 
 	const root = folders[0].uri.fsPath
 	const pkgNames = getForgePackages()
+	const customPath = getExtensionConfig().customFunctionsPath
+	const cacheKey = buildCacheKey(pkgNames, customPath)
+
+	if (!force) {
+		const cached = await readMetadataCache(cacheKey)
+		if (cached) {
+			Logger.info(`Loaded cached metadata (${cached.length} functions).`)
+			return cached
+		}
+	}
 
 	let def = "@tryforge/forgescript"
 	let extensionFunctions: FunctionMetadata[] = []
@@ -216,21 +285,22 @@ export async function fetchFunctions() {
 		}
 	}
 
-	const customPath = getExtensionConfig().customFunctionsPath
 	const customFunctions = await loadCustomFunctions(customPath) as FunctionMetadata[]
 	const metadata = [...main, ...extensionFunctions]
 	const failed = failedFetch.length
 	const fetched = pkgNames.length - failed
 
-	Logger.appendLine(`Fetched metadata from ${metadata.length} functions across ${fetched} package${fetched === 1 ? "" : "s"}.`)
-	if (customPath) Logger.appendLine(`Fetched metadata from ${customFunctions.length} custom functions.`)
+	Logger.info(`Fetched metadata from ${metadata.length} functions across ${fetched} package${fetched === 1 ? "" : "s"}.`)
+	if (customPath) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`)
 	if (failed) {
 		const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")
-		Logger.appendLine(text)
+		Logger.error(text)
 		vscode.window.showErrorMessage(text)
 	}
+	const merged = overwriteNative(metadata, customFunctions)
 
-	return overwriteNative(metadata, customFunctions)
+	await writeMetadataCache(cacheKey, merged)
+	return merged
 }
 
 /**
@@ -243,7 +313,7 @@ export async function getFunctions(force: boolean = false) {
 
 	if (!functionsPromise) {
 		functionsPromise = (async () => {
-			const res = await fetchFunctions()
+			const res = await fetchFunctions(force)
 			functions = res
 			return res
 		})().finally(() => {
@@ -302,25 +372,28 @@ export function generateUsage(fn: FunctionMetadata, withTypes: boolean = false) 
 /**
  * Finds a function by its name.
  * @param name The function name.
- */
-export async function findFunction(name: string) {
-	name = name.toLowerCase()
-	return (await getFunctions()).find((x) =>
-		x.name.toLowerCase() === name || (x.aliases ?? []).map((a) => a.toLowerCase()).includes(name)
-	)
-}
-
-/**
- * Extracts the function name from input.
- * @param input The input text. 
  * @param loose Whether to extract loosely.
- * @returns 
  */
-export function extractFunctionName(input: string, loose: boolean = false) {
-	const match = input.match(loose ? LooseFunctionNameRegex : FunctionNameRegex)
+export async function findFunction(name: string, loose: boolean = false) {
+	const match = name.match(loose ? LooseFunctionNameRegex : FunctionNameRegex)
 	if (!match) return null
 
-	return `$${match[1]}` as `$${string}`
+	const prefix = name.match(FunctionPrefixRegex)?.[0] ?? "$"
+	const typed = match[1].toLowerCase()
+
+	for (let len = typed.length; len > 0; len--) {
+		const raw = typed.slice(0, len)
+		const fnName = `$${raw}`
+		const fn = (await getFunctions()).find((x) =>
+			x.name.toLowerCase() === fnName || (x.aliases ?? []).some((a) => a.toLowerCase() === fnName)
+		)
+		if (fn) {
+			const matchedText = prefix + raw
+			return { fn, matchedText }
+		}
+	}
+
+	return null
 }
 
 /**
@@ -329,7 +402,7 @@ export function extractFunctionName(input: string, loose: boolean = false) {
  * @returns 
  */
 export function validateOperatorPrefix(input: string) {
-	const rawPrefix = input.match(LoosePrefixRegex)?.[0] ?? "$"
+	const rawPrefix = input.match(LooseFunctionPrefixRegex)?.[0] ?? "$"
 	const normalizedPrefix = rawPrefix.replace(/@\[[^\]]*\]/g, "@[]")
 	const isInvalidOrder = InvalidOperatorRegex.test(normalizedPrefix)
 
@@ -357,10 +430,15 @@ export async function registerAutocompletion(ctx: vscode.ExtensionContext) {
 				const fnName: `$${string}` = `$${argMatch[1]}`
 				const argsTyped = argMatch[2]
 
-				const fn = await findFunction(fnName)
+				const found = await findFunction(fnName)
+				const fn = found?.fn
 				if (fn?.args) {
 					const args: IArg<any>[] = fn.args
-					const activeIndex = argsTyped.split(";").length - 1
+					const lastIndex = args.length - 1
+
+					let activeIndex = argsTyped.split(";").length - 1
+					if (args[lastIndex]?.rest) activeIndex = Math.min(activeIndex, lastIndex)
+
 					const activeArg = args[activeIndex]
 					const enumValues = activeArg?.enum || (activeArg.type === "Boolean" ? ["true", "false"] : undefined)
 
@@ -394,7 +472,7 @@ export async function registerAutocompletion(ctx: vscode.ExtensionContext) {
 					item.insertText = name
 					item.detail = generateUsage(fn)
 					item.documentation = new vscode.MarkdownString(
-						`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\``
+						`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\`` : ""}`
 					)
 					item.kind = vscode.CompletionItemKind.Function
 					if (fn.deprecated) item.tags = [vscode.CompletionItemTag.Deprecated]
@@ -447,12 +525,10 @@ export async function registerHover(ctx: vscode.ExtensionContext) {
 				if (hasOpening) end--
 
 				if (position.character >= start && position.character <= end) {
-					const fnName = extractFunctionName(match[0])
-					if (!fnName) return
+					const found = await findFunction(match[0])
+					if (!found) return
 
-					const fn = await findFunction(fnName)
-					if (!fn) return
-
+					const { fn, matchedText } = found
 					const acceptsArgs = fn.brackets !== undefined
 					const md = new vscode.MarkdownString()
 					md.appendCodeblock(
@@ -467,7 +543,8 @@ export async function registerHover(ctx: vscode.ExtensionContext) {
 					}
 					md.isTrusted = true
 
-					const range = new vscode.Range(position.line, start, position.line, end)
+					const hoverEnd = Math.min(end, start + matchedText.length)
+					const range = new vscode.Range(position.line, start, position.line, hoverEnd)
 					return new vscode.Hover(md, range)
 				}
 			}
@@ -478,5 +555,5 @@ export async function registerHover(ctx: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-	Logger.appendLine("Deactivated extension.")
+	Logger.info("Deactivated extension.")
 }

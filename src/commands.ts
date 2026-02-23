@@ -2,6 +2,7 @@ import { Defaults, getFunctions } from "."
 import * as vscode from "vscode"
 
 export function registerCommands(ctx: vscode.ExtensionContext) {
+    // Create Config
     ctx.subscriptions.push(
         vscode.commands.registerCommand("forgevsc.createConfig", async () => {
             const folders = vscode.workspace.workspaceFolders
@@ -39,6 +40,7 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
         })
     )
 
+    // Reload Metadata
     ctx.subscriptions.push(
         vscode.commands.registerCommand("forgevsc.reloadMetadata", async () => {
             await getFunctions(true)

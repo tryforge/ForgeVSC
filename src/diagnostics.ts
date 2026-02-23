@@ -1,4 +1,4 @@
-import { extractFunctionName, findFunction, FunctionScanRegex, getExtensionConfig, isEscaped, languages, locateCodeBlock, validateOperatorPrefix } from "."
+import { findFunction, FunctionScanRegex, getExtensionConfig, isEscaped, languages, locateCodeBlock, validateOperatorPrefix } from "."
 import { IArg } from "@tryforge/forgescript"
 import * as vscode from "vscode"
 
@@ -71,11 +71,9 @@ export async function validateDocument(
 		if (!locateCodeBlock(document, start)) continue
 
 		const full = match[0]
-		const fnName = extractFunctionName(full, true)
-		if (!fnName) continue
-
-		const fn = await findFunction(fnName)
-		if (!fn) continue
+		const found = await findFunction(full, true)
+		if (!found) continue
+		const fn = found.fn
 
 		// Invalid operator order
 		const { isInvalidOrder, rawPrefix } = validateOperatorPrefix(full)

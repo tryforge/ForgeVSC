@@ -183,7 +183,7 @@ function resolveWorkspacePath(p: string) {
 }
 
 /**
- * Reads the directtory safely.
+ * Reads the directory safely.
  * @param uri The directory uri.
  * @returns 
  */

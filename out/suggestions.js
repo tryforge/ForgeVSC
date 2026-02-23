@@ -81,10 +81,9 @@ class ForgeInlineCompletionItemProvider {
         const match = slice.match(exports.FunctionHeadRegex);
         if (match && nextChar !== "[") {
             const full = match[1];
-            const fnName = (0, _1.extractFunctionName)(full, true) ?? (0, _1.extractFunctionName)(full);
-            if (fnName) {
-                const fn = await (0, _1.findFunction)(fnName);
-                if (fn && fn.brackets !== undefined) {
+            const found = await (0, _1.findFunction)(full, true);
+            if (found) {
+                if (found.fn.brackets !== undefined) {
                     return [new vscode.InlineCompletionItem("[]", new vscode.Range(position, position))];
                 }
             }

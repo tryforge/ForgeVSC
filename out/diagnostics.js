@@ -101,12 +101,10 @@ async function validateDocument(document, collection) {
         if (!(0, _1.locateCodeBlock)(document, start))
             continue;
         const full = match[0];
-        const fnName = (0, _1.extractFunctionName)(full, true);
-        if (!fnName)
+        const found = await (0, _1.findFunction)(full, true);
+        if (!found)
             continue;
-        const fn = await (0, _1.findFunction)(fnName);
-        if (!fn)
-            continue;
+        const fn = found.fn;
         // Invalid operator order
         const { isInvalidOrder, rawPrefix } = (0, _1.validateOperatorPrefix)(full);
         if (isInvalidOrder) {

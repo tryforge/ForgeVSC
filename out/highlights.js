@@ -45,23 +45,23 @@ class ForgeSemanticTokensProvider {
     async provideDocumentSemanticTokens(document) {
         const builder = new vscode.SemanticTokensBuilder(legend);
         const text = document.getText();
+        _1.FunctionScanRegex.lastIndex = 0;
         let match;
         while ((match = _1.FunctionScanRegex.exec(text))) {
             const start = document.positionAt(match.index);
             if (!(0, _1.locateCodeBlock)(document, start))
                 continue;
             const full = match[0];
-            const fnName = (0, _1.extractFunctionName)(full);
-            if (!fnName)
+            const found = await (0, _1.findFunction)(full);
+            if (!found)
                 continue;
-            const fn = await (0, _1.findFunction)(fnName);
-            if (!fn)
-                continue;
+            const { matchedText } = found;
             const nameMatch = full.match(/[a-zA-Z_]+/);
             if (!nameMatch || nameMatch.index === undefined)
                 continue;
+            const prefixMatch = matchedText.match(_1.FunctionPrefixRegex)?.[0] ?? "$";
+            const nameLength = Math.max(matchedText.length - prefixMatch.length, 0);
             const offset = match.index + nameMatch.index;
-            const nameLength = nameMatch[0].length;
             const nameStart = document.positionAt(offset);
             builder.push(nameStart.line, nameStart.character, nameLength, 0, 0);
         }
