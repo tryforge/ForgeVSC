@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.languages = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionNameRegex = exports.FunctionRegex = exports.FunctionPrefixRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
+exports.languages = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionRegex = exports.FunctionPrefixRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
 exports.activate = activate;
 exports.buildCacheKey = buildCacheKey;
 exports.getForgePackages = getForgePackages;
@@ -44,6 +44,8 @@ exports.locateCodeBlock = locateCodeBlock;
 exports.generateUsage = generateUsage;
 exports.findFunction = findFunction;
 exports.validateOperatorPrefix = validateOperatorPrefix;
+exports.isEscaped = isEscaped;
+exports.bracketDepth = bracketDepth;
 exports.registerAutocompletion = registerAutocompletion;
 exports.registerHover = registerHover;
 exports.deactivate = deactivate;
@@ -59,6 +61,7 @@ exports.LooseOperatorChain = String.raw `(?:[!#]|(?:@\[[^\]]?\]))*`;
 exports.FunctionPrefixRegex = /^\$(!)?(#)?(?:@\[([^\]]*)\])?/;
 exports.FunctionRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z_]+`);
 exports.FunctionNameRegex = new RegExp(String.raw `\$${exports.OperatorChain}([a-zA-Z_]+)`);
+exports.FunctionHeadRegex = new RegExp(String.raw `(\$${exports.OperatorChain}[a-zA-Z_]+)$`);
 exports.FunctionArgumentRegex = new RegExp(String.raw `\$${exports.OperatorChain}([a-zA-Z_]+)\[([^\]]*)$`);
 exports.FunctionAutocompleteRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z_]*$`);
 exports.FunctionOpenScanRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z_]+\[`, "g");
@@ -346,14 +349,22 @@ async function findFunction(name, loose = false) {
         return null;
     const prefix = name.match(exports.FunctionPrefixRegex)?.[0] ?? "$";
     const typed = match[1].toLowerCase();
+    const strict = name.includes("[");
+    const all = await getFunctions();
+    const findFn = (fnName) => all.find((x) => x.name.toLowerCase() === fnName || (x.aliases ?? []).some((a) => a.toLowerCase() === fnName));
+    if (strict) {
+        const fnName = `$${typed}`;
+        const fn = findFn(fnName);
+        if (!fn)
+            return null;
+        return { fn, matchedText: prefix + typed };
+    }
     for (let len = typed.length; len > 0; len--) {
         const raw = typed.slice(0, len);
         const fnName = `$${raw}`;
-        const fn = (await getFunctions()).find((x) => x.name.toLowerCase() === fnName || (x.aliases ?? []).some((a) => a.toLowerCase() === fnName));
-        if (fn) {
-            const matchedText = prefix + raw;
-            return { fn, matchedText };
-        }
+        const fn = findFn(fnName);
+        if (fn)
+            return { fn, matchedText: prefix + raw };
     }
     return null;
 }
@@ -369,6 +380,36 @@ function validateOperatorPrefix(input) {
     return { rawPrefix, normalizedPrefix, isInvalidOrder };
 }
 /**
+ * Checks whether the input is escaped.
+ * @param input The input text.
+ * @param i The index number.
+ * @returns
+ */
+function isEscaped(input, i) {
+    let slashes = 0;
+    for (let j = i - 1; j >= 0 && input[j] === "\\"; j--)
+        slashes++;
+    return slashes % 2 === 1;
+}
+/**
+ * Returns the depth of function brackets.
+ * @param input The input text.
+ * @returns
+ */
+function bracketDepth(input) {
+    let depth = 0;
+    for (let i = 0; i < input.length; i++) {
+        const c = input[i];
+        if (isEscaped(input, i))
+            continue;
+        if (c === "[")
+            depth++;
+        else if (c === "]" && depth > 0)
+            depth--;
+    }
+    return depth;
+}
+/**
  * Registers the autocompletion for functions.
  * @param ctx The extension context.
  */
@@ -381,53 +422,60 @@ async function registerAutocompletion(ctx) {
                 return;
             const line = document.lineAt(position).text;
             const before = line.substring(0, position.character);
+            // Function autocompletion
+            const match = before.match(exports.FunctionAutocompleteRegex);
+            if (match && !validateOperatorPrefix(match[0]).isInvalidOrder) {
+                const items = functions.flatMap((fn) => {
+                    const names = [fn.name, ...(fn.aliases ?? [])];
+                    return names.map((name) => {
+                        const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function);
+                        item.insertText = name;
+                        item.detail = generateUsage(fn);
+                        item.documentation = new vscode.MarkdownString(`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\`` : ""}`);
+                        item.kind = vscode.CompletionItemKind.Function;
+                        if (fn.deprecated)
+                            item.tags = [vscode.CompletionItemTag.Deprecated];
+                        const startPos = position.translate(0, -match[0].length);
+                        item.range = new vscode.Range(startPos, position);
+                        return item;
+                    });
+                });
+                if (items.length)
+                    return items;
+            }
             // Enum autocompletion
-            const argMatch = before.match(exports.FunctionArgumentRegex);
-            if (argMatch) {
-                const fnName = `$${argMatch[1]}`;
-                const argsTyped = argMatch[2];
-                const found = await findFunction(fnName);
-                const fn = found?.fn;
-                if (fn?.args) {
-                    const args = fn.args;
-                    const lastIndex = args.length - 1;
-                    let activeIndex = argsTyped.split(";").length - 1;
-                    if (args[lastIndex]?.rest)
-                        activeIndex = Math.min(activeIndex, lastIndex);
-                    const activeArg = args[activeIndex];
-                    const enumValues = activeArg?.enum || (activeArg.type === "Boolean" ? ["true", "false"] : undefined);
-                    if (enumValues) {
-                        const currentValueMatch = argsTyped.match(/([^;]*)$/);
-                        const currentValue = currentValueMatch?.[1] ?? "";
-                        return enumValues.map((val) => {
-                            const item = new vscode.CompletionItem(val, vscode.CompletionItemKind.EnumMember);
-                            const start = position.translate(0, -currentValue.length);
-                            item.insertText = val;
-                            item.range = new vscode.Range(start, position);
-                            return item;
-                        });
+            const open = (0, _1.findOpeningBracket)(before);
+            if (open !== -1) {
+                const head = before.slice(0, open);
+                const argsTyped = before.slice(open + 1);
+                const argMatch = head.match(exports.FunctionHeadRegex);
+                if (argMatch) {
+                    const fnName = argMatch[1];
+                    const found = await findFunction(fnName);
+                    const fn = found?.fn;
+                    if (fn?.args) {
+                        const args = fn.args;
+                        const lastIndex = args.length - 1;
+                        const parts = (0, _1.splitArgs)(argsTyped);
+                        let activeIndex = parts.length - 1;
+                        if (args[lastIndex]?.rest)
+                            activeIndex = Math.min(activeIndex, lastIndex);
+                        const activeArg = args[activeIndex];
+                        const enumValues = activeArg?.enum || (activeArg.type === "Boolean" ? ["true", "false"] : undefined);
+                        if (enumValues) {
+                            const currentValue = parts[activeIndex] ?? "";
+                            return enumValues.map((val) => {
+                                const item = new vscode.CompletionItem(val, vscode.CompletionItemKind.EnumMember);
+                                const start = position.translate(0, -currentValue.length);
+                                item.insertText = val;
+                                item.range = new vscode.Range(start, position);
+                                return item;
+                            });
+                        }
                     }
                 }
             }
-            // Function autocompletion
-            const match = before.match(exports.FunctionAutocompleteRegex);
-            if (!match || validateOperatorPrefix(match[0]).isInvalidOrder)
-                return;
-            return functions.flatMap((fn) => {
-                const names = [fn.name, ...(fn.aliases ?? [])];
-                return names.map((name) => {
-                    const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function);
-                    item.insertText = name;
-                    item.detail = generateUsage(fn);
-                    item.documentation = new vscode.MarkdownString(`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\`` : ""}`);
-                    item.kind = vscode.CompletionItemKind.Function;
-                    if (fn.deprecated)
-                        item.tags = [vscode.CompletionItemTag.Deprecated];
-                    const startPos = position.translate(0, -match[0].length);
-                    item.range = new vscode.Range(startPos, position);
-                    return item;
-                });
-            });
+            return;
         }
     }, "$", ";", "[");
     ctx.subscriptions.push(provider);
@@ -472,7 +520,7 @@ async function registerHover(ctx) {
                     const { fn, matchedText } = found;
                     const acceptsArgs = fn.brackets !== undefined;
                     const md = new vscode.MarkdownString();
-                    md.appendCodeblock(`${hasOpening && acceptsArgs ? generateUsage(fn) : fn.name}${fn.output ? `: ` + fn.output.join(", ") : ""}\n`);
+                    md.appendCodeblock(`${fn.brackets || (hasOpening && acceptsArgs) ? generateUsage(fn) : fn.name}${fn.output ? `: ` + fn.output.join(", ") : ""}\n`);
                     md.appendText(`${fn.description}\n`);
                     if (fn.version) {
                         md.appendMarkdown(`---\n`);

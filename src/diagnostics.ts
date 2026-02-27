@@ -64,6 +64,8 @@ export async function validateDocument(
 	const diagnostics: vscode.Diagnostic[] = []
 	const text = document.getText()
 	// const Regex = /^\$!?#?(?:@\[[^\]]*\])?/
+
+	FunctionScanRegex.lastIndex = 0
 	let match: RegExpExecArray | null
 
 	while ((match = FunctionScanRegex.exec(text))) {
@@ -71,12 +73,16 @@ export async function validateDocument(
 		if (!locateCodeBlock(document, start)) continue
 
 		const full = match[0]
-		const found = await findFunction(full, true)
+		const hasOpening = full.endsWith("[")
+		const base = hasOpening ? full.slice(0, -1) : full
+
+		const found = await findFunction(base, true)
 		if (!found) continue
-		const fn = found.fn
+
+		const { fn, matchedText } = found
+		const { isInvalidOrder, rawPrefix } = validateOperatorPrefix(base)
 
 		// Invalid operator order
-		const { isInvalidOrder, rawPrefix } = validateOperatorPrefix(full)
 		if (isInvalidOrder) {
 			const offset = rawPrefix.length
 			const opStart = document.positionAt(match.index + 1)
@@ -89,18 +95,18 @@ export async function validateDocument(
 			continue
 		}
 
+		const isAttached = matchedText.length === base.length && matchedText.toLowerCase() === base.toLowerCase()
+		const hasOpeningAttached = hasOpening && isAttached
+
 		const args: IArg<any>[] = fn.args ?? []
 		const acceptsArgs = fn.brackets !== undefined && args.length > 0
 		const requiresArgs = fn.brackets
 
-		const hasOpening = full.endsWith("[")
-		const openIndex = hasOpening ? (match.index + full.length - 1) : -1
-
-		const end = document.positionAt(match.index + full.length)
+		const end = document.positionAt(match.index + matchedText.length)
 		const range = new vscode.Range(start, end)
 
 		// Missing required brackets
-		if (requiresArgs && !hasOpening) {
+		if (requiresArgs && !hasOpeningAttached) {
 			diagnostics.push(new vscode.Diagnostic(
 				range,
 				`Function \`${fn.name}\` requires brackets`,
@@ -109,9 +115,10 @@ export async function validateDocument(
 			continue
 		}
 
-		if (args.length === 0) continue
+		if (!isAttached || args.length === 0) continue
 
 		if (acceptsArgs && hasOpening) {
+			const openIndex = match.index + full.length - 1
 			const closeIndex = findMatchingBracket(text, openIndex)
 
 			// Missing closing bracket

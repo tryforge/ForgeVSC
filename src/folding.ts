@@ -1,10 +1,13 @@
-import { locateCodeBlock, findMatchingBracket, languages, FunctionOpenScanRegex } from "."
+import { locateCodeBlock, findMatchingBracket, languages, FunctionOpenScanRegex, getExtensionConfig } from "."
 import * as vscode from "vscode"
 
 export function registerFolding(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
         vscode.languages.registerFoldingRangeProvider(languages, {
             provideFoldingRanges(document) {
+                const config = getExtensionConfig()
+                if (!config.features.folding) return null
+
                 const ranges: vscode.FoldingRange[] = []
                 const text = document.getText()
                 let match: RegExpExecArray | null

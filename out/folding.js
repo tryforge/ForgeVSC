@@ -39,6 +39,9 @@ const vscode = __importStar(require("vscode"));
 function registerFolding(ctx) {
     ctx.subscriptions.push(vscode.languages.registerFoldingRangeProvider(_1.languages, {
         provideFoldingRanges(document) {
+            const config = (0, _1.getExtensionConfig)();
+            if (!config.features.folding)
+                return null;
             const ranges = [];
             const text = document.getText();
             let match;

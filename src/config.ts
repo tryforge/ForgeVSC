@@ -10,8 +10,9 @@ export interface IExtensionConfig {
         brackets?: string
     }
     features?: {
-        suggestions?: boolean
+        folding?: boolean
         hoverInfo?: boolean
+        suggestions?: boolean
         signatureHelp?: boolean
         diagnostics?: boolean
         autocompletion?: boolean
@@ -28,8 +29,9 @@ export const Defaults: Required<IExtensionConfig> = {
         brackets: "#ffd700",
     },
     features: {
-        suggestions: true,
+        folding: true,
         hoverInfo: true,
+        suggestions: true,
         signatureHelp: true,
         diagnostics: true,
         autocompletion: true,

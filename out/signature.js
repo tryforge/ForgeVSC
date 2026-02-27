@@ -74,11 +74,14 @@ class ForgeSignatureHelpProvider {
         const match = beforeBracket.match(new RegExp(_1.FunctionRegex.source + "$"));
         if (!match)
             return null;
-        const argsTyped = text.slice(openIndex + 1);
-        const found = await (0, _1.findFunction)(match[0]);
+        const typedToken = match[0];
+        const found = await (0, _1.findFunction)(typedToken);
         if (!found)
             return null;
-        const fn = found.fn;
+        const { fn, matchedText } = found;
+        if (matchedText.length !== typedToken.length)
+            return null;
+        const argsTyped = text.slice(openIndex + 1);
         const args = fn.args ?? [];
         if (args.length === 0)
             return null;

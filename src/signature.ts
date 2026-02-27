@@ -40,11 +40,14 @@ export class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider 
 		const match = beforeBracket.match(new RegExp(FunctionRegex.source + "$"))
 		if (!match) return null
 
-		const argsTyped = text.slice(openIndex + 1)
-		const found = await findFunction(match[0])
+		const typedToken = match[0]
+		const found = await findFunction(typedToken)
 		if (!found) return null
 
-		const fn = found.fn
+		const { fn, matchedText } = found
+		if (matchedText.length !== typedToken.length) return null
+
+		const argsTyped = text.slice(openIndex + 1)
 		const args: IArg<any>[] = fn.args ?? []
 		if (args.length === 0) return null
 

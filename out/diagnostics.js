@@ -95,18 +95,21 @@ async function validateDocument(document, collection) {
     const diagnostics = [];
     const text = document.getText();
     // const Regex = /^\$!?#?(?:@\[[^\]]*\])?/
+    _1.FunctionScanRegex.lastIndex = 0;
     let match;
     while ((match = _1.FunctionScanRegex.exec(text))) {
         const start = document.positionAt(match.index);
         if (!(0, _1.locateCodeBlock)(document, start))
             continue;
         const full = match[0];
-        const found = await (0, _1.findFunction)(full, true);
+        const hasOpening = full.endsWith("[");
+        const base = hasOpening ? full.slice(0, -1) : full;
+        const found = await (0, _1.findFunction)(base, true);
         if (!found)
             continue;
-        const fn = found.fn;
+        const { fn, matchedText } = found;
+        const { isInvalidOrder, rawPrefix } = (0, _1.validateOperatorPrefix)(base);
         // Invalid operator order
-        const { isInvalidOrder, rawPrefix } = (0, _1.validateOperatorPrefix)(full);
         if (isInvalidOrder) {
             const offset = rawPrefix.length;
             const opStart = document.positionAt(match.index + 1);
@@ -114,21 +117,22 @@ async function validateDocument(document, collection) {
             diagnostics.push(new vscode.Diagnostic(new vscode.Range(opStart, opEnd), `Function \`${fn.name}\` has invalid operator order`, vscode.DiagnosticSeverity.Error));
             continue;
         }
+        const isAttached = matchedText.length === base.length && matchedText.toLowerCase() === base.toLowerCase();
+        const hasOpeningAttached = hasOpening && isAttached;
         const args = fn.args ?? [];
         const acceptsArgs = fn.brackets !== undefined && args.length > 0;
         const requiresArgs = fn.brackets;
-        const hasOpening = full.endsWith("[");
-        const openIndex = hasOpening ? (match.index + full.length - 1) : -1;
-        const end = document.positionAt(match.index + full.length);
+        const end = document.positionAt(match.index + matchedText.length);
         const range = new vscode.Range(start, end);
         // Missing required brackets
-        if (requiresArgs && !hasOpening) {
+        if (requiresArgs && !hasOpeningAttached) {
             diagnostics.push(new vscode.Diagnostic(range, `Function \`${fn.name}\` requires brackets`, vscode.DiagnosticSeverity.Error));
             continue;
         }
-        if (args.length === 0)
+        if (!isAttached || args.length === 0)
             continue;
         if (acceptsArgs && hasOpening) {
+            const openIndex = match.index + full.length - 1;
             const closeIndex = findMatchingBracket(text, openIndex);
             // Missing closing bracket
             if (closeIndex === -1) {

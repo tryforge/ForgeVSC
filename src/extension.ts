@@ -1,4 +1,5 @@
 import {
+	findOpeningBracket,
 	ForgeInlineCompletionItemProvider,
 	ForgeSignatureHelpProvider,
 	getExtensionConfig,
@@ -7,6 +8,7 @@ import {
 	registerCommands,
 	registerFolding,
 	registerHighlighting,
+	splitArgs,
 	validateDocument
 } from "."
 import { IArg, INativeFunction } from "@tryforge/forgescript"
@@ -34,6 +36,7 @@ export const LooseOperatorChain = String.raw`(?:[!#]|(?:@\[[^\]]?\]))*`
 export const FunctionPrefixRegex = /^\$(!)?(#)?(?:@\[([^\]]*)\])?/
 export const FunctionRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z_]+`)
 export const FunctionNameRegex = new RegExp(String.raw`\$${OperatorChain}([a-zA-Z_]+)`)
+export const FunctionHeadRegex = new RegExp(String.raw`(\$${OperatorChain}[a-zA-Z_]+)$`)
 export const FunctionArgumentRegex = new RegExp(String.raw`\$${OperatorChain}([a-zA-Z_]+)\[([^\]]*)$`)
 export const FunctionAutocompleteRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z_]*$`)
 export const FunctionOpenScanRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z_]+\[`, "g")
@@ -67,7 +70,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	Logger.info("Starting extension...")
 
 	registerCommands(ctx)
-	
+
 	await loadExtensionConfig()
 	registerHighlighting(ctx)
 	registerFolding(ctx)
@@ -380,17 +383,25 @@ export async function findFunction(name: string, loose: boolean = false) {
 
 	const prefix = name.match(FunctionPrefixRegex)?.[0] ?? "$"
 	const typed = match[1].toLowerCase()
+	const strict = name.includes("[")
+
+	const all = await getFunctions()
+	const findFn = (fnName: string) => all.find((x) =>
+		x.name.toLowerCase() === fnName || (x.aliases ?? []).some((a) => a.toLowerCase() === fnName)
+	)
+
+	if (strict) {
+		const fnName = `$${typed}`
+		const fn = findFn(fnName)
+		if (!fn) return null
+		return { fn, matchedText: prefix + typed }
+	}
 
 	for (let len = typed.length; len > 0; len--) {
 		const raw = typed.slice(0, len)
 		const fnName = `$${raw}`
-		const fn = (await getFunctions()).find((x) =>
-			x.name.toLowerCase() === fnName || (x.aliases ?? []).some((a) => a.toLowerCase() === fnName)
-		)
-		if (fn) {
-			const matchedText = prefix + raw
-			return { fn, matchedText }
-		}
+		const fn = findFn(fnName)
+		if (fn) return { fn, matchedText: prefix + raw }
 	}
 
 	return null
@@ -410,6 +421,34 @@ export function validateOperatorPrefix(input: string) {
 }
 
 /**
+ * Checks whether the input is escaped.
+ * @param input The input text.
+ * @param i The index number.
+ * @returns 
+ */
+export function isEscaped(input: string, i: number) {
+	let slashes = 0
+	for (let j = i - 1; j >= 0 && input[j] === "\\"; j--) slashes++
+	return slashes % 2 === 1
+}
+
+/**
+ * Returns the depth of function brackets.
+ * @param input The input text.
+ * @returns 
+ */
+export function bracketDepth(input: string) {
+	let depth = 0
+	for (let i = 0; i < input.length; i++) {
+		const c = input[i]
+		if (isEscaped(input, i)) continue
+		if (c === "[") depth++
+		else if (c === "]" && depth > 0) depth--
+	}
+	return depth
+}
+
+/**
  * Registers the autocompletion for functions.
  * @param ctx The extension context.
  */
@@ -424,65 +463,74 @@ export async function registerAutocompletion(ctx: vscode.ExtensionContext) {
 			const line = document.lineAt(position).text
 			const before = line.substring(0, position.character)
 
+			// Function autocompletion
+			const match = before.match(FunctionAutocompleteRegex)
+			if (match && !validateOperatorPrefix(match[0]).isInvalidOrder) {
+				const items = functions.flatMap((fn) => {
+					const names = [fn.name, ...(fn.aliases ?? [])]
+
+					return names.map((name) => {
+						const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function)
+
+						item.insertText = name
+						item.detail = generateUsage(fn)
+						item.documentation = new vscode.MarkdownString(
+							`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\`` : ""}`
+						)
+						item.kind = vscode.CompletionItemKind.Function
+						if (fn.deprecated) item.tags = [vscode.CompletionItemTag.Deprecated]
+
+						const startPos = position.translate(0, -match[0].length)
+						item.range = new vscode.Range(startPos, position)
+
+						return item
+					})
+				})
+
+				if (items.length) return items
+			}
+
 			// Enum autocompletion
-			const argMatch = before.match(FunctionArgumentRegex)
-			if (argMatch) {
-				const fnName: `$${string}` = `$${argMatch[1]}`
-				const argsTyped = argMatch[2]
+			const open = findOpeningBracket(before)
+			if (open !== -1) {
+				const head = before.slice(0, open)
+				const argsTyped = before.slice(open + 1)
 
-				const found = await findFunction(fnName)
-				const fn = found?.fn
-				if (fn?.args) {
-					const args: IArg<any>[] = fn.args
-					const lastIndex = args.length - 1
+				const argMatch = head.match(FunctionHeadRegex)
+				if (argMatch) {
+					const fnName = argMatch[1]
 
-					let activeIndex = argsTyped.split(";").length - 1
-					if (args[lastIndex]?.rest) activeIndex = Math.min(activeIndex, lastIndex)
+					const found = await findFunction(fnName)
+					const fn = found?.fn
+					if (fn?.args) {
+						const args: IArg<any>[] = fn.args
+						const lastIndex = args.length - 1
 
-					const activeArg = args[activeIndex]
-					const enumValues = activeArg?.enum || (activeArg.type === "Boolean" ? ["true", "false"] : undefined)
+						const parts = splitArgs(argsTyped)
+						let activeIndex = parts.length - 1
+						if (args[lastIndex]?.rest) activeIndex = Math.min(activeIndex, lastIndex)
 
-					if (enumValues) {
-						const currentValueMatch = argsTyped.match(/([^;]*)$/)
-						const currentValue = currentValueMatch?.[1] ?? ""
+						const activeArg = args[activeIndex]
+						const enumValues = activeArg?.enum || (activeArg.type === "Boolean" ? ["true", "false"] : undefined)
 
-						return enumValues.map((val: string) => {
-							const item = new vscode.CompletionItem(val, vscode.CompletionItemKind.EnumMember)
-							const start = position.translate(0, -currentValue.length)
+						if (enumValues) {
+							const currentValue = parts[activeIndex] ?? ""
 
-							item.insertText = val
-							item.range = new vscode.Range(start, position)
+							return enumValues.map((val: string) => {
+								const item = new vscode.CompletionItem(val, vscode.CompletionItemKind.EnumMember)
+								const start = position.translate(0, -currentValue.length)
 
-							return item
-						})
+								item.insertText = val
+								item.range = new vscode.Range(start, position)
+
+								return item
+							})
+						}
 					}
 				}
 			}
 
-			// Function autocompletion
-			const match = before.match(FunctionAutocompleteRegex)
-			if (!match || validateOperatorPrefix(match[0]).isInvalidOrder) return
-
-			return functions.flatMap((fn) => {
-				const names = [fn.name, ...(fn.aliases ?? [])]
-
-				return names.map((name) => {
-					const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function)
-
-					item.insertText = name
-					item.detail = generateUsage(fn)
-					item.documentation = new vscode.MarkdownString(
-						`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\`` : ""}`
-					)
-					item.kind = vscode.CompletionItemKind.Function
-					if (fn.deprecated) item.tags = [vscode.CompletionItemTag.Deprecated]
-
-					const startPos = position.translate(0, -match[0].length)
-					item.range = new vscode.Range(startPos, position)
-
-					return item
-				})
-			})
+			return
 		}
 	}, "$", ";", "[")
 
@@ -532,7 +580,7 @@ export async function registerHover(ctx: vscode.ExtensionContext) {
 					const acceptsArgs = fn.brackets !== undefined
 					const md = new vscode.MarkdownString()
 					md.appendCodeblock(
-						`${hasOpening && acceptsArgs ? generateUsage(fn) : fn.name}${fn.output ? `: ` + (fn.output as Array<any>).join(", ") : ""}\n`
+						`${fn.brackets || (hasOpening && acceptsArgs) ? generateUsage(fn) : fn.name}${fn.output ? `: ` + (fn.output as Array<any>).join(", ") : ""}\n`
 					)
 					md.appendText(`${fn.description}\n`)
 					if (fn.version) {

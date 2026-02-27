@@ -52,7 +52,9 @@ class ForgeSemanticTokensProvider {
             if (!(0, _1.locateCodeBlock)(document, start))
                 continue;
             const full = match[0];
-            const found = await (0, _1.findFunction)(full);
+            let found = await (0, _1.findFunction)(full);
+            if (!found && full.endsWith("["))
+                found = await (0, _1.findFunction)(full.slice(0, -1));
             if (!found)
                 continue;
             const { matchedText } = found;
@@ -61,8 +63,7 @@ class ForgeSemanticTokensProvider {
                 continue;
             const prefixMatch = matchedText.match(_1.FunctionPrefixRegex)?.[0] ?? "$";
             const nameLength = Math.max(matchedText.length - prefixMatch.length, 0);
-            const offset = match.index + nameMatch.index;
-            const nameStart = document.positionAt(offset);
+            const nameStart = document.positionAt(match.index + prefixMatch.length);
             builder.push(nameStart.line, nameStart.character, nameLength, 0, 0);
         }
         return builder.build();

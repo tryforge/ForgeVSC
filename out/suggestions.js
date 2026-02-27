@@ -33,42 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ForgeInlineCompletionItemProvider = exports.FunctionHeadRegex = void 0;
-exports.isEscaped = isEscaped;
-exports.hasUnclosedBracket = hasUnclosedBracket;
+exports.ForgeInlineCompletionItemProvider = void 0;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
-exports.FunctionHeadRegex = new RegExp(String.raw `(\$${_1.OperatorChain}[a-zA-Z_]+)$`);
-/**
- * Checks whether the input is escaped.
- * @param input The input text.
- * @param i The index number.
- * @returns
- */
-function isEscaped(input, i) {
-    let slashes = 0;
-    for (let j = i - 1; j >= 0 && input[j] === "\\"; j--)
-        slashes++;
-    return slashes % 2 === 1;
-}
-/**
- * Checks whether a function has an unclosed bracket.
- * @param before The input text.
- * @returns
- */
-function hasUnclosedBracket(before) {
-    let depth = 0;
-    for (let i = 0; i < before.length; i++) {
-        const c = before[i];
-        if (isEscaped(before, i))
-            continue;
-        if (c === "[")
-            depth++;
-        else if (c === "]" && depth > 0)
-            depth--;
-    }
-    return depth > 0;
-}
 class ForgeInlineCompletionItemProvider {
     async provideInlineCompletionItems(document, position) {
         const code = (0, _1.locateCodeBlock)(document, position);
@@ -77,20 +44,30 @@ class ForgeInlineCompletionItemProvider {
             return null;
         const slice = code.slice.replace(/[ \t\r]+$/g, "");
         const nextChar = document.getText(new vscode.Range(position, position.translate(0, 1)));
-        // Suggest brackets (doesn't work)
-        const match = slice.match(exports.FunctionHeadRegex);
-        if (match && nextChar !== "[") {
-            const full = match[1];
-            const found = await (0, _1.findFunction)(full, true);
-            if (found) {
-                if (found.fn.brackets !== undefined) {
+        // Suggest brackets
+        if (nextChar !== "[") {
+            const match = slice.match(_1.FunctionHeadRegex);
+            if (match) {
+                const found = await (0, _1.findFunction)(match[1]);
+                if (found?.fn.brackets !== undefined) {
                     return [new vscode.InlineCompletionItem("[]", new vscode.Range(position, position))];
                 }
             }
         }
         // Suggest closing bracket
-        if (slice && hasUnclosedBracket(code.slice) && nextChar !== "]") {
-            return [new vscode.InlineCompletionItem("]", new vscode.Range(position, position))];
+        if (nextChar !== "]") {
+            const openIndex = (0, _1.findOpeningBracket)(code.slice);
+            if (openIndex !== -1) {
+                const head = code.slice.slice(0, openIndex);
+                if (_1.FunctionHeadRegex.test(head)) {
+                    const block = document.getText().slice(code.start, code.end);
+                    const close = (0, _1.findMatchingBracket)(block, openIndex);
+                    const missingClosing = (0, _1.bracketDepth)(block) > 0;
+                    if (close === -1 || missingClosing) {
+                        return [new vscode.InlineCompletionItem("]", new vscode.Range(position, position))];
+                    }
+                }
+            }
         }
         return null;
     }

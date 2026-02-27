@@ -46,15 +46,20 @@
       "additionalProperties": false,
       "description": "The default features included with the extension. You can choose individually which ones to enable or disable.",
       "properties": {
-        "suggestions": {
+        "folding": {
           "type": "boolean",
           "default": true,
-          "description": "Whether suggestions for bracket placement should be enabled."
+          "description": "Whether folding for multi-line function contents should be enabled."
         },
         "hoverInfo": {
           "type": "boolean",
           "default": true,
           "description": "Whether hover info cards for functions and operators should be enabled."
+        },
+        "suggestions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether suggestions for bracket placement should be enabled."
         },
         "signatureHelp": {
           "type": "boolean",

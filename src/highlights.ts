@@ -26,7 +26,8 @@ export class ForgeSemanticTokensProvider implements vscode.DocumentSemanticToken
             if (!locateCodeBlock(document, start)) continue
 
             const full = match[0]
-            const found = await findFunction(full)
+            let found = await findFunction(full)
+            if (!found && full.endsWith("[")) found = await findFunction(full.slice(0, -1))
             if (!found) continue
 
             const { matchedText } = found
@@ -35,9 +36,7 @@ export class ForgeSemanticTokensProvider implements vscode.DocumentSemanticToken
 
             const prefixMatch = matchedText.match(FunctionPrefixRegex)?.[0] ?? "$"
             const nameLength = Math.max(matchedText.length - prefixMatch.length, 0)
-
-            const offset = match.index + nameMatch.index
-            const nameStart = document.positionAt(offset)
+            const nameStart = document.positionAt(match.index + prefixMatch.length)
 
             builder.push(nameStart.line, nameStart.character, nameLength, 0, 0)
         }

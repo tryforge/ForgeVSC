@@ -47,8 +47,9 @@ exports.Defaults = {
         brackets: "#ffd700",
     },
     features: {
-        suggestions: true,
+        folding: true,
         hoverInfo: true,
+        suggestions: true,
         signatureHelp: true,
         diagnostics: true,
         autocompletion: true,
