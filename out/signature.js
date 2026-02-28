@@ -34,31 +34,16 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ForgeSignatureHelpProvider = void 0;
-exports.findOpeningBracket = findOpeningBracket;
+exports.registerSignatureHelp = registerSignatureHelp;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 // export const FunctionPrefixRegex = /\$!?#?(?:@\[[^\]\n]?\])?[a-zA-Z_]+$/
 /**
- * Finds the opening bracket position from the input text.
- * @param input The input text.
- * @returns
+ * Registers the signature help for arguments.
+ * @param ctx The extension context.
  */
-function findOpeningBracket(input) {
-    let depth = 0;
-    for (let i = input.length - 1; i >= 0; i--) {
-        const c = input[i];
-        if ((0, _1.isEscaped)(input, i))
-            continue;
-        if (c === "]")
-            depth++;
-        else if (c === "[") {
-            if (depth > 0)
-                depth--;
-            else
-                return i;
-        }
-    }
-    return -1;
+function registerSignatureHelp(ctx) {
+    ctx.subscriptions.push(vscode.languages.registerSignatureHelpProvider(_1.languages, new ForgeSignatureHelpProvider(), "[", ";", "]"));
 }
 class ForgeSignatureHelpProvider {
     async provideSignatureHelp(document, position) {
@@ -67,7 +52,7 @@ class ForgeSignatureHelpProvider {
         if (!code || !config.features.signatureHelp)
             return null;
         const text = code.slice;
-        const openIndex = findOpeningBracket(text);
+        const openIndex = (0, _1.findOpeningBracket)(text);
         if (openIndex === -1)
             return null;
         const beforeBracket = text.slice(0, openIndex);

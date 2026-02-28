@@ -19,6 +19,8 @@
     "url": "git+https://github.com/tryforge/ForgeVSC.git"
   },
   "activationEvents": [
+    "workspaceContains:.forgevsc.json",
+    "workspaceContains:.vscode/.forgevsc.json",
     "onLanguage:javascript",
     "onLanguage:typescript",
     "onLanguage:javascriptreact",
@@ -124,8 +126,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
+    "lint": "eslint src"
   },
   "devDependencies": {
     "@tryforge/forgescript": "^2.6.0",
@@ -134,8 +135,6 @@
     "@types/vscode": "^1.96.0",
     "@typescript-eslint/eslint-plugin": "^8.17.0",
     "@typescript-eslint/parser": "^8.17.0",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1",
     "eslint": "^9.16.0",
     "typescript": "^5.7.2"
   }

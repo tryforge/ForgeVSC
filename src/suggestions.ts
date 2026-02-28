@@ -1,5 +1,18 @@
-import { findFunction, locateCodeBlock, getExtensionConfig, FunctionHeadRegex, findOpeningBracket, findMatchingBracket, bracketDepth } from "."
+import { findFunction, locateCodeBlock, getExtensionConfig, FunctionHeadRegex, findOpeningBracket, findMatchingBracket, bracketDepth, languages } from "."
 import * as vscode from "vscode"
+
+/**
+ * Registers the suggestions for function brackets.
+ * @param ctx The extension context.
+ */
+export function registerSuggestions(ctx: vscode.ExtensionContext) {
+	ctx.subscriptions.push(
+		vscode.languages.registerInlineCompletionItemProvider(
+			languages,
+			new ForgeInlineCompletionItemProvider()
+		)
+	)
+}
 
 export class ForgeInlineCompletionItemProvider implements vscode.InlineCompletionItemProvider {
 	async provideInlineCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
@@ -11,7 +24,7 @@ export class ForgeInlineCompletionItemProvider implements vscode.InlineCompletio
 		const nextChar = document.getText(new vscode.Range(position, position.translate(0, 1)))
 
 		// Suggest brackets
-		if(nextChar !== "[") {
+		if (nextChar !== "[") {
 			const match = slice.match(FunctionHeadRegex)
 			if (match) {
 				const found = await findFunction(match[1])

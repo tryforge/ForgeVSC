@@ -38,6 +38,10 @@ exports.registerHighlighting = registerHighlighting;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 const legend = new vscode.SemanticTokensLegend(["function"], []);
+/**
+ * Registers the syntax highlighting for functions.
+ * @param ctx The extension context.
+ */
 function registerHighlighting(ctx) {
     ctx.subscriptions.push(vscode.languages.registerDocumentSemanticTokensProvider(_1.languages, new ForgeSemanticTokensProvider(), legend));
 }

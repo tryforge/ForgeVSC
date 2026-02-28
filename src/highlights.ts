@@ -3,6 +3,10 @@ import * as vscode from "vscode"
 
 const legend = new vscode.SemanticTokensLegend(["function"], [])
 
+/**
+ * Registers the syntax highlighting for functions.
+ * @param ctx The extension context.
+ */
 export function registerHighlighting(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
         vscode.languages.registerDocumentSemanticTokensProvider(

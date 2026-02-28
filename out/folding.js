@@ -36,6 +36,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerFolding = registerFolding;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
+/**
+ * Registers the folding for function contents.
+ * @param ctx The extension context.
+ */
 function registerFolding(ctx) {
     ctx.subscriptions.push(vscode.languages.registerFoldingRangeProvider(_1.languages, {
         provideFoldingRanges(document) {

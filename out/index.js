@@ -16,11 +16,13 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./extension"), exports);
 __exportStar(require("./diagnostics"), exports);
+__exportStar(require("./autocompletion"), exports);
 __exportStar(require("./signature"), exports);
 __exportStar(require("./suggestions"), exports);
 __exportStar(require("./highlights"), exports);
 __exportStar(require("./functions"), exports);
 __exportStar(require("./commands"), exports);
 __exportStar(require("./folding"), exports);
+__exportStar(require("./hover"), exports);
 __exportStar(require("./config"), exports);
 //# sourceMappingURL=index.js.map

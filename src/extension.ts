@@ -1,14 +1,14 @@
 import {
-	findOpeningBracket,
-	ForgeInlineCompletionItemProvider,
-	ForgeSignatureHelpProvider,
 	getExtensionConfig,
 	loadCustomFunctions,
 	loadExtensionConfig,
+	registerAutocompletion,
 	registerCommands,
 	registerFolding,
 	registerHighlighting,
-	splitArgs,
+	registerHover,
+	registerSignatureHelp,
+	registerSuggestions,
 	validateDocument
 } from "."
 import { IArg, INativeFunction } from "@tryforge/forgescript"
@@ -105,25 +105,10 @@ export async function activate(ctx: vscode.ExtensionContext) {
 		vscode.workspace.onDidOpenTextDocument((doc) => validateDocument(doc, diagnostics))
 	)
 
-	ctx.subscriptions.push(
-		vscode.languages.registerSignatureHelpProvider(
-			languages,
-			new ForgeSignatureHelpProvider(),
-			"[",
-			";",
-			"]"
-		)
-	)
-
-	ctx.subscriptions.push(
-		vscode.languages.registerInlineCompletionItemProvider(
-			languages,
-			new ForgeInlineCompletionItemProvider()
-		)
-	)
-
-	await registerHover(ctx)
-	await registerAutocompletion(ctx)
+	registerHover(ctx)
+	registerAutocompletion(ctx)
+	registerSignatureHelp(ctx)
+	registerSuggestions(ctx)
 
 	Logger.info("Extension started successfully!")
 }
@@ -337,19 +322,27 @@ export function locateCodeBlock(document: vscode.TextDocument, position: vscode.
 	const text = document.getText()
 	const offset = document.offsetAt(position)
 
-	const CodeRegex = /code:\s*(["`'])([\s\S]*?)\1/g
+	const CodeRegex = /code:\s*(["`'])/g
 	let match: RegExpExecArray | null
 
 	while ((match = CodeRegex.exec(text)) !== null) {
 		const quoteChar = match[1]
-		const content = match[2]
-		const start = match.index + match[0].indexOf(quoteChar) + 1
-		const end = start + content.length
+		const start = CodeRegex.lastIndex
+
+		let end = -1
+		for (let i = start; i < text.length; i++) {
+			if (text[i] !== quoteChar || isEscaped(text, i, true)) continue
+			end = i
+			break
+		}
+		if (end === -1) continue
 
 		if (offset >= start && offset <= end) {
 			const slice = text.slice(start, offset)
 			return { start, end, quoteChar, slice }
 		}
+
+		CodeRegex.lastIndex = end + 1
 	}
 
 	return null
@@ -383,7 +376,7 @@ export async function findFunction(name: string, loose: boolean = false) {
 
 	const prefix = name.match(FunctionPrefixRegex)?.[0] ?? "$"
 	const typed = match[1].toLowerCase()
-	const strict = name.includes("[")
+	const strict = name.trimEnd().endsWith("[")
 
 	const all = await getFunctions()
 	const findFn = (fnName: string) => all.find((x) =>
@@ -424,12 +417,111 @@ export function validateOperatorPrefix(input: string) {
  * Checks whether the input is escaped.
  * @param input The input text.
  * @param i The index number.
+ * @param single Whether the input is escaped using a single backslash.
+ * @param minIndex The minimum index.
  * @returns 
  */
-export function isEscaped(input: string, i: number) {
+export function isEscaped(input: string, i: number, single: boolean = false, minIndex: number = 0) {
 	let slashes = 0
-	for (let j = i - 1; j >= 0 && input[j] === "\\"; j--) slashes++
-	return slashes % 2 === 1
+	for (let j = i - 1; j >= minIndex && input[j] === "\\"; j--) slashes++
+	return single ? (slashes % 2 === 1) : (slashes >= 2 && slashes % 2 === 0)
+}
+
+/**
+ * Checks whether the input is an opening function bracket.
+ * @param input The input text.
+ * @param bracketIndex The bracket index.
+ * @returns 
+ */
+export function isOpeningBracket(input: string, bracketIndex: number) {
+	if (bracketIndex <= 0) return false
+
+	const prev = input[bracketIndex - 1]
+	if (/\s/.test(prev)) return false
+
+	const before = input.slice(0, bracketIndex)
+	return new RegExp(FunctionRegex.source + "$").test(before)
+}
+
+/**
+ * Finds the opening bracket position from the input text.
+ * @param input The input text.
+ * @returns 
+ */
+export function findOpeningBracket(input: string) {
+	let depth = 0
+
+	for (let i = input.length - 1; i >= 0; i--) {
+		const c = input[i]
+
+		if (c === "]" && !isEscaped(input, i)) {
+			depth++
+			continue
+		}
+
+		if (c === "[") {
+			if (!isOpeningBracket(input, i)) continue
+			if (depth > 0) depth--
+			else return i
+		}
+	}
+
+	return -1
+}
+
+/**
+ * Finds the matching bracket position from the start index.
+ * @param input The input text.
+ * @param openIndex The index of the opening bracket.
+ * @returns 
+ */
+export function findMatchingBracket(input: string, openIndex: number) {
+	let depth = 1
+
+	for (let i = openIndex + 1; i < input.length; i++) {
+		const c = input[i]
+
+		if (c === "[" && isOpeningBracket(input, i)) {
+			depth++
+			continue
+		}
+
+		if (c === "]" && !isEscaped(input, i)) {
+			depth--
+			if (depth === 0) return i
+		}
+	}
+
+	return -1
+}
+
+/**
+ * Splits an argument string into an array of arguments.
+ * @param argString The argument string.
+ * @returns 
+ */
+export function splitArgs(argString?: string) {
+	if (argString === undefined) return []
+
+	const args: string[] = []
+	let current = ""
+	let depth = 0
+
+	for (let i = 0; i < argString.length; i++) {
+		const escaped = isEscaped(argString, i)
+		const char = argString[i]
+
+		if (char === "[" && isOpeningBracket(argString, i)) depth++
+		else if (char === "]" && depth > 0 && !escaped) depth--
+
+		if (char === ";" && depth === 0 && !escaped) {
+			args.push(current)
+			current = ""
+		} else current += char
+	}
+
+	args.push(current)
+	return args
 }
 
 /**
@@ -439,167 +531,14 @@ export function isEscaped(input: string, i: number) {
  */
 export function bracketDepth(input: string) {
 	let depth = 0
+
 	for (let i = 0; i < input.length; i++) {
 		const c = input[i]
-		if (isEscaped(input, i)) continue
-		if (c === "[") depth++
-		else if (c === "]" && depth > 0) depth--
+		if (c === "[" && isOpeningBracket(input, i)) depth++
+		else if (c === "]" && depth > 0 && !isEscaped(input, i)) depth--
 	}
+
 	return depth
-}
-
-/**
- * Registers the autocompletion for functions.
- * @param ctx The extension context.
- */
-export async function registerAutocompletion(ctx: vscode.ExtensionContext) {
-	const functions = await getFunctions()
-
-	const provider = vscode.languages.registerCompletionItemProvider(languages, {
-		async provideCompletionItems(document, position) {
-			const config = getExtensionConfig()
-			if (!locateCodeBlock(document, position) || !config.features.autocompletion) return
-
-			const line = document.lineAt(position).text
-			const before = line.substring(0, position.character)
-
-			// Function autocompletion
-			const match = before.match(FunctionAutocompleteRegex)
-			if (match && !validateOperatorPrefix(match[0]).isInvalidOrder) {
-				const items = functions.flatMap((fn) => {
-					const names = [fn.name, ...(fn.aliases ?? [])]
-
-					return names.map((name) => {
-						const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function)
-
-						item.insertText = name
-						item.detail = generateUsage(fn)
-						item.documentation = new vscode.MarkdownString(
-							`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\`` : ""}`
-						)
-						item.kind = vscode.CompletionItemKind.Function
-						if (fn.deprecated) item.tags = [vscode.CompletionItemTag.Deprecated]
-
-						const startPos = position.translate(0, -match[0].length)
-						item.range = new vscode.Range(startPos, position)
-
-						return item
-					})
-				})
-
-				if (items.length) return items
-			}
-
-			// Enum autocompletion
-			const open = findOpeningBracket(before)
-			if (open !== -1) {
-				const head = before.slice(0, open)
-				const argsTyped = before.slice(open + 1)
-
-				const argMatch = head.match(FunctionHeadRegex)
-				if (argMatch) {
-					const fnName = argMatch[1]
-
-					const found = await findFunction(fnName)
-					const fn = found?.fn
-					if (fn?.args) {
-						const args: IArg<any>[] = fn.args
-						const lastIndex = args.length - 1
-
-						const parts = splitArgs(argsTyped)
-						let activeIndex = parts.length - 1
-						if (args[lastIndex]?.rest) activeIndex = Math.min(activeIndex, lastIndex)
-
-						const activeArg = args[activeIndex]
-						const enumValues = activeArg?.enum || (activeArg.type === "Boolean" ? ["true", "false"] : undefined)
-
-						if (enumValues) {
-							const currentValue = parts[activeIndex] ?? ""
-
-							return enumValues.map((val: string) => {
-								const item = new vscode.CompletionItem(val, vscode.CompletionItemKind.EnumMember)
-								const start = position.translate(0, -currentValue.length)
-
-								item.insertText = val
-								item.range = new vscode.Range(start, position)
-
-								return item
-							})
-						}
-					}
-				}
-			}
-
-			return
-		}
-	}, "$", ";", "[")
-
-	ctx.subscriptions.push(provider)
-}
-
-/**
- * Registers the hover card for functions.
- * @param ctx The extension context.
- */
-export async function registerHover(ctx: vscode.ExtensionContext) {
-	const provider = vscode.languages.registerHoverProvider(languages, {
-		async provideHover(document, position) {
-			const config = getExtensionConfig()
-			if (!locateCodeBlock(document, position) || !config.features.hoverInfo) return
-
-			// Operator hover
-			const operatorRange = document.getWordRangeAtPosition(position, /@\[[^\]]?\]|[!#]/)
-			if (operatorRange && operatorRange.contains(position)) {
-				const opStr = document.getText(operatorRange)
-				const op = (opStr.startsWith("@") ? "@" : opStr) as keyof typeof OperatorInfo
-				const doc = OperatorInfo[op]
-				if (!doc) return
-
-				const md = new vscode.MarkdownString()
-				md.appendMarkdown(`**${doc.name} (\`${opStr}\`)**\n\n${doc.description}`)
-				return new vscode.Hover(md, operatorRange)
-			}
-
-			const line = document.lineAt(position.line).text
-			// const Regex = /\$!?#?(?:@\[[^\]]?\])?[a-zA-Z_]+/g
-			const Regex = /\$!?#?(?:@\[[^\]]?\])?[a-zA-Z_]+(\[)?/g
-			let match: RegExpExecArray | null
-
-			// Function hover
-			while ((match = Regex.exec(line))) {
-				const hasOpening = match[1] === "["
-				const start = match.index
-				let end = start + match[0].length
-				if (hasOpening) end--
-
-				if (position.character >= start && position.character <= end) {
-					const found = await findFunction(match[0])
-					if (!found) return
-
-					const { fn, matchedText } = found
-					const acceptsArgs = fn.brackets !== undefined
-					const md = new vscode.MarkdownString()
-					md.appendCodeblock(
-						`${fn.brackets || (hasOpening && acceptsArgs) ? generateUsage(fn) : fn.name}${fn.output ? `: ` + (fn.output as Array<any>).join(", ") : ""}\n`
-					)
-					md.appendText(`${fn.description}\n`)
-					if (fn.version) {
-						md.appendMarkdown(`---\n`)
-						md.appendMarkdown(
-							`##### v${fn.version} | [Documentation](https://docs.botforge.org/function/${fn.name})`
-						)
-					}
-					md.isTrusted = true
-
-					const hoverEnd = Math.min(end, start + matchedText.length)
-					const range = new vscode.Range(position.line, start, position.line, hoverEnd)
-					return new vscode.Hover(md, range)
-				}
-			}
-		}
-	})
-
-	ctx.subscriptions.push(provider)
 }
 
 export function deactivate() {

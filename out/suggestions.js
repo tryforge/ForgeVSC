@@ -34,8 +34,16 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ForgeInlineCompletionItemProvider = void 0;
+exports.registerSuggestions = registerSuggestions;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
+/**
+ * Registers the suggestions for function brackets.
+ * @param ctx The extension context.
+ */
+function registerSuggestions(ctx) {
+    ctx.subscriptions.push(vscode.languages.registerInlineCompletionItemProvider(_1.languages, new ForgeInlineCompletionItemProvider()));
+}
 class ForgeInlineCompletionItemProvider {
     async provideInlineCompletionItems(document, position) {
         const code = (0, _1.locateCodeBlock)(document, position);

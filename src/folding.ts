@@ -1,6 +1,10 @@
 import { locateCodeBlock, findMatchingBracket, languages, FunctionOpenScanRegex, getExtensionConfig } from "."
 import * as vscode from "vscode"
 
+/**
+ * Registers the folding for function contents.
+ * @param ctx The extension context.
+ */
 export function registerFolding(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
         vscode.languages.registerFoldingRangeProvider(languages, {

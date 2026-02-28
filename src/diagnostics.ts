@@ -1,59 +1,23 @@
-import { findFunction, FunctionScanRegex, getExtensionConfig, isEscaped, languages, locateCodeBlock, validateOperatorPrefix } from "."
+import {
+	findFunction,
+	findMatchingBracket,
+	FunctionPrefixRegex,
+	FunctionScanRegex,
+	getExtensionConfig,
+	languages,
+	locateCodeBlock,
+	splitArgs,
+	validateOperatorPrefix
+} from "."
 import { IArg } from "@tryforge/forgescript"
 import * as vscode from "vscode"
 
 /**
- * Splits an argument string into an array of arguments.
- * @param argString The argument string.
+ * Validates a document for diagnostics.
+ * @param document The document to validate.
+ * @param collection The diagnostic collection.
  * @returns 
  */
-export function splitArgs(argString?: string) {
-	if (argString === undefined) return []
-
-	const args: string[] = []
-	let current = ""
-	let depth = 0
-
-	for (let i = 0; i < argString.length; i++) {
-		const escaped = isEscaped(argString, i)
-		const char = argString[i]
-
-		if (char === "[" && !escaped) depth++
-		else if (char === "]" && !escaped) depth--
-
-		if (char === ";" && depth === 0 && !escaped) {
-			args.push(current)
-			current = ""
-		} else current += char
-	}
-
-	args.push(current)
-	return args
-}
-
-/**
- * Finds the matching bracket position from the start index.
- * @param input The input text.
- * @param openIndex The index of the opening bracket.
- * @returns 
- */
-export function findMatchingBracket(input: string, openIndex: number) {
-	let depth = 1
-
-	for (let i = openIndex + 1; i < input.length; i++) {
-		const c = input[i]
-		if (isEscaped(input, i)) continue
-
-		if (c === "[") depth++
-		else if (c === "]") {
-			depth--
-			if (depth === 0) return i
-		}
-	}
-
-	return -1
-}
-
 export async function validateDocument(
 	document: vscode.TextDocument | undefined,
 	collection: vscode.DiagnosticCollection
@@ -90,6 +54,19 @@ export async function validateDocument(
 			diagnostics.push(new vscode.Diagnostic(
 				new vscode.Range(opStart, opEnd),
 				`Function \`${fn.name}\` has invalid operator order`,
+				vscode.DiagnosticSeverity.Error
+			))
+			continue
+		}
+
+		// Duplicated operators
+		const strictPrefix = base.match(FunctionPrefixRegex)?.[0] ?? "$"
+		if (rawPrefix.length > strictPrefix.length) {
+			const extraStart = document.positionAt(match.index + strictPrefix.length)
+			const extraEnd = document.positionAt(match.index + rawPrefix.length)
+			diagnostics.push(new vscode.Diagnostic(
+				new vscode.Range(extraStart, extraEnd),
+				`Function \`${fn.name}\` has duplicated operators supplied`,
 				vscode.DiagnosticSeverity.Error
 			))
 			continue

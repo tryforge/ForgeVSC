@@ -1,29 +1,23 @@
-import { findFunction, FunctionRegex, generateUsage, getExtensionConfig, isEscaped, locateCodeBlock, splitArgs } from "."
+import { findFunction, findOpeningBracket, FunctionRegex, generateUsage, getExtensionConfig, languages, locateCodeBlock, splitArgs } from "."
 import { IArg } from "@tryforge/forgescript"
 import * as vscode from "vscode"
 
 // export const FunctionPrefixRegex = /\$!?#?(?:@\[[^\]\n]?\])?[a-zA-Z_]+$/
 
 /**
- * Finds the opening bracket position from the input text.
- * @param input The input text.
- * @returns 
+ * Registers the signature help for arguments.
+ * @param ctx The extension context.
  */
-export function findOpeningBracket(input: string) {
-	let depth = 0
-
-	for (let i = input.length - 1; i >= 0; i--) {
-		const c = input[i]
-		if (isEscaped(input, i)) continue
-
-		if (c === "]") depth++
-		else if (c === "[") {
-			if (depth > 0) depth--
-			else return i
-		}
-	}
-
-	return -1
+export function registerSignatureHelp(ctx: vscode.ExtensionContext) {
+	ctx.subscriptions.push(
+		vscode.languages.registerSignatureHelpProvider(
+			languages,
+			new ForgeSignatureHelpProvider(),
+			"[",
+			";",
+			"]"
+		)
+	)
 }
 
 export class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider {

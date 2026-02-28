@@ -33,61 +33,15 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.splitArgs = splitArgs;
-exports.findMatchingBracket = findMatchingBracket;
 exports.validateDocument = validateDocument;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 /**
- * Splits an argument string into an array of arguments.
- * @param argString The argument string.
+ * Validates a document for diagnostics.
+ * @param document The document to validate.
+ * @param collection The diagnostic collection.
  * @returns
  */
-function splitArgs(argString) {
-    if (argString === undefined)
-        return [];
-    const args = [];
-    let current = "";
-    let depth = 0;
-    for (let i = 0; i < argString.length; i++) {
-        const escaped = (0, _1.isEscaped)(argString, i);
-        const char = argString[i];
-        if (char === "[" && !escaped)
-            depth++;
-        else if (char === "]" && !escaped)
-            depth--;
-        if (char === ";" && depth === 0 && !escaped) {
-            args.push(current);
-            current = "";
-        }
-        else
-            current += char;
-    }
-    args.push(current);
-    return args;
-}
-/**
- * Finds the matching bracket position from the start index.
- * @param input The input text.
- * @param openIndex The index of the opening bracket.
- * @returns
- */
-function findMatchingBracket(input, openIndex) {
-    let depth = 1;
-    for (let i = openIndex + 1; i < input.length; i++) {
-        const c = input[i];
-        if ((0, _1.isEscaped)(input, i))
-            continue;
-        if (c === "[")
-            depth++;
-        else if (c === "]") {
-            depth--;
-            if (depth === 0)
-                return i;
-        }
-    }
-    return -1;
-}
 async function validateDocument(document, collection) {
     const config = (0, _1.getExtensionConfig)();
     if (!document || !_1.languages.includes(document.languageId) || !config.features.diagnostics)
@@ -117,6 +71,14 @@ async function validateDocument(document, collection) {
             diagnostics.push(new vscode.Diagnostic(new vscode.Range(opStart, opEnd), `Function \`${fn.name}\` has invalid operator order`, vscode.DiagnosticSeverity.Error));
             continue;
         }
+        // Duplicated operators
+        const strictPrefix = base.match(_1.FunctionPrefixRegex)?.[0] ?? "$";
+        if (rawPrefix.length > strictPrefix.length) {
+            const extraStart = document.positionAt(match.index + strictPrefix.length);
+            const extraEnd = document.positionAt(match.index + rawPrefix.length);
+            diagnostics.push(new vscode.Diagnostic(new vscode.Range(extraStart, extraEnd), `Function \`${fn.name}\` has duplicated operators supplied`, vscode.DiagnosticSeverity.Error));
+            continue;
+        }
         const isAttached = matchedText.length === base.length && matchedText.toLowerCase() === base.toLowerCase();
         const hasOpeningAttached = hasOpening && isAttached;
         const args = fn.args ?? [];
@@ -133,14 +95,14 @@ async function validateDocument(document, collection) {
             continue;
         if (acceptsArgs && hasOpening) {
             const openIndex = match.index + full.length - 1;
-            const closeIndex = findMatchingBracket(text, openIndex);
+            const closeIndex = (0, _1.findMatchingBracket)(text, openIndex);
             // Missing closing bracket
             if (closeIndex === -1) {
                 diagnostics.push(new vscode.Diagnostic(range, `Function \`${fn.name}\` is missing brace closure`, vscode.DiagnosticSeverity.Error));
                 continue;
             }
             const argString = text.slice(openIndex + 1, closeIndex);
-            const providedArgs = splitArgs(argString);
+            const providedArgs = (0, _1.splitArgs)(argString);
             // Too few arguments
             for (let i = 0; i < args.length; i++) {
                 const expected = args[i];
