@@ -34,19 +34,19 @@ function getBoolean(node: ts.Expression) {
     return undefined
 }
 
-function parseArgType(init: ts.Expression) {
-    if (ts.isNumericLiteral(init)) {
-        const n = Number(init.text)
+function parseArgType(node: ts.Expression) {
+    if (ts.isNumericLiteral(node)) {
+        const n = Number(node.text)
         const key = ArgType[n] as unknown
-        return (typeof key === "string" && key in ArgType) ? (key as ArgTypeKey) : "String"
+        return (typeof key === "string" && key in ArgType) ? (key as ArgTypeKey) : undefined
     }
 
-    if (ts.isStringLiteral(init) || ts.isNoSubstitutionTemplateLiteral(init) || ts.isIdentifier(init)) {
-        const key = init.text
-        return (key in ArgType) ? (key as ArgTypeKey) : "String"
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isIdentifier(node)) {
+        const key = node.text
+        return (key in ArgType) ? (key as ArgTypeKey) : undefined
     }
 
-    return "String"
+    return undefined
 }
 
 function normalizeParam(partial: Partial<CustomFunctionParamMetadata>) {
@@ -70,7 +70,7 @@ function getParamObject(node: ts.Expression) {
         const key = ts.isIdentifier(prop.name) ? prop.name.text : prop.name.text
 
         if (key === "name") param.name = getString(prop.initializer)
-        else if (key === "type") param.type = parseArgType(prop.initializer)
+        else if (key === "type") param.type = parseArgType(prop.initializer) ?? "String"
         else if (key === "required") param.required = getBoolean(prop.initializer)
         else if (key === "rest") param.rest = getBoolean(prop.initializer)
         else if (key === "description") param.description = getString(prop.initializer)
@@ -97,6 +97,29 @@ function getParams(node: ts.Expression) {
     return args
 }
 
+function getOutput(node: ts.Expression) {
+    const checkLiteral = (expr: ts.Expression) =>
+        ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr) || ts.isNumericLiteral(expr)
+
+    if (checkLiteral(node)) {
+        const type = parseArgType(node)
+        return type ? [type] : undefined
+    }
+
+    if (ts.isArrayLiteralExpression(node)) {
+        const out: ArgTypeKey[] = []
+        for (const el of node.elements) {
+            if (checkLiteral(el)) {
+                const type = parseArgType(node)
+                if (type) out.push(type)
+            }
+        }
+        return out.length ? out : undefined
+    }
+
+    return undefined
+}
+
 function readMetadata(obj: ts.ObjectLiteralExpression) {
     let fn: Partial<CustomFunctionMetadata> = {}
 
@@ -108,7 +131,7 @@ function readMetadata(obj: ts.ObjectLiteralExpression) {
         if (key === "name") fn.name = "$" + getString(prop.initializer)
         else if (key === "params") fn.args = getParams(prop.initializer)
         else if (key === "brackets") fn.brackets = getBoolean(prop.initializer)
-        else if (key === "output") fn.output = [] // <= Function here
+        else if (key === "output") fn.output = getOutput(prop.initializer)
         else if (key === "description") fn.description = getString(prop.initializer)
     }
 

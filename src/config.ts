@@ -4,10 +4,17 @@ export interface IExtensionConfig {
     customFunctionsPath?: string
     additionalPackages?: string[]
     colors?: {
-        function?: string
-        dollar?: string
-        semicolon?: string
-        brackets?: string
+        function?: {
+            name?: string
+            dollar?: string
+            semicolon?: string
+        }
+        operators?: {
+            negation?: string
+            silent?: string
+            count?: string
+            countDelimiter?: string
+        }
     }
     features?: {
         folding?: boolean
@@ -23,10 +30,17 @@ export const Defaults: Required<IExtensionConfig> = {
     customFunctionsPath: "",
     additionalPackages: [],
     colors: {
-        function: "#ac75ff",
-        dollar: "#fe7ceb",
-        semicolon: "#c586c0",
-        brackets: "#ffd700",
+        function: {
+            name: "#ac75ff",
+            dollar: "#fe7ceb",
+            semicolon: "#c586c0",
+        },
+        operators: {
+            negation: "#4FA3FF",
+            silent: "#FF9F43",
+            count: "#33D17A",
+            countDelimiter: "#76E3A0"
+        },
     },
     features: {
         folding: true,
@@ -62,7 +76,10 @@ export async function loadExtensionConfig() {
             additionalPackages: Array.from(
                 new Set([...Defaults.additionalPackages, ...(parsed.additionalPackages ?? [])])
             ),
-            colors: { ...Defaults.colors, ...(parsed.colors ?? {}) },
+            colors: {
+                function: { ...Defaults.colors.function, ...(parsed.colors?.function ?? {}) },
+                operators: { ...Defaults.colors.operators, ...(parsed.colors?.operators ?? {}) },
+            },
             features: { ...Defaults.features, ...(parsed.features ?? {}) },
         }
     } catch {

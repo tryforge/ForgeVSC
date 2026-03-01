@@ -1,4 +1,5 @@
 import {
+	cloneRegex,
 	findFunction,
 	findMatchingBracket,
 	FunctionPrefixRegex,
@@ -29,10 +30,11 @@ export async function validateDocument(
 	const text = document.getText()
 	// const Regex = /^\$!?#?(?:@\[[^\]]*\])?/
 
-	FunctionScanRegex.lastIndex = 0
+	const ScanRegex = cloneRegex(FunctionScanRegex)
+	ScanRegex.lastIndex = 0
 	let match: RegExpExecArray | null
 
-	while ((match = FunctionScanRegex.exec(text))) {
+	while ((match = ScanRegex.exec(text))) {
 		const start = document.positionAt(match.index)
 		if (!locateCodeBlock(document, start)) continue
 

@@ -62,17 +62,17 @@ function getBoolean(node) {
         return false;
     return undefined;
 }
-function parseArgType(init) {
-    if (typescript_1.default.isNumericLiteral(init)) {
-        const n = Number(init.text);
+function parseArgType(node) {
+    if (typescript_1.default.isNumericLiteral(node)) {
+        const n = Number(node.text);
         const key = forgescript_1.ArgType[n];
-        return (typeof key === "string" && key in forgescript_1.ArgType) ? key : "String";
+        return (typeof key === "string" && key in forgescript_1.ArgType) ? key : undefined;
     }
-    if (typescript_1.default.isStringLiteral(init) || typescript_1.default.isNoSubstitutionTemplateLiteral(init) || typescript_1.default.isIdentifier(init)) {
-        const key = init.text;
-        return (key in forgescript_1.ArgType) ? key : "String";
+    if (typescript_1.default.isStringLiteral(node) || typescript_1.default.isNoSubstitutionTemplateLiteral(node) || typescript_1.default.isIdentifier(node)) {
+        const key = node.text;
+        return (key in forgescript_1.ArgType) ? key : undefined;
     }
-    return "String";
+    return undefined;
 }
 function normalizeParam(partial) {
     if (!partial.name)
@@ -98,7 +98,7 @@ function getParamObject(node) {
         if (key === "name")
             param.name = getString(prop.initializer);
         else if (key === "type")
-            param.type = parseArgType(prop.initializer);
+            param.type = parseArgType(prop.initializer) ?? "String";
         else if (key === "required")
             param.required = getBoolean(prop.initializer);
         else if (key === "rest")
@@ -125,6 +125,25 @@ function getParams(node) {
     }
     return args;
 }
+function getOutput(node) {
+    const checkLiteral = (expr) => typescript_1.default.isStringLiteral(expr) || typescript_1.default.isNoSubstitutionTemplateLiteral(expr) || typescript_1.default.isNumericLiteral(expr);
+    if (checkLiteral(node)) {
+        const type = parseArgType(node);
+        return type ? [type] : undefined;
+    }
+    if (typescript_1.default.isArrayLiteralExpression(node)) {
+        const out = [];
+        for (const el of node.elements) {
+            if (checkLiteral(el)) {
+                const type = parseArgType(node);
+                if (type)
+                    out.push(type);
+            }
+        }
+        return out.length ? out : undefined;
+    }
+    return undefined;
+}
 function readMetadata(obj) {
     let fn = {};
     for (const prop of obj.properties) {
@@ -140,7 +159,7 @@ function readMetadata(obj) {
         else if (key === "brackets")
             fn.brackets = getBoolean(prop.initializer);
         else if (key === "output")
-            fn.output = []; // <= Function here
+            fn.output = getOutput(prop.initializer);
         else if (key === "description")
             fn.description = getString(prop.initializer);
     }

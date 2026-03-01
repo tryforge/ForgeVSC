@@ -49,9 +49,10 @@ async function validateDocument(document, collection) {
     const diagnostics = [];
     const text = document.getText();
     // const Regex = /^\$!?#?(?:@\[[^\]]*\])?/
-    _1.FunctionScanRegex.lastIndex = 0;
+    const ScanRegex = (0, _1.cloneRegex)(_1.FunctionScanRegex);
+    ScanRegex.lastIndex = 0;
     let match;
-    while ((match = _1.FunctionScanRegex.exec(text))) {
+    while ((match = ScanRegex.exec(text))) {
         const start = document.positionAt(match.index);
         if (!(0, _1.locateCodeBlock)(document, start))
             continue;

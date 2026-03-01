@@ -4,8 +4,8 @@ import {
 	loadExtensionConfig,
 	registerAutocompletion,
 	registerCommands,
+	registerDecorations,
 	registerFolding,
-	registerHighlighting,
 	registerHover,
 	registerSignatureHelp,
 	registerSuggestions,
@@ -34,14 +34,14 @@ export const OperatorChain = String.raw`(?:!?#?(?:@\[[^\]]?\])?)?`
 export const LooseOperatorChain = String.raw`(?:[!#]|(?:@\[[^\]]?\]))*`
 
 export const FunctionPrefixRegex = /^\$(!)?(#)?(?:@\[([^\]]*)\])?/
-export const FunctionRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z_]+`)
-export const FunctionNameRegex = new RegExp(String.raw`\$${OperatorChain}([a-zA-Z_]+)`)
-export const FunctionHeadRegex = new RegExp(String.raw`(\$${OperatorChain}[a-zA-Z_]+)$`)
-export const FunctionArgumentRegex = new RegExp(String.raw`\$${OperatorChain}([a-zA-Z_]+)\[([^\]]*)$`)
-export const FunctionAutocompleteRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z_]*$`)
-export const FunctionOpenScanRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z_]+\[`, "g")
-export const FunctionScanRegex = new RegExp(String.raw`\$${LooseOperatorChain}[a-zA-Z_]+(?:\[)?`, "g")
-export const LooseFunctionNameRegex = new RegExp(String.raw`^\$${LooseOperatorChain}([a-zA-Z_]+)`)
+export const FunctionRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z0-9]+`)
+export const FunctionNameRegex = new RegExp(String.raw`\$${OperatorChain}([a-zA-Z0-9]+)`)
+export const FunctionHeadRegex = new RegExp(String.raw`(\$${OperatorChain}[a-zA-Z0-9]+)$`)
+export const FunctionArgumentRegex = new RegExp(String.raw`\$${OperatorChain}([a-zA-Z0-9]+)\[([^\]]*)$`)
+export const FunctionAutocompleteRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z0-9]*$`)
+export const FunctionOpenScanRegex = new RegExp(String.raw`\$${OperatorChain}[a-zA-Z0-9]+\[`, "g")
+export const FunctionScanRegex = new RegExp(String.raw`\$${LooseOperatorChain}[a-zA-Z0-9]+(?:\[)?`, "g")
+export const LooseFunctionNameRegex = new RegExp(String.raw`^\$${LooseOperatorChain}([a-zA-Z0-9]+)`)
 export const LooseFunctionPrefixRegex = new RegExp(String.raw`^\$${LooseOperatorChain}`)
 export const InvalidOperatorRegex = /#.*!|@\[\].*!|@\[\].*#/
 
@@ -62,6 +62,10 @@ export const OperatorInfo = {
 export const languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"]
 const MetadataCacheKey = "forgevsc.metadataCache.v1"
 
+/**
+ * Activates the extension.
+ * @param ctx The extension context.
+ */
 export async function activate(ctx: vscode.ExtensionContext) {
 	ExtensionContext = ctx
 
@@ -72,7 +76,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	registerCommands(ctx)
 
 	await loadExtensionConfig()
-	registerHighlighting(ctx)
+	registerDecorations(ctx)
 	registerFolding(ctx)
 
 	const watcher = vscode.workspace.createFileSystemWatcher("**/.forgevsc.json")
@@ -110,6 +114,15 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	registerSignatureHelp(ctx)
 	registerSuggestions(ctx)
 
+	const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC"
+	const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
+	status.text = name + " v" + ctx.extension.packageJSON.version
+	status.command = "forgevsc.openExtensionPage"
+	status.tooltip = name + " Extension Details"
+	status.show()
+
+	ctx.subscriptions.push(status)
+
 	Logger.info("Extension started successfully!")
 }
 
@@ -119,10 +132,11 @@ export async function activate(ctx: vscode.ExtensionContext) {
  * @param customPath The custom functions folder path.
  * @returns 
  */
-export function buildCacheKey(pkgNames: string[], customPath?: string) {
+export function buildCacheKey(pkgNames: string[], customPath?: string, additionalPackages: string[] = []) {
 	return JSON.stringify({
 		pkgs: [...pkgNames].sort(),
-		custom: customPath ?? ""
+		custom: customPath ?? "",
+		additional: [...additionalPackages].map((x) => x.trim()).filter(Boolean).sort()
 	})
 }
 
@@ -200,10 +214,11 @@ export async function fetchFunctions(force: boolean = false) {
 	const folders = vscode.workspace.workspaceFolders
 	if (!folders) return []
 
+	const { additionalPackages, customFunctionsPath } = getExtensionConfig()
 	const root = folders[0].uri.fsPath
 	const pkgNames = getForgePackages()
-	const customPath = getExtensionConfig().customFunctionsPath
-	const cacheKey = buildCacheKey(pkgNames, customPath)
+	const additional = additionalPackages ?? []
+	const cacheKey = buildCacheKey(pkgNames, customFunctionsPath, additional)
 
 	if (!force) {
 		const cached = await readMetadataCache(cacheKey)
@@ -273,13 +288,13 @@ export async function fetchFunctions(force: boolean = false) {
 		}
 	}
 
-	const customFunctions = await loadCustomFunctions(customPath) as FunctionMetadata[]
+	const customFunctions = await loadCustomFunctions(customFunctionsPath) as FunctionMetadata[]
 	const metadata = [...main, ...extensionFunctions]
 	const failed = failedFetch.length
 	const fetched = pkgNames.length - failed
 
 	Logger.info(`Fetched metadata from ${metadata.length} functions across ${fetched} package${fetched === 1 ? "" : "s"}.`)
-	if (customPath) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`)
+	if (customFunctionsPath) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`)
 	if (failed) {
 		const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")
 		Logger.error(text)
@@ -414,6 +429,14 @@ export function validateOperatorPrefix(input: string) {
 }
 
 /**
+ * Clones an existing regex.
+ * @returns 
+ */
+export function cloneRegex(regex: RegExp) {
+	return new RegExp(regex.source, regex.flags)
+}
+
+/**
  * Checks whether the input is escaped.
  * @param input The input text.
  * @param i The index number.
@@ -541,6 +564,10 @@ export function bracketDepth(input: string) {
 	return depth
 }
 
+/**
+ * Deactivates the extension.
+ * @param ctx The extension context.
+ */
 export function deactivate() {
 	Logger.info("Deactivated extension.")
 }

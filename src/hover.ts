@@ -28,7 +28,7 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                     if (prefixOnly.length && !new RegExp(`^${OperatorChain}$`).test(prefixOnly)) return
 
                     const after = line.slice(opEnd)
-                    const afterOk = new RegExp(String.raw`^(?:${OperatorChain})[a-zA-Z_]`).test(after)
+                    const afterOk = new RegExp(String.raw`^(?:${OperatorChain})[a-zA-Z0-9]`).test(after)
                     if (!afterOk) return
 
                     const op = (opStr.startsWith("@") ? "@" : opStr) as keyof typeof OperatorInfo
@@ -41,8 +41,8 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                 }
 
                 const line = document.lineAt(position.line).text
-                // const Regex = /\$!?#?(?:@\[[^\]]?\])?[a-zA-Z_]+/g
-                const Regex = /\$!?#?(?:@\[[^\]]?\])?[a-zA-Z_]+(\[)?/g
+                // const Regex = /\$!?#?(?:@\[[^\]]?\])?[a-zA-Z0-9]+/g
+                const Regex = /\$!?#?(?:@\[[^\]]?\])?[a-zA-Z0-9]+(\[)?/g
                 let match: RegExpExecArray | null
 
                 // Function hover
@@ -53,14 +53,19 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                     if (hasOpening) end--
 
                     if (position.character >= start && position.character <= end) {
-                        const found = await findFunction(match[0])
-                        if (!found) return
+                        const lookup = hasOpening ? match[0].slice(0, -1) : match[0]
+                        const found = await findFunction(lookup)
+                        if (!found) continue
 
                         const { fn, matchedText } = found
                         const acceptsArgs = fn.brackets !== undefined
+
+                        const bracketIndex = start + matchedText.length
+                        const hasBracket = acceptsArgs && line[bracketIndex] === "["
+
                         const md = new vscode.MarkdownString()
                         md.appendCodeblock(
-                            `${fn.brackets || (hasOpening && acceptsArgs) ? generateUsage(fn) : fn.name}${fn.output ? `: ` + (fn.output as Array<any>).join(", ") : ""}\n`
+                            `${(fn.brackets || hasBracket) ? generateUsage(fn) : fn.name}${fn.output ? `: ` + (fn.output as Array<any>).join(", ") : ""}\n`
                         )
                         md.appendText(`${fn.description}\n`)
                         if (fn.version) {

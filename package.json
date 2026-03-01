@@ -1,5 +1,5 @@
 {
-  "name": "forge.vsc",
+  "name": "forgevsc",
   "displayName": "ForgeVSC",
   "description": "Official Visual Studio Code Extension for ForgeScript.",
   "publisher": "tryforge",
@@ -76,7 +76,6 @@
         "strings": true
       },
       "editor.suggestOnTriggerCharacters": true,
-      "editor.semanticHighlighting.enabled": true,
       "editor.tokenColorCustomizations": {
         "textMateRules": [
           {
@@ -90,25 +89,8 @@
             "settings": {
               "foreground": "#ffd700"
             }
-          },
-          {
-            "scope": "forge.function.semicolon",
-            "settings": {
-              "foreground": "#c586c0"
-            }
-          },
-          {
-            "scope": "forge.function.dollar",
-            "settings": {
-              "foreground": "#fe7ceb"
-            }
           }
         ]
-      },
-      "editor.semanticTokenColorCustomizations": {
-        "rules": {
-          "function": "#ac75ff"
-        }
       }
     },
     "jsonValidation": [

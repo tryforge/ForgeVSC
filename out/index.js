@@ -19,7 +19,7 @@ __exportStar(require("./diagnostics"), exports);
 __exportStar(require("./autocompletion"), exports);
 __exportStar(require("./signature"), exports);
 __exportStar(require("./suggestions"), exports);
-__exportStar(require("./highlights"), exports);
+__exportStar(require("./decorations"), exports);
 __exportStar(require("./functions"), exports);
 __exportStar(require("./commands"), exports);
 __exportStar(require("./folding"), exports);

@@ -44,6 +44,7 @@ exports.locateCodeBlock = locateCodeBlock;
 exports.generateUsage = generateUsage;
 exports.findFunction = findFunction;
 exports.validateOperatorPrefix = validateOperatorPrefix;
+exports.cloneRegex = cloneRegex;
 exports.isEscaped = isEscaped;
 exports.isOpeningBracket = isOpeningBracket;
 exports.findOpeningBracket = findOpeningBracket;
@@ -61,14 +62,14 @@ let ExtensionContext;
 exports.OperatorChain = String.raw `(?:!?#?(?:@\[[^\]]?\])?)?`;
 exports.LooseOperatorChain = String.raw `(?:[!#]|(?:@\[[^\]]?\]))*`;
 exports.FunctionPrefixRegex = /^\$(!)?(#)?(?:@\[([^\]]*)\])?/;
-exports.FunctionRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z_]+`);
-exports.FunctionNameRegex = new RegExp(String.raw `\$${exports.OperatorChain}([a-zA-Z_]+)`);
-exports.FunctionHeadRegex = new RegExp(String.raw `(\$${exports.OperatorChain}[a-zA-Z_]+)$`);
-exports.FunctionArgumentRegex = new RegExp(String.raw `\$${exports.OperatorChain}([a-zA-Z_]+)\[([^\]]*)$`);
-exports.FunctionAutocompleteRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z_]*$`);
-exports.FunctionOpenScanRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z_]+\[`, "g");
-exports.FunctionScanRegex = new RegExp(String.raw `\$${exports.LooseOperatorChain}[a-zA-Z_]+(?:\[)?`, "g");
-exports.LooseFunctionNameRegex = new RegExp(String.raw `^\$${exports.LooseOperatorChain}([a-zA-Z_]+)`);
+exports.FunctionRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z0-9]+`);
+exports.FunctionNameRegex = new RegExp(String.raw `\$${exports.OperatorChain}([a-zA-Z0-9]+)`);
+exports.FunctionHeadRegex = new RegExp(String.raw `(\$${exports.OperatorChain}[a-zA-Z0-9]+)$`);
+exports.FunctionArgumentRegex = new RegExp(String.raw `\$${exports.OperatorChain}([a-zA-Z0-9]+)\[([^\]]*)$`);
+exports.FunctionAutocompleteRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z0-9]*$`);
+exports.FunctionOpenScanRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z0-9]+\[`, "g");
+exports.FunctionScanRegex = new RegExp(String.raw `\$${exports.LooseOperatorChain}[a-zA-Z0-9]+(?:\[)?`, "g");
+exports.LooseFunctionNameRegex = new RegExp(String.raw `^\$${exports.LooseOperatorChain}([a-zA-Z0-9]+)`);
 exports.LooseFunctionPrefixRegex = new RegExp(String.raw `^\$${exports.LooseOperatorChain}`);
 exports.InvalidOperatorRegex = /#.*!|@\[\].*!|@\[\].*#/;
 exports.OperatorInfo = {
@@ -87,6 +88,10 @@ exports.OperatorInfo = {
 };
 exports.languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"];
 const MetadataCacheKey = "forgevsc.metadataCache.v1";
+/**
+ * Activates the extension.
+ * @param ctx The extension context.
+ */
 async function activate(ctx) {
     ExtensionContext = ctx;
     exports.Logger = vscode.window.createOutputChannel("ForgeVSC", { log: true });
@@ -94,7 +99,7 @@ async function activate(ctx) {
     exports.Logger.info("Starting extension...");
     (0, _1.registerCommands)(ctx);
     await (0, _1.loadExtensionConfig)();
-    (0, _1.registerHighlighting)(ctx);
+    (0, _1.registerDecorations)(ctx);
     (0, _1.registerFolding)(ctx);
     const watcher = vscode.workspace.createFileSystemWatcher("**/.forgevsc.json");
     ctx.subscriptions.push(watcher, watcher.onDidCreate(async () => await (0, _1.loadExtensionConfig)()), watcher.onDidChange(async () => await (0, _1.loadExtensionConfig)()), watcher.onDidDelete(async () => await (0, _1.loadExtensionConfig)()));
@@ -117,6 +122,13 @@ async function activate(ctx) {
     (0, _1.registerAutocompletion)(ctx);
     (0, _1.registerSignatureHelp)(ctx);
     (0, _1.registerSuggestions)(ctx);
+    const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC";
+    const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    status.text = name + " v" + ctx.extension.packageJSON.version;
+    status.command = "forgevsc.openExtensionPage";
+    status.tooltip = name + " Extension Details";
+    status.show();
+    ctx.subscriptions.push(status);
     exports.Logger.info("Extension started successfully!");
 }
 /**
@@ -125,10 +137,11 @@ async function activate(ctx) {
  * @param customPath The custom functions folder path.
  * @returns
  */
-function buildCacheKey(pkgNames, customPath) {
+function buildCacheKey(pkgNames, customPath, additionalPackages = []) {
     return JSON.stringify({
         pkgs: [...pkgNames].sort(),
-        custom: customPath ?? ""
+        custom: customPath ?? "",
+        additional: [...additionalPackages].map((x) => x.trim()).filter(Boolean).sort()
     });
 }
 /**
@@ -201,10 +214,11 @@ async function fetchFunctions(force = false) {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders)
         return [];
+    const { additionalPackages, customFunctionsPath } = (0, _1.getExtensionConfig)();
     const root = folders[0].uri.fsPath;
     const pkgNames = getForgePackages();
-    const customPath = (0, _1.getExtensionConfig)().customFunctionsPath;
-    const cacheKey = buildCacheKey(pkgNames, customPath);
+    const additional = additionalPackages ?? [];
+    const cacheKey = buildCacheKey(pkgNames, customFunctionsPath, additional);
     if (!force) {
         const cached = await readMetadataCache(cacheKey);
         if (cached) {
@@ -269,12 +283,12 @@ async function fetchFunctions(force = false) {
             main = [];
         }
     }
-    const customFunctions = await (0, _1.loadCustomFunctions)(customPath);
+    const customFunctions = await (0, _1.loadCustomFunctions)(customFunctionsPath);
     const metadata = [...main, ...extensionFunctions];
     const failed = failedFetch.length;
     const fetched = pkgNames.length - failed;
     exports.Logger.info(`Fetched metadata from ${metadata.length} functions across ${fetched} package${fetched === 1 ? "" : "s"}.`);
-    if (customPath)
+    if (customFunctionsPath)
         exports.Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`);
     if (failed) {
         const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
@@ -388,6 +402,13 @@ function validateOperatorPrefix(input) {
     const normalizedPrefix = rawPrefix.replace(/@\[[^\]]*\]/g, "@[]");
     const isInvalidOrder = exports.InvalidOperatorRegex.test(normalizedPrefix);
     return { rawPrefix, normalizedPrefix, isInvalidOrder };
+}
+/**
+ * Clones an existing regex.
+ * @returns
+ */
+function cloneRegex(regex) {
+    return new RegExp(regex.source, regex.flags);
 }
 /**
  * Checks whether the input is escaped.
@@ -508,6 +529,10 @@ function bracketDepth(input) {
     }
     return depth;
 }
+/**
+ * Deactivates the extension.
+ * @param ctx The extension context.
+ */
 function deactivate() {
     exports.Logger.info("Deactivated extension.");
 }

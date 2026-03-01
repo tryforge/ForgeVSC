@@ -20,24 +20,53 @@
       "description": "The individual highlight colors used for syntax highlighting.",
       "properties": {
         "function": {
-          "type": "string",
-          "default": "#ac75ff",
-          "description": "The highlight color used for function names."
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The highlight colors used for single function parts.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "#ac75ff",
+              "description": "The highlight color used for function names."
+            },
+            "dollar": {
+              "type": "string",
+              "default": "#fe7ceb",
+              "description": "The highlight color used for function dollar signs ($)."
+            },
+            "semicolon": {
+              "type": "string",
+              "default": "#c586c0",
+              "description": "The highlight color used for function semicolons (;)."
+            }
+          }
         },
-        "dollar": {
-          "type": "string",
-          "default": "#fe7ceb",
-          "description": "The highlight color used for function dollar signs ($)."
-        },
-        "semicolon": {
-          "type": "string",
-          "default": "#c586c0",
-          "description": "The highlight color used for function semicolons (;)."
-        },
-        "brackets": {
-          "type": "string",
-          "default": "#ffd700",
-          "description": "The highlight color used for function brackets ([])."
+        "operators": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The highlight colors used for function operators.",
+          "properties": {
+            "negation": {
+              "type": "string",
+              "default": "#4FA3FF",
+              "description": "The highlight color used for the negation operator (!)."
+            },
+            "silent": {
+              "type": "string",
+              "default": "#FF9F43",
+              "description": "The highlight color used for the silent operator (#)."
+            },
+            "count": {
+              "type": "string",
+              "default": "#33D17A",
+              "description": "The highlight color used for the count operator (@[x])."
+            },
+            "countDelimiter": {
+              "type": "string",
+              "default": "#76E3A0",
+              "description": "The highlight color used for the count operator delimiter (separator)."
+            }
+          }
         }
       }
     },

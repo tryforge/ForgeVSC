@@ -69,5 +69,9 @@ function registerCommands(ctx) {
         await (0, _1.getFunctions)(true);
         vscode.window.showInformationMessage("Successfully fetched metadata!");
     }));
+    // Open Extension Page
+    ctx.subscriptions.push(vscode.commands.registerCommand("forgevsc.openExtensionPage", async () => {
+        await vscode.commands.executeCommand("workbench.extensions.action.showExtensionsWithIds", [ctx.extension.id]);
+    }));
 }
 //# sourceMappingURL=commands.js.map

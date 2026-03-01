@@ -2,7 +2,7 @@ import { findFunction, findOpeningBracket, FunctionRegex, generateUsage, getExte
 import { IArg } from "@tryforge/forgescript"
 import * as vscode from "vscode"
 
-// export const FunctionPrefixRegex = /\$!?#?(?:@\[[^\]\n]?\])?[a-zA-Z_]+$/
+// export const FunctionPrefixRegex = /\$!?#?(?:@\[[^\]\n]?\])?[a-zA-Z0-9]+$/
 
 /**
  * Registers the signature help for arguments.

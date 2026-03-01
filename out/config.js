@@ -41,10 +41,17 @@ exports.Defaults = {
     customFunctionsPath: "",
     additionalPackages: [],
     colors: {
-        function: "#ac75ff",
-        dollar: "#fe7ceb",
-        semicolon: "#c586c0",
-        brackets: "#ffd700",
+        function: {
+            name: "#ac75ff",
+            dollar: "#fe7ceb",
+            semicolon: "#c586c0",
+        },
+        operators: {
+            negation: "#4FA3FF",
+            silent: "#FF9F43",
+            count: "#33D17A",
+            countDelimiter: "#76E3A0"
+        },
     },
     features: {
         folding: true,
@@ -72,7 +79,10 @@ async function loadExtensionConfig() {
         cached = {
             customFunctionsPath: parsed.customFunctionsPath ?? exports.Defaults.customFunctionsPath,
             additionalPackages: Array.from(new Set([...exports.Defaults.additionalPackages, ...(parsed.additionalPackages ?? [])])),
-            colors: { ...exports.Defaults.colors, ...(parsed.colors ?? {}) },
+            colors: {
+                function: { ...exports.Defaults.colors.function, ...(parsed.colors?.function ?? {}) },
+                operators: { ...exports.Defaults.colors.operators, ...(parsed.colors?.operators ?? {}) },
+            },
             features: { ...exports.Defaults.features, ...(parsed.features ?? {}) },
         };
     }

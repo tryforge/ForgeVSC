@@ -37,7 +37,7 @@ exports.ForgeSignatureHelpProvider = void 0;
 exports.registerSignatureHelp = registerSignatureHelp;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
-// export const FunctionPrefixRegex = /\$!?#?(?:@\[[^\]\n]?\])?[a-zA-Z_]+$/
+// export const FunctionPrefixRegex = /\$!?#?(?:@\[[^\]\n]?\])?[a-zA-Z0-9]+$/
 /**
  * Registers the signature help for arguments.
  * @param ctx The extension context.
