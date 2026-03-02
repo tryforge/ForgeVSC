@@ -1,0 +1,55 @@
+name: Publish guides.json (metadata branch)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-guides
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (main)
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Fetch guides
+        env:
+          GUIDES_BASE_URL: ${{ secrets.GUIDES_BASE_URL }}
+          GUIDES_API_KEY: ${{ secrets.GUIDES_API_KEY }}
+        run: node scripts/fetchGuides.mjs
+
+      - name: Verify guides.json
+        run: |
+          test -f guides.json
+          test -s guides.json
+
+      - name: Publish to metadata branch (force, single commit)
+        run: |
+          set -euo pipefail
+
+          rm -rf .publish
+          mkdir -p .publish
+          cp guides.json .publish/guides.json
+
+          cd .publish
+          git init
+          git checkout --orphan metadata
+          git add -A
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update guides.json"
+
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push -f origin metadata
