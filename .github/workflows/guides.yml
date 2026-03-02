@@ -16,8 +16,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (main)
+      - name: Checkout (dev)
         uses: actions/checkout@v4
+        with:
+          ref: dev
 
       - name: Setup Node
         uses: actions/setup-node@v4
