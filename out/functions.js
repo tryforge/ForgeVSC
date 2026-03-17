@@ -135,7 +135,7 @@ function getOutput(node) {
         const out = [];
         for (const el of node.elements) {
             if (checkLiteral(el)) {
-                const type = parseArgType(node);
+                const type = parseArgType(el);
                 if (type)
                     out.push(type);
             }
@@ -144,12 +144,18 @@ function getOutput(node) {
     }
     return undefined;
 }
+function getPropertyKey(name) {
+    if (typescript_1.default.isIdentifier(name) || typescript_1.default.isStringLiteral(name) || typescript_1.default.isNoSubstitutionTemplateLiteral(name)) {
+        return name.text;
+    }
+    return undefined;
+}
 function readMetadata(obj) {
     let fn = {};
     for (const prop of obj.properties) {
         if (!typescript_1.default.isPropertyAssignment(prop))
             continue;
-        const key = prop.name && typescript_1.default.isIdentifier(prop.name) ? prop.name.text : undefined;
+        const key = getPropertyKey(prop.name);
         if (!key)
             continue;
         if (key === "name")
@@ -173,6 +179,83 @@ function readMetadata(obj) {
         fn.description = "Custom function";
     return fn;
 }
+function collectBindings(sf) {
+    const bindings = new Map();
+    for (const stmt of sf.statements) {
+        if (!typescript_1.default.isVariableStatement(stmt))
+            continue;
+        for (const decl of stmt.declarationList.declarations) {
+            if (!typescript_1.default.isIdentifier(decl.name) || !decl.initializer)
+                continue;
+            bindings.set(decl.name.text, decl.initializer);
+        }
+    }
+    return bindings;
+}
+function unwrapExpression(node) {
+    let current = node;
+    while (true) {
+        if (typescript_1.default.isParenthesizedExpression(current)) {
+            current = current.expression;
+            continue;
+        }
+        if (typescript_1.default.isAsExpression(current)) {
+            current = current.expression;
+            continue;
+        }
+        if (typescript_1.default.isSatisfiesExpression(current)) {
+            current = current.expression;
+            continue;
+        }
+        if (typescript_1.default.isNonNullExpression(current)) {
+            current = current.expression;
+            continue;
+        }
+        return current;
+    }
+}
+function resolveMetadataExpressions(node, bindings, seen = new Set()) {
+    const expr = unwrapExpression(node);
+    // { ... }
+    if (typescript_1.default.isObjectLiteralExpression(expr)) {
+        const meta = readMetadata(expr);
+        return meta ? [meta] : [];
+    }
+    // new ForgeFunction({ ... })
+    if (typescript_1.default.isNewExpression(expr) && expr.arguments?.length) {
+        const arg0 = unwrapExpression(expr.arguments[0]);
+        if (typescript_1.default.isObjectLiteralExpression(arg0)) {
+            const meta = readMetadata(arg0);
+            return meta ? [meta] : [];
+        }
+    }
+    // [ ... ]
+    if (typescript_1.default.isArrayLiteralExpression(expr)) {
+        const out = [];
+        for (const el of expr.elements) {
+            if (typescript_1.default.isSpreadElement(el)) {
+                out.push(...resolveMetadataExpressions(el.expression, bindings, seen));
+                continue;
+            }
+            out.push(...resolveMetadataExpressions(el, bindings, seen));
+        }
+        return out;
+    }
+    // identifier indirection
+    if (typescript_1.default.isIdentifier(expr)) {
+        const name = expr.text;
+        if (seen.has(name))
+            return [];
+        const init = bindings.get(name);
+        if (!init)
+            return [];
+        seen.add(name);
+        const out = resolveMetadataExpressions(init, bindings, seen);
+        seen.delete(name);
+        return out;
+    }
+    return [];
+}
 function extractCustomFunctions(text, fileName) {
     const kind = fileName.endsWith(".ts") || fileName.endsWith(".tsx")
         ? typescript_1.default.ScriptKind.TS
@@ -180,42 +263,35 @@ function extractCustomFunctions(text, fileName) {
             ? typescript_1.default.ScriptKind.JSX
             : typescript_1.default.ScriptKind.JS;
     const sf = typescript_1.default.createSourceFile(fileName, text, typescript_1.default.ScriptTarget.Latest, true, kind);
+    const bindings = collectBindings(sf);
     const found = [];
+    const pushResolved = (expr) => found.push(...resolveMetadataExpressions(expr, bindings));
     function visit(node) {
-        // export default new ForgeFunction({ ... })
-        if (typescript_1.default.isExportAssignment(node)) {
-            const expr = node.expression;
-            if (typescript_1.default.isNewExpression(expr) && expr.arguments?.length) {
-                const arg0 = expr.arguments[0];
-                if (typescript_1.default.isObjectLiteralExpression(arg0)) {
-                    const meta = readMetadata(arg0);
-                    if (meta)
-                        found.push(meta);
-                }
-            }
-            // export default { ... }
-            if (typescript_1.default.isObjectLiteralExpression(expr)) {
-                const meta = readMetadata(expr);
-                if (meta)
-                    found.push(meta);
-            }
-        }
-        // module.exports = { ... }
+        // export default ...
+        if (typescript_1.default.isExportAssignment(node))
+            pushResolved(node.expression);
+        // module.exports = ...
         if (typescript_1.default.isBinaryExpression(node) && node.operatorToken.kind === typescript_1.default.SyntaxKind.EqualsToken) {
-            const left = node.left;
+            const left = unwrapExpression(node.left);
             const right = node.right;
-            const isModuleExports = typescript_1.default.isPropertyAccessExpression(left) && typescript_1.default.isIdentifier(left.expression)
-                && left.expression.text === "module" && left.name.text === "exports";
-            if (isModuleExports && typescript_1.default.isObjectLiteralExpression(right)) {
-                const meta = readMetadata(right);
-                if (meta)
-                    found.push(meta);
-            }
+            const isModuleExports = typescript_1.default.isPropertyAccessExpression(left) &&
+                typescript_1.default.isIdentifier(left.expression) &&
+                left.expression.text === "module" &&
+                left.name.text === "exports";
+            const isExportsDefault = typescript_1.default.isPropertyAccessExpression(left) &&
+                typescript_1.default.isIdentifier(left.expression) &&
+                left.expression.text === "exports" &&
+                left.name.text === "default";
+            if (isModuleExports || isExportsDefault)
+                pushResolved(right);
         }
         typescript_1.default.forEachChild(node, visit);
     }
     visit(sf);
-    return found;
+    const unique = new Map();
+    for (const fn of found)
+        unique.set(fn.name.toLowerCase(), fn);
+    return [...unique.values()];
 }
 /**
  * Resolves the workspace path.

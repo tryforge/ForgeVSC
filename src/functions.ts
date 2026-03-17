@@ -110,11 +110,19 @@ function getOutput(node: ts.Expression) {
         const out: ArgTypeKey[] = []
         for (const el of node.elements) {
             if (checkLiteral(el)) {
-                const type = parseArgType(node)
+                const type = parseArgType(el)
                 if (type) out.push(type)
             }
         }
         return out.length ? out : undefined
+    }
+
+    return undefined
+}
+
+function getPropertyKey(name: ts.PropertyName) {
+    if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNoSubstitutionTemplateLiteral(name)) {
+        return name.text
     }
 
     return undefined
@@ -125,7 +133,8 @@ function readMetadata(obj: ts.ObjectLiteralExpression) {
 
     for (const prop of obj.properties) {
         if (!ts.isPropertyAssignment(prop)) continue
-        const key = prop.name && ts.isIdentifier(prop.name) ? prop.name.text : undefined
+
+        const key = getPropertyKey(prop.name)
         if (!key) continue
 
         if (key === "name") fn.name = "$" + getString(prop.initializer)
@@ -143,6 +152,105 @@ function readMetadata(obj: ts.ObjectLiteralExpression) {
     return fn as CustomFunctionMetadata
 }
 
+function collectBindings(sf: ts.SourceFile) {
+    const bindings = new Map<string, ts.Expression>()
+
+    for (const stmt of sf.statements) {
+        if (!ts.isVariableStatement(stmt)) continue
+
+        for (const decl of stmt.declarationList.declarations) {
+            if (!ts.isIdentifier(decl.name) || !decl.initializer) continue
+            bindings.set(decl.name.text, decl.initializer)
+        }
+    }
+
+    return bindings
+}
+
+function unwrapExpression(node: ts.Expression) {
+    let current = node
+
+    while (true) {
+        if (ts.isParenthesizedExpression(current)) {
+            current = current.expression
+            continue
+        }
+
+        if (ts.isAsExpression(current)) {
+            current = current.expression
+            continue
+        }
+
+        if (ts.isSatisfiesExpression(current)) {
+            current = current.expression
+            continue
+        }
+
+        if (ts.isNonNullExpression(current)) {
+            current = current.expression
+            continue
+        }
+
+        return current
+    }
+}
+
+function resolveMetadataExpressions(
+    node: ts.Expression,
+    bindings: Map<string, ts.Expression>,
+    seen = new Set<string>()
+): CustomFunctionMetadata[] {
+    const expr = unwrapExpression(node)
+
+    // { ... }
+    if (ts.isObjectLiteralExpression(expr)) {
+        const meta = readMetadata(expr)
+        return meta ? [meta] : []
+    }
+
+    // new ForgeFunction({ ... })
+    if (ts.isNewExpression(expr) && expr.arguments?.length) {
+        const arg0 = unwrapExpression(expr.arguments[0])
+        if (ts.isObjectLiteralExpression(arg0)) {
+            const meta = readMetadata(arg0)
+            return meta ? [meta] : []
+        }
+    }
+
+    // [ ... ]
+    if (ts.isArrayLiteralExpression(expr)) {
+        const out: CustomFunctionMetadata[] = []
+
+        for (const el of expr.elements) {
+            if (ts.isSpreadElement(el)) {
+                out.push(...resolveMetadataExpressions(el.expression, bindings, seen))
+                continue
+            }
+
+            out.push(...resolveMetadataExpressions(el, bindings, seen))
+        }
+
+        return out
+    }
+
+    // identifier indirection
+    if (ts.isIdentifier(expr)) {
+        const name = expr.text
+        if (seen.has(name)) return []
+
+        const init = bindings.get(name)
+        if (!init) return []
+
+        seen.add(name)
+        const out = resolveMetadataExpressions(init, bindings, seen)
+        seen.delete(name)
+
+        return out
+    }
+
+    return []
+}
+
 function extractCustomFunctions(text: string, fileName: string) {
     const kind = fileName.endsWith(".ts") || fileName.endsWith(".tsx")
         ? ts.ScriptKind.TS
@@ -151,45 +259,45 @@ function extractCustomFunctions(text: string, fileName: string) {
             : ts.ScriptKind.JS
 
     const sf = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, kind)
+    const bindings = collectBindings(sf)
     const found: CustomFunctionMetadata[] = []
 
-    function visit(node: ts.Node) {
-        // export default new ForgeFunction({ ... })
-        if (ts.isExportAssignment(node)) {
-            const expr = node.expression
-            if (ts.isNewExpression(expr) && expr.arguments?.length) {
-                const arg0 = expr.arguments[0]
-                if (ts.isObjectLiteralExpression(arg0)) {
-                    const meta = readMetadata(arg0)
-                    if (meta) found.push(meta)
-                }
-            }
-            // export default { ... }
-            if (ts.isObjectLiteralExpression(expr)) {
-                const meta = readMetadata(expr)
-                if (meta) found.push(meta)
-            }
-        }
+    const pushResolved = (expr: ts.Expression) =>
+        found.push(...resolveMetadataExpressions(expr, bindings))
 
-        // module.exports = { ... }
+    function visit(node: ts.Node) {
+        // export default ...
+        if (ts.isExportAssignment(node)) pushResolved(node.expression)
+
+        // module.exports = ...
         if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
-            const left = node.left
+            const left = unwrapExpression(node.left)
             const right = node.right
 
-            const isModuleExports = ts.isPropertyAccessExpression(left) && ts.isIdentifier(left.expression)
-                && left.expression.text === "module" && left.name.text === "exports"
+            const isModuleExports =
+                ts.isPropertyAccessExpression(left) &&
+                ts.isIdentifier(left.expression) &&
+                left.expression.text === "module" &&
+                left.name.text === "exports"
 
-            if (isModuleExports && ts.isObjectLiteralExpression(right)) {
-                const meta = readMetadata(right)
-                if (meta) found.push(meta)
-            }
+            const isExportsDefault =
+                ts.isPropertyAccessExpression(left) &&
+                ts.isIdentifier(left.expression) &&
+                left.expression.text === "exports" &&
+                left.name.text === "default"
+
+            if (isModuleExports || isExportsDefault) pushResolved(right)
         }
 
         ts.forEachChild(node, visit)
     }
 
     visit(sf)
-    return found
+
+    const unique = new Map<string, CustomFunctionMetadata>()
+    for (const fn of found) unique.set(fn.name.toLowerCase(), fn)
+
+    return [...unique.values()]
 }
 
 /**
