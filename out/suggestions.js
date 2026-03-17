@@ -33,7 +33,6 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ForgeInlineCompletionItemProvider = void 0;
 exports.registerSuggestions = registerSuggestions;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
@@ -80,5 +79,4 @@ class ForgeInlineCompletionItemProvider {
         return null;
     }
 }
-exports.ForgeInlineCompletionItemProvider = ForgeInlineCompletionItemProvider;
 //# sourceMappingURL=suggestions.js.map

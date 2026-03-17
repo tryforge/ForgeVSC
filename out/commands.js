@@ -37,8 +37,9 @@ exports.registerCommands = registerCommands;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 function registerCommands(ctx) {
+    ctx.subscriptions.push(
     // Create Config
-    ctx.subscriptions.push(vscode.commands.registerCommand("forgevsc.createConfig", async () => {
+    vscode.commands.registerCommand("forgevsc.createConfig", async () => {
         const folders = vscode.workspace.workspaceFolders;
         if (!folders?.length) {
             vscode.window.showErrorMessage("Open a workspace folder first.");
@@ -63,15 +64,19 @@ function registerCommands(ctx) {
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.window.showTextDocument(doc);
         vscode.window.showInformationMessage("Successfully created config file (.forgevsc.json)!");
-    }));
-    // Reload Metadata
-    ctx.subscriptions.push(vscode.commands.registerCommand("forgevsc.reloadMetadata", async () => {
+    }), 
+    // Reload Function Metadata
+    vscode.commands.registerCommand("forgevsc.reloadFunctionMetadata", async () => {
         await (0, _1.getFunctions)(true);
-        vscode.window.showInformationMessage("Successfully fetched metadata!");
-    }));
+        vscode.window.showInformationMessage("Successfully fetched function metadata!");
+    }), 
     // Open Extension Page
-    ctx.subscriptions.push(vscode.commands.registerCommand("forgevsc.openExtensionPage", async () => {
+    vscode.commands.registerCommand("forgevsc.openExtensionPage", async () => {
         await vscode.commands.executeCommand("workbench.extensions.action.showExtensionsWithIds", [ctx.extension.id]);
+    }), 
+    // Create Guide
+    vscode.commands.registerCommand("forgevsc.createGuide", async () => {
+        await vscode.env.openExternal(vscode.Uri.parse(_1.DocsUrl));
     }));
 }
 //# sourceMappingURL=commands.js.map

@@ -58,7 +58,7 @@ function registerAutocompletion(ctx) {
                         const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function);
                         item.insertText = name;
                         item.detail = (0, _1.generateUsage)(fn);
-                        item.documentation = new vscode.MarkdownString(`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\`` : ""}`);
+                        item.documentation = new vscode.MarkdownString(`${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${(0, _1.getPackageName)(fn.source) ?? ""} v${fn.version}\`` : ""}`);
                         item.kind = vscode.CompletionItemKind.Function;
                         if (fn.deprecated)
                             item.tags = [vscode.CompletionItemTag.Deprecated];

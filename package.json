@@ -20,7 +20,6 @@
   },
   "activationEvents": [
     "workspaceContains:.forgevsc.json",
-    "workspaceContains:.vscode/.forgevsc.json",
     "onLanguage:javascript",
     "onLanguage:typescript",
     "onLanguage:javascriptreact",
@@ -52,9 +51,56 @@
         "category": "ForgeVSC"
       },
       {
-        "command": "forgevsc.reloadMetadata",
+        "command": "forgevsc.reloadFunctionMetadata",
         "title": "Fetch function metadata. Use with caution!",
+        "category": "ForgeVSC",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "forgevsc.searchGuides",
+        "title": "Search Guides",
+        "category": "ForgeVSC",
+        "icon": "$(search)"
+      },
+      {
+        "command": "forgevsc.reloadGuideMetadata",
+        "title": "Refresh Guides",
+        "category": "ForgeVSC",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "forgevsc.openGuide",
+        "title": "Open Guide",
         "category": "ForgeVSC"
+      },
+      {
+        "command": "forgevsc.previewGuide",
+        "title": "Preview Guide",
+        "category": "ForgeVSC"
+      },
+      {
+        "command": "forgevsc.favoriteGuide",
+        "title": "Add to Favorites",
+        "category": "ForgeVSC",
+        "icon": "$(star-empty)"
+      },
+      {
+        "command": "forgevsc.unfavoriteGuide",
+        "title": "Remove from Favorites",
+        "category": "ForgeVSC",
+        "icon": "$(star-full)"
+      },
+      {
+        "command": "forgevsc.createGuide",
+        "title": "Create Guide",
+        "category": "ForgeVSC",
+        "icon": "$(add)"
+      },
+      {
+        "command": "forgevsc.openGuideExternal",
+        "title": "Open Guide",
+        "category": "ForgeVSC",
+        "icon": "$(link-external)"
       }
     ],
     "grammars": [
@@ -69,6 +115,88 @@
         ]
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "forge",
+          "title": "Guides",
+          "icon": "$(book)"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "forge.guidesView",
+        "contents": "No guides available.\n[$(refresh) Reload Guides](command:forgevsc.reloadGuideMetadata)\n[$(add) Create Guide](command:forgevsc.createGuide)"
+      }
+    ],
+    "views": {
+      "forge": [
+        {
+          "id": "forge.guidesView",
+          "name": "Guides",
+          "icon": "$(book)"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "forgevsc.createGuide",
+          "when": "view == forge.guidesView",
+          "group": "navigation@0"
+        },
+        {
+          "command": "forgevsc.searchGuides",
+          "when": "view == forge.guidesView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "forgevsc.reloadGuideMetadata",
+          "when": "view == forge.guidesView",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "forgevsc.favoriteGuide",
+          "when": "view == forge.guidesView && viewItem == guide",
+          "group": "inline"
+        },
+        {
+          "command": "forgevsc.unfavoriteGuide",
+          "when": "view == forge.guidesView && viewItem == guide.favorite",
+          "group": "inline"
+        },
+        {
+          "command": "forgevsc.openGuideExternal",
+          "when": "view == forge.guidesView && viewItem == guide || view == forge.guidesView && viewItem == guide.favorite",
+          "group": "inline@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "forgevsc.openGuide",
+          "when": "false"
+        },
+        {
+          "command": "forgevsc.previewGuide",
+          "when": "false"
+        },
+        {
+          "command": "forgevsc.favoriteGuide",
+          "when": "false"
+        },
+        {
+          "command": "forgevsc.unfavoriteGuide",
+          "when": "false"
+        },
+        {
+          "command": "forgevsc.openGuideExternal",
+          "when": "false"
+        }
+      ]
+    },
     "configurationDefaults": {
       "editor.quickSuggestions": {
         "other": true,

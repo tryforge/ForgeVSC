@@ -1,4 +1,4 @@
-import { findFunction, generateUsage, getExtensionConfig, languages, locateCodeBlock, OperatorChain, OperatorInfo } from "."
+import { buildSourceURL, findFunction, findGuide, generateUsage, getExtensionConfig, getPackageName, languages, locateCodeBlock, OperatorChain, OperatorInfo } from "."
 import * as vscode from "vscode"
 
 /**
@@ -58,20 +58,36 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                         if (!found) continue
 
                         const { fn, matchedText } = found
-                        const acceptsArgs = fn.brackets !== undefined
+                        const actualEnd = start + matchedText.length
+                        if (position.character < start || position.character > actualEnd) continue
+
+                        const { brackets, name, output, description, version, source } = fn
+                        const acceptsArgs = brackets !== undefined
 
                         const bracketIndex = start + matchedText.length
                         const hasBracket = acceptsArgs && line[bracketIndex] === "["
 
                         const md = new vscode.MarkdownString()
                         md.appendCodeblock(
-                            `${(fn.brackets || hasBracket) ? generateUsage(fn) : fn.name}${fn.output ? `: ` + (fn.output as Array<any>).join(", ") : ""}\n`
+                            `${(brackets || hasBracket) ? generateUsage(fn) : name}${output ? `: ` + (output as Array<any>).join(", ") : ""}\n`
                         )
-                        md.appendText(`${fn.description}\n`)
-                        if (fn.version) {
+                        md.appendText(`${description}\n`)
+                        if (version) {
+                            const links = []
+                            const sourceUrl = await buildSourceURL(fn)
+                            if (sourceUrl) links.push(`[Source](${sourceUrl})`)
+                            const guide = await findGuide({ targetType: "function", targetName: name })
+                            const pkgName = guide?.packageName || getPackageName(source)
+                            if (pkgName) links.push(`[Documentation](https://docs.botforge.org/function/${name}?p=${pkgName})`)
+                            if (guide) {
+                                const cmd = vscode.Uri.parse(
+                                    `command:forgevsc.previewGuide?${encodeURIComponent(JSON.stringify([guide.id]))}`
+                                )
+                                links.push(`[Guide](${cmd})`)
+                            }
                             md.appendMarkdown(`---\n`)
                             md.appendMarkdown(
-                                `##### v${fn.version} | [Documentation](https://docs.botforge.org/function/${fn.name})`
+                                `##### ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? " | " + links.join(" | ") : "")
                             )
                         }
                         md.isTrusted = true

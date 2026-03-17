@@ -23,6 +23,7 @@ __exportStar(require("./decorations"), exports);
 __exportStar(require("./functions"), exports);
 __exportStar(require("./commands"), exports);
 __exportStar(require("./folding"), exports);
+__exportStar(require("./guides"), exports);
 __exportStar(require("./hover"), exports);
 __exportStar(require("./config"), exports);
 //# sourceMappingURL=index.js.map

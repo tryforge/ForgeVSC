@@ -33,15 +33,20 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.languages = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionRegex = exports.FunctionPrefixRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
+exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.languages = exports.DocsUrl = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionRegex = exports.FunctionPrefixRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
 exports.activate = activate;
-exports.buildCacheKey = buildCacheKey;
+exports.clearMetadataCache = clearMetadataCache;
 exports.getForgePackages = getForgePackages;
-exports.overwriteNative = overwriteNative;
+exports.buildPackage = buildPackage;
+exports.getPackageName = getPackageName;
 exports.fetchFunctions = fetchFunctions;
 exports.getFunctions = getFunctions;
+exports.fetchGuides = fetchGuides;
+exports.getGuides = getGuides;
+exports.getPaths = getPaths;
 exports.locateCodeBlock = locateCodeBlock;
 exports.generateUsage = generateUsage;
+exports.buildSourceURL = buildSourceURL;
 exports.findFunction = findFunction;
 exports.validateOperatorPrefix = validateOperatorPrefix;
 exports.cloneRegex = cloneRegex;
@@ -56,8 +61,12 @@ const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
-let functionsPromise = null;
 let functions = null;
+let functionsPromise = null;
+let guides = null;
+let guidesPromise = null;
+let paths = new Map();
+let pathsPromise = new Map();
 let ExtensionContext;
 exports.OperatorChain = String.raw `(?:!?#?(?:@\[[^\]]?\])?)?`;
 exports.LooseOperatorChain = String.raw `(?:[!#]|(?:@\[[^\]]?\]))*`;
@@ -86,8 +95,10 @@ exports.OperatorInfo = {
         description: "The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**.",
     }
 };
+exports.DocsUrl = "https://docs.botforge.org/";
 exports.languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"];
-const MetadataCacheKey = "forgevsc.metadataCache.v1";
+exports.FunctionsStorageKey = "forgevsc.functionsCache.v1";
+exports.GuidesStorageKey = "forgevsc.guidesCache.v1";
 /**
  * Activates the extension.
  * @param ctx The extension context.
@@ -97,8 +108,10 @@ async function activate(ctx) {
     exports.Logger = vscode.window.createOutputChannel("ForgeVSC", { log: true });
     exports.Logger.show(true);
     exports.Logger.info("Starting extension...");
-    (0, _1.registerCommands)(ctx);
     await (0, _1.loadExtensionConfig)();
+    (0, _1.registerCommands)(ctx);
+    (0, _1.registerGuidePreview)(ctx);
+    (0, _1.registerGuidesView)(ctx);
     (0, _1.registerDecorations)(ctx);
     (0, _1.registerFolding)(ctx);
     const watcher = vscode.workspace.createFileSystemWatcher("**/.forgevsc.json");
@@ -133,46 +146,51 @@ async function activate(ctx) {
 }
 /**
  * Builds a cache key.
- * @param pkgNames The names of the packages.
+ * @param installed The names of the installed packages.
+ * @param additional The names of the additional packages.
  * @param customPath The custom functions folder path.
  * @returns
  */
-function buildCacheKey(pkgNames, customPath, additionalPackages = []) {
+function buildCacheKey(installed, additional = [], customPath) {
     return JSON.stringify({
-        pkgs: [...pkgNames].sort(),
         custom: customPath ?? "",
-        additional: [...additionalPackages].map((x) => x.trim()).filter(Boolean).sort()
+        installed: [...installed].map((x) => x.name).sort(),
+        additional: [...additional].map((x) => x.trim()).filter(Boolean).sort()
     });
 }
 /**
  * Reads the metadata from cache.
+ * @param storageKey The storage key.
  * @param key The cache key.
  * @returns
  */
-async function readMetadataCache(key) {
-    const data = ExtensionContext.globalState.get(MetadataCacheKey);
-    if (!data)
+async function readMetadataCache(storageKey, key) {
+    const data = ExtensionContext.globalState.get(storageKey);
+    if (!data || data.version !== 1 || data.key !== key)
         return null;
-    if (data.version !== 1)
-        return null;
-    if (data.key !== key)
-        return null;
-    return data.functions;
+    return data.metadata;
 }
 /**
  * Writes the metadata to cache.
+ * @param storageKey The storage key.
  * @param key The cache key.
- * @param functions The function metadata to store.
+ * @param data The metadata to store.
  */
-async function writeMetadataCache(key, functions) {
-    const payload = { version: 1, key, timestamp: Date.now(), functions };
-    await ExtensionContext.globalState.update(MetadataCacheKey, payload);
+async function writeMetadataCache(storageKey, key, data) {
+    const payload = {
+        key,
+        version: 1,
+        timestamp: Date.now(),
+        metadata: data
+    };
+    await ExtensionContext.globalState.update(storageKey, payload);
 }
 /**
  * Clears the metadata from cache.
+ * @param storageKey The storage key.
  */
-async function clearMetadataCache() {
-    await ExtensionContext.globalState.update(MetadataCacheKey, undefined);
+async function clearMetadataCache(storageKey) {
+    await ExtensionContext.globalState.update(storageKey, undefined);
 }
 /**
  * Returns all forge packages of the workspace.
@@ -186,8 +204,176 @@ function getForgePackages() {
     if (!fs.existsSync(pkgPath))
         return [];
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-    const deps = [...Object.keys(pkg.dependencies ?? {})];
-    return deps.filter((dep) => dep.startsWith("@tryforge/") || dep.includes("forge"));
+    const deps = Object.entries(pkg.dependencies ?? {});
+    return deps
+        .filter(([name]) => name.startsWith("@tryforge/") || name.toLowerCase().includes("forge"))
+        .map(([name, value]) => ({ name, value }));
+}
+/**
+ * Builds a package source.
+ * @param repo The full repo name.
+ * @param branch The repo branch.
+ * @param label The label used.
+ * @returns
+ */
+function buildPackage(repo, branch, label) {
+    return { label, repo, branch: branch || "main" };
+}
+/**
+ * Formats a repository name.
+ * @param name The name to format.
+ * @returns
+ */
+function formatRepoName(name) {
+    const raw = name.toLowerCase().replace(/^@tryforge\//, "");
+    if (!raw.includes("forge"))
+        return null;
+    const stripped = raw.replace(/^forge[._-]?/, "");
+    const upperMap = {
+        db: "DB",
+        api: "API",
+        vsc: "VSC",
+        topgg: "TopGG"
+    };
+    const parts = stripped.split(/[._-]+/).filter(Boolean);
+    const formatted = parts.map((part) => {
+        const lower = part.toLowerCase();
+        if (upperMap[lower])
+            return upperMap[lower];
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+    }).join("");
+    return "Forge" + formatted;
+}
+/**
+ * Returns the formatted name of a package.
+ * @param source The package source.
+ * @returns
+ */
+function getPackageName(source) {
+    if (!source)
+        return null;
+    const name = source.repo.split("/")[1];
+    if (!name)
+        return null;
+    return formatRepoName(name) ?? name;
+}
+/**
+ * Returns the identifier of a package.
+ * @param source The package source.
+ * @returns
+ */
+function getPackageId(source) {
+    if (source.label?.startsWith("@")) {
+        return (source.label.split("/")[1] ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    }
+    return (source.repo.split("/")[1] ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+/**
+ * Gets a repository source.
+ * @param pkgName The package name.
+ * @returns
+ */
+function getRepo(pkgName) {
+    if (!pkgName.startsWith("@tryforge/"))
+        return null;
+    const raw = pkgName.split("/")[1];
+    if (!raw)
+        return null;
+    const name = formatRepoName(pkgName);
+    if (!name)
+        return null;
+    return buildPackage(`tryforge/${name}`, "main", pkgName);
+}
+/**
+ * Normalizes a GitHub repo input.
+ * @param input The input text.
+ * @returns
+ */
+function normalizeRepo(input) {
+    const value = input.trim();
+    if (!value)
+        return null;
+    const githubShort = value.match(/^github:([^/\s]+)\/([^#/\s]+)(?:#([^/\s]+))?$/i);
+    if (githubShort)
+        return buildPackage(`${githubShort[1]}/${githubShort[2]}`, githubShort[3]);
+    const short = value.match(/^([^/\s]+)\/([^#/\s]+)(?:#([^/\s]+))?$/);
+    if (short)
+        return buildPackage(`${short[1]}/${short[2]}`, short[3]);
+    try {
+        const clean = value
+            .replace(/^git\+/, "")
+            .replace(/^github:/i, "https://github.com/")
+            .replace(/^git:\/\//i, "https://")
+            .replace(/^ssh:\/\/git@github\.com\//i, "https://github.com/")
+            .replace(/^git@github\.com:/i, "https://github.com/")
+            .replace(/\.git$/, "");
+        const url = new URL(clean);
+        if (!/^(www\.)?github\.com$/i.test(url.hostname))
+            return null;
+        const parts = url.pathname.split("/").filter(Boolean);
+        if (parts.length < 2)
+            return null;
+        const owner = parts[0];
+        const repo = parts[1];
+        let branch = undefined;
+        if ((parts[2] === "tree" || parts[2] === "blob") && parts[3])
+            branch = parts[3];
+        return buildPackage(`${owner}/${repo}`, branch);
+    }
+    catch {
+        return null;
+    }
+}
+/**
+ * Resolves an installed package input.
+ * @param root The root directory.
+ * @param pkg The workspace package.
+ * @returns
+ */
+function resolveInstalledPackage(root, pkg) {
+    const { name, value } = pkg;
+    const direct = normalizeRepo(value);
+    if (direct)
+        return buildPackage(direct.repo, direct.branch, name);
+    const pkgPath = path.join(root, "node_modules", name, "package.json");
+    if (fs.existsSync(pkgPath)) {
+        try {
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+            const repo = pkg.repository;
+            const ref = typeof repo === "string" ? normalizeRepo(repo) : normalizeRepo(repo.url);
+            if (ref)
+                return buildPackage(ref.repo, ref.branch, name);
+        }
+        catch { }
+    }
+    const fallback = getRepo(name);
+    if (!fallback)
+        return null;
+    return buildPackage(fallback.repo, fallback.branch, name);
+}
+/**
+ * Resolves an additional package input.
+ * @param input The input text.
+ * @returns
+ */
+function resolveAdditionalPackage(input) {
+    const ref = normalizeRepo(input);
+    if (!ref)
+        return null;
+    return buildPackage(ref.repo, ref.branch, input);
+}
+/**
+ * Fetches the functions metadata from a repo.
+ * @param source The package source.
+ * @returns
+ */
+async function fetchMetadata(source) {
+    const url = `https://raw.githubusercontent.com/${source.repo}/${source.branch}/metadata/functions.json`;
+    const res = await fetch(url).catch(() => undefined);
+    if (!res?.ok)
+        return null;
+    const data = await res.json();
+    return data.map((x) => ({ ...x, source }));
 }
 /**
  * Overwrites matching native functions with custom functions.
@@ -216,77 +402,103 @@ async function fetchFunctions(force = false) {
         return [];
     const { additionalPackages, customFunctionsPath } = (0, _1.getExtensionConfig)();
     const root = folders[0].uri.fsPath;
-    const pkgNames = getForgePackages();
-    const additional = additionalPackages ?? [];
-    const cacheKey = buildCacheKey(pkgNames, customFunctionsPath, additional);
+    const rawInstalled = getForgePackages();
+    const rawAdditional = additionalPackages ?? [];
+    let failedFetch = [];
+    const def = buildPackage("tryforge/ForgeScript", "main", "@tryforge/forgescript");
+    const getId = (source) => getPackageId(source);
+    const installed = rawInstalled.map((pkg) => {
+        const source = resolveInstalledPackage(root, pkg);
+        if (!source && pkg.name !== def.label)
+            failedFetch.push(pkg.name);
+        return source;
+    }).filter((x) => !!x);
+    const additional = rawAdditional.map((input) => {
+        const source = resolveAdditionalPackage(input);
+        if (!source && input !== def.label)
+            failedFetch.push(input);
+        return source;
+    }).filter((x) => !!x);
+    const uniqueAdditional = [...new Map(additional.map((source) => [getId(source), source])).values()];
+    const overridden = new Set(uniqueAdditional.map(getId));
+    const uniqueInstalled = installed.filter((source) => !overridden.has(getId(source)));
+    const cacheKey = buildCacheKey(rawInstalled, rawAdditional, customFunctionsPath);
     if (!force) {
-        const cached = await readMetadataCache(cacheKey);
+        const cached = await readMetadataCache(exports.FunctionsStorageKey, cacheKey);
         if (cached) {
-            exports.Logger.info(`Loaded cached metadata (${cached.length} functions).`);
+            exports.Logger.info(`Loaded cached metadata from ${cached.length} functions.`);
             return cached;
         }
     }
-    let def = "@tryforge/forgescript";
+    let main = [];
     let extensionFunctions = [];
-    let failedFetch = [];
     let fetchMain = false;
-    const appendPackage = (data, pkgName) => data.map((x) => ({ ...x, package: pkgName }));
-    for (const pkgName of pkgNames) {
+    for (const pkgSource of uniqueInstalled) {
+        const pkgName = pkgSource.label;
         const pkgPath = path.join(root, "node_modules", pkgName, "package.json");
         if (!fs.existsSync(pkgPath)) {
-            if (pkgName !== def)
-                failedFetch.push(pkgName);
-            continue;
-        }
-        try {
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-            const localMeta = path.join(root, "node_modules", pkgName, "metadata", "functions.json");
-            if (fs.existsSync(localMeta)) {
-                const data = JSON.parse(fs.readFileSync(localMeta, "utf8"));
-                const meta = appendPackage(data, pkgName);
-                extensionFunctions.push(...meta);
-                continue;
-            }
-            if ("repository" in pkg && pkg.repository?.url) {
-                const repoUrl = pkg.repository.url
-                    .replace("git+", "")
-                    .replace(".git", "")
-                    .replace("github.com", "raw.githubusercontent.com");
-                const metaUrl = `${repoUrl}/main/metadata/functions.json`;
-                const res = await fetch(metaUrl).catch(() => undefined);
-                if (res?.ok) {
-                    const data = await res.json();
-                    const meta = appendPackage(data, pkgName);
-                    extensionFunctions.push(...meta);
-                }
-            }
+            const data = await fetchMetadata(pkgSource);
+            if (data)
+                extensionFunctions.push(...data);
             else {
-                if (pkgName !== def)
+                if (pkgName !== def.label)
                     failedFetch.push(pkgName);
                 else
                     fetchMain = true;
             }
+            continue;
         }
-        catch { }
-    }
-    let main = [];
-    if (!pkgNames.includes(def) || !fs.existsSync(path.join(root, "node_modules")) || fetchMain) {
-        const mainUrl = "https://raw.githubusercontent.com/tryforge/ForgeScript/main/metadata/functions.json";
-        const mainRes = await fetch(mainUrl).catch(() => undefined);
-        if (mainRes?.ok) {
-            const data = await mainRes.json();
-            const meta = appendPackage(data, def);
-            main = meta;
+        const localMeta = path.join(root, "node_modules", pkgName, "metadata", "functions.json");
+        if (fs.existsSync(localMeta)) {
+            try {
+                const data = JSON.parse(fs.readFileSync(localMeta, "utf8"));
+                extensionFunctions.push(...data.map((x) => ({ ...x, source: pkgSource })));
+                continue;
+            }
+            catch {
+                if (pkgName !== def.label)
+                    failedFetch.push(pkgName);
+                else
+                    fetchMain = true;
+                continue;
+            }
         }
+        const data = await fetchMetadata(pkgSource);
+        if (data)
+            extensionFunctions.push(...data);
         else {
-            failedFetch.unshift(def);
-            main = [];
+            if (pkgName !== def.label)
+                failedFetch.push(pkgName);
+            else
+                fetchMain = true;
         }
     }
+    for (const source of uniqueAdditional) {
+        const data = await fetchMetadata(source);
+        if (data)
+            extensionFunctions.push(...data);
+        else {
+            if (getId(source) !== getId(def))
+                failedFetch.push(source.label);
+            else
+                fetchMain = true;
+        }
+    }
+    const hasDefaultInstalled = uniqueInstalled.some((x) => getId(x) === getId(def));
+    const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def));
+    if ((!hasDefaultInstalled && !hasDefaultAdditional) || fetchMain) {
+        const data = await fetchMetadata(def);
+        if (data)
+            main = data;
+        else
+            failedFetch.unshift(def.label);
+    }
+    const packages = uniqueInstalled.length + uniqueAdditional.length + (main.length ? 1 : 0);
     const customFunctions = await (0, _1.loadCustomFunctions)(customFunctionsPath);
     const metadata = [...main, ...extensionFunctions];
+    failedFetch = [...new Set(failedFetch)];
     const failed = failedFetch.length;
-    const fetched = pkgNames.length - failed;
+    const fetched = Math.max(packages - failed, 0);
     exports.Logger.info(`Fetched metadata from ${metadata.length} functions across ${fetched} package${fetched === 1 ? "" : "s"}.`);
     if (customFunctionsPath)
         exports.Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`);
@@ -296,7 +508,7 @@ async function fetchFunctions(force = false) {
         vscode.window.showErrorMessage(text);
     }
     const merged = overwriteNative(metadata, customFunctions);
-    await writeMetadataCache(cacheKey, merged);
+    await writeMetadataCache(exports.FunctionsStorageKey, cacheKey, merged);
     return merged;
 }
 /**
@@ -317,6 +529,88 @@ async function getFunctions(force = false) {
         });
     }
     return functionsPromise;
+}
+/**
+ * Fetches all guides from metadata.
+ * @param force Whether to force fetching.
+ */
+async function fetchGuides(force = false) {
+    const key = "default";
+    if (!force) {
+        const cached = await readMetadataCache(exports.GuidesStorageKey, key);
+        if (cached) {
+            exports.Logger.info(`Loaded cached metadata from ${cached.length} guides.`);
+            return cached;
+        }
+    }
+    const url = "https://raw.githubusercontent.com/tryforge/ForgeVSC/refs/heads/metadata/guides.json";
+    const res = await fetch(url).catch((err) => {
+        const text = "Fetching guides failed: " + err;
+        exports.Logger.error(text);
+        vscode.window.showErrorMessage(text);
+        return undefined;
+    });
+    if (!res)
+        return [];
+    if (!res.ok) {
+        const text = `Fetching guides failed: ${res.status} ${res.statusText}`;
+        exports.Logger.error(text);
+        vscode.window.showErrorMessage(text);
+        return [];
+    }
+    const data = await res.json();
+    exports.Logger.info(`Fetched metadata from ${data.length} guides.`);
+    await writeMetadataCache(exports.GuidesStorageKey, key, data);
+    return data;
+}
+/**
+ * Returns all cached guides.
+ * @param force Whether to force fetching.
+ */
+async function getGuides(force = false) {
+    if (guides && !force)
+        return guides;
+    if (!guidesPromise) {
+        guidesPromise = (async () => {
+            const res = await fetchGuides(force);
+            guides = res;
+            return res;
+        })().finally(() => {
+            guidesPromise = null;
+        });
+    }
+    return guidesPromise;
+}
+/**
+ * Returns all runtime cached paths.
+ * @param source The package source.
+ * @returns
+ */
+async function getPaths(source) {
+    const { repo, branch } = source;
+    const key = `${repo}#${branch}`;
+    const cached = paths.get(key);
+    if (cached)
+        return cached;
+    const pending = pathsPromise.get(key);
+    if (pending)
+        return pending;
+    const promise = (async () => {
+        const url = `https://raw.githubusercontent.com/${repo}/${branch}/metadata/paths.json`;
+        const res = await fetch(url).catch(() => undefined);
+        if (!res?.ok)
+            return null;
+        const data = await res.json();
+        paths.set(key, data);
+        return data;
+    })();
+    pathsPromise.set(key, promise);
+    try {
+        return await promise;
+    }
+    finally {
+        pathsPromise.delete(key);
+    }
 }
 /**
  * Locates the code block and returns relevant data.
@@ -361,6 +655,22 @@ function generateUsage(fn, withTypes = false) {
         ? `[${args.map((arg) => `${arg.rest ? "..." : ""}${arg.name}${arg.required ? "" : "?"}${withTypes ? `: ${arg.type}` : ""}`).join(";")}]`
         : "";
     return fn.name + usage;
+}
+/**
+ * Builds the source URL for functions.
+ * @param fn The function metadata.
+ * @returns
+ */
+async function buildSourceURL(fn) {
+    const { source, category } = fn;
+    if (!source)
+        return null;
+    const { repo, branch } = source;
+    let path = "src/native";
+    const paths = await getPaths(source);
+    if (paths)
+        path = paths.functions;
+    return `https://github.com/${repo}/blob/${branch}/${path}${category ? `/${category}` : ""}/${fn.name.replace("$", "")}.ts`;
 }
 /**
  * Finds a function by its name.

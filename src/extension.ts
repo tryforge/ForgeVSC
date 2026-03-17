@@ -1,11 +1,14 @@
 import {
 	getExtensionConfig,
+	GuideMetadata,
 	loadCustomFunctions,
 	loadExtensionConfig,
 	registerAutocompletion,
 	registerCommands,
 	registerDecorations,
 	registerFolding,
+	registerGuidePreview,
+	registerGuidesView,
 	registerHover,
 	registerSignatureHelp,
 	registerSuggestions,
@@ -16,16 +19,40 @@ import * as vscode from "vscode"
 import * as path from "path"
 import * as fs from "fs"
 
-export type FunctionMetadata = Omit<INativeFunction<any>, "execute"> & { package?: string }
-export interface IMetadataCache {
+export type WorkspacePackage = {
+	name: string
+	value: string
+}
+export type PackageSource = {
+	repo: string
+	branch: string
+	label?: string
+}
+
+export type FunctionMetadata = Omit<INativeFunction<any>, "execute"> & {
+	category?: string
+	source?: PackageSource
+}
+export type PathMetadata = {
+	functions: string
+	events?: string
+}
+
+export interface IMetadataCache<T> {
 	version: 1
 	key: string
 	timestamp: number
-	functions: FunctionMetadata[]
+	metadata: T
 }
 
-let functionsPromise: Promise<FunctionMetadata[]> | null = null
 let functions: FunctionMetadata[] | null = null
+let functionsPromise: Promise<FunctionMetadata[]> | null = null
+
+let guides: GuideMetadata[] | null = null
+let guidesPromise: Promise<GuideMetadata[]> | null = null
+
+let paths = new Map<string, PathMetadata>()
+let pathsPromise = new Map<string, Promise<PathMetadata | null>>()
 
 let ExtensionContext: vscode.ExtensionContext
 export let Logger: vscode.LogOutputChannel
@@ -59,8 +86,12 @@ export const OperatorInfo = {
 		description: "The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**.",
 	}
 }
+
+export const DocsUrl = "https://docs.botforge.org/"
 export const languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"]
-const MetadataCacheKey = "forgevsc.metadataCache.v1"
+
+export const FunctionsStorageKey = "forgevsc.functionsCache.v1"
+export const GuidesStorageKey = "forgevsc.guidesCache.v1"
 
 /**
  * Activates the extension.
@@ -73,9 +104,12 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	Logger.show(true)
 	Logger.info("Starting extension...")
 
-	registerCommands(ctx)
-
 	await loadExtensionConfig()
+
+	registerCommands(ctx)
+	registerGuidePreview(ctx)
+	registerGuidesView(ctx)
+
 	registerDecorations(ctx)
 	registerFolding(ctx)
 
@@ -128,53 +162,61 @@ export async function activate(ctx: vscode.ExtensionContext) {
 
 /**
  * Builds a cache key.
- * @param pkgNames The names of the packages.
+ * @param installed The names of the installed packages.
+ * @param additional The names of the additional packages.
  * @param customPath The custom functions folder path.
  * @returns 
  */
-export function buildCacheKey(pkgNames: string[], customPath?: string, additionalPackages: string[] = []) {
+function buildCacheKey(installed: WorkspacePackage[], additional: string[] = [], customPath?: string) {
 	return JSON.stringify({
-		pkgs: [...pkgNames].sort(),
 		custom: customPath ?? "",
-		additional: [...additionalPackages].map((x) => x.trim()).filter(Boolean).sort()
+		installed: [...installed].map((x) => x.name).sort(),
+		additional: [...additional].map((x) => x.trim()).filter(Boolean).sort()
 	})
 }
 
 /**
  * Reads the metadata from cache.
+ * @param storageKey The storage key.
  * @param key The cache key.
  * @returns 
  */
-async function readMetadataCache(key: string) {
-	const data = ExtensionContext.globalState.get<IMetadataCache>(MetadataCacheKey)
-	if (!data) return null
-	if (data.version !== 1) return null
-	if (data.key !== key) return null
-	return data.functions
+async function readMetadataCache<T>(storageKey: string, key: string) {
+	const data = ExtensionContext.globalState.get<IMetadataCache<T>>(storageKey)
+	if (!data || data.version !== 1 || data.key !== key) return null
+	return data.metadata
 }
 
 /**
  * Writes the metadata to cache.
+ * @param storageKey The storage key.
  * @param key The cache key.
- * @param functions The function metadata to store.
+ * @param data The metadata to store.
  */
-async function writeMetadataCache(key: string, functions: FunctionMetadata[]) {
-	const payload: IMetadataCache = { version: 1, key, timestamp: Date.now(), functions }
-	await ExtensionContext.globalState.update(MetadataCacheKey, payload)
+async function writeMetadataCache<T>(storageKey: string, key: string, data: T) {
+	const payload: IMetadataCache<T> = {
+		key,
+		version: 1,
+		timestamp: Date.now(),
+		metadata: data
+	}
+
+	await ExtensionContext.globalState.update(storageKey, payload)
 }
 
 /**
  * Clears the metadata from cache.
+ * @param storageKey The storage key.
  */
-async function clearMetadataCache() {
-	await ExtensionContext.globalState.update(MetadataCacheKey, undefined)
+export async function clearMetadataCache(storageKey: string) {
+	await ExtensionContext.globalState.update(storageKey, undefined)
 }
 
 /**
  * Returns all forge packages of the workspace.
  * @returns 
  */
-export function getForgePackages() {
+export function getForgePackages(): WorkspacePackage[] {
 	const folders = vscode.workspace.workspaceFolders
 	if (!folders) return []
 
@@ -182,9 +224,188 @@ export function getForgePackages() {
 	if (!fs.existsSync(pkgPath)) return []
 
 	const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
-	const deps = [...Object.keys(pkg.dependencies ?? {})]
+	const deps = Object.entries<string>(pkg.dependencies ?? {})
 
-	return deps.filter((dep) => dep.startsWith("@tryforge/") || dep.includes("forge"))
+	return deps
+		.filter(([name]) => name.startsWith("@tryforge/") || name.toLowerCase().includes("forge"))
+		.map(([name, value]) => ({ name, value }))
+}
+
+/**
+ * Builds a package source.
+ * @param repo The full repo name.
+ * @param branch The repo branch.
+ * @param label The label used.
+ * @returns 
+ */
+export function buildPackage(repo: string, branch?: string, label?: string): PackageSource {
+	return { label, repo, branch: branch || "main" }
+}
+
+/**
+ * Formats a repository name.
+ * @param name The name to format.
+ * @returns 
+ */
+function formatRepoName(name: string) {
+	const raw = name.toLowerCase().replace(/^@tryforge\//, "")
+	if (!raw.includes("forge")) return null
+
+	const stripped = raw.replace(/^forge[._-]?/, "")
+	const upperMap: Record<string, string> = {
+		db: "DB",
+		api: "API",
+		vsc: "VSC",
+		topgg: "TopGG"
+	}
+
+	const parts = stripped.split(/[._-]+/).filter(Boolean)
+	const formatted = parts.map((part) => {
+		const lower = part.toLowerCase()
+		if (upperMap[lower]) return upperMap[lower]
+		return lower.charAt(0).toUpperCase() + lower.slice(1)
+	}).join("")
+
+	return "Forge" + formatted
+}
+
+/**
+ * Returns the formatted name of a package.
+ * @param source The package source.
+ * @returns 
+ */
+export function getPackageName(source?: PackageSource) {
+	if (!source) return null
+
+	const name = source.repo.split("/")[1]
+	if (!name) return null
+
+	return formatRepoName(name) ?? name
+}
+
+/**
+ * Returns the identifier of a package.
+ * @param source The package source.
+ * @returns 
+ */
+function getPackageId(source: PackageSource) {
+	if (source.label?.startsWith("@")) {
+		return (source.label.split("/")[1] ?? "").toLowerCase().replace(/[^a-z0-9]/g, "")
+	}
+	return (source.repo.split("/")[1] ?? "").toLowerCase().replace(/[^a-z0-9]/g, "")
+}
+
+/**
+ * Gets a repository source.
+ * @param pkgName The package name.
+ * @returns 
+ */
+function getRepo(pkgName: string) {
+	if (!pkgName.startsWith("@tryforge/")) return null
+
+	const raw = pkgName.split("/")[1]
+	if (!raw) return null
+
+	const name = formatRepoName(pkgName)
+	if (!name) return null
+
+	return buildPackage(`tryforge/${name}`, "main", pkgName)
+}
+
+/**
+ * Normalizes a GitHub repo input.
+ * @param input The input text.
+ * @returns 
+ */
+function normalizeRepo(input: string) {
+	const value = input.trim()
+	if (!value) return null
+
+	const githubShort = value.match(/^github:([^/\s]+)\/([^#/\s]+)(?:#([^/\s]+))?$/i)
+	if (githubShort) return buildPackage(`${githubShort[1]}/${githubShort[2]}`, githubShort[3])
+
+	const short = value.match(/^([^/\s]+)\/([^#/\s]+)(?:#([^/\s]+))?$/)
+	if (short) return buildPackage(`${short[1]}/${short[2]}`, short[3])
+
+	try {
+		const clean = value
+			.replace(/^git\+/, "")
+			.replace(/^github:/i, "https://github.com/")
+			.replace(/^git:\/\//i, "https://")
+			.replace(/^ssh:\/\/git@github\.com\//i, "https://github.com/")
+			.replace(/^git@github\.com:/i, "https://github.com/")
+			.replace(/\.git$/, "")
+
+		const url = new URL(clean)
+		if (!/^(www\.)?github\.com$/i.test(url.hostname)) return null
+
+		const parts = url.pathname.split("/").filter(Boolean)
+		if (parts.length < 2) return null
+
+		const owner = parts[0]
+		const repo = parts[1]
+		let branch = undefined
+
+		if ((parts[2] === "tree" || parts[2] === "blob") && parts[3]) branch = parts[3]
+
+		return buildPackage(`${owner}/${repo}`, branch)
+	} catch {
+		return null
+	}
+}
+
+/**
+ * Resolves an installed package input.
+ * @param root The root directory.
+ * @param pkg The workspace package.
+ * @returns 
+ */
+function resolveInstalledPackage(root: string, pkg: WorkspacePackage) {
+	const { name, value } = pkg
+
+	const direct = normalizeRepo(value)
+	if (direct) return buildPackage(direct.repo, direct.branch, name)
+
+	const pkgPath = path.join(root, "node_modules", name, "package.json")
+	if (fs.existsSync(pkgPath)) {
+		try {
+			const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
+			const repo = pkg.repository
+			const ref = typeof repo === "string" ? normalizeRepo(repo) : normalizeRepo(repo.url)
+			if (ref) return buildPackage(ref.repo, ref.branch, name)
+		} catch { }
+	}
+
+	const fallback = getRepo(name)
+	if (!fallback) return null
+
+	return buildPackage(fallback.repo, fallback.branch, name)
+}
+
+/**
+ * Resolves an additional package input.
+ * @param input The input text.
+ * @returns 
+ */
+function resolveAdditionalPackage(input: string) {
+	const ref = normalizeRepo(input)
+	if (!ref) return null
+
+	return buildPackage(ref.repo, ref.branch, input)
+}
+
+/**
+ * Fetches the functions metadata from a repo.
+ * @param source The package source.
+ * @returns 
+ */
+async function fetchMetadata(source: PackageSource) {
+	const url = `https://raw.githubusercontent.com/${source.repo}/${source.branch}/metadata/functions.json`
+	const res = await fetch(url).catch(() => undefined)
+	if (!res?.ok) return null
+
+	const data = await res.json() as FunctionMetadata[]
+	return data.map((x) => ({ ...x, source }))
 }
 
 /**
@@ -193,7 +414,7 @@ export function getForgePackages() {
  * @param custom The custom function metadata.
  * @returns 
  */
-export function overwriteNative(native: FunctionMetadata[], custom: FunctionMetadata[]) {
+function overwriteNative(native: FunctionMetadata[], custom: FunctionMetadata[]) {
 	const map = new Map<string, FunctionMetadata>()
 	const overwrite = (data: FunctionMetadata[]) => {
 		for (const fn of data) map.set(fn.name.toLowerCase(), fn)
@@ -216,82 +437,102 @@ export async function fetchFunctions(force: boolean = false) {
 
 	const { additionalPackages, customFunctionsPath } = getExtensionConfig()
 	const root = folders[0].uri.fsPath
-	const pkgNames = getForgePackages()
-	const additional = additionalPackages ?? []
-	const cacheKey = buildCacheKey(pkgNames, customFunctionsPath, additional)
 
+	const rawInstalled = getForgePackages()
+	const rawAdditional = additionalPackages ?? []
+	let failedFetch = []
+
+	const def = buildPackage("tryforge/ForgeScript", "main", "@tryforge/forgescript")
+	const getId = (source: PackageSource) => getPackageId(source)
+
+	const installed = rawInstalled.map((pkg) => {
+		const source = resolveInstalledPackage(root, pkg)
+		if (!source && pkg.name !== def.label) failedFetch.push(pkg.name)
+		return source
+	}).filter((x): x is PackageSource => !!x)
+
+	const additional = rawAdditional.map((input) => {
+		const source = resolveAdditionalPackage(input)
+		if (!source && input !== def.label) failedFetch.push(input)
+		return source
+	}).filter((x): x is PackageSource => !!x)
+
+	const uniqueAdditional = [...new Map(additional.map((source) => [getId(source), source])).values()]
+	const overridden = new Set(uniqueAdditional.map(getId))
+	const uniqueInstalled = installed.filter((source) => !overridden.has(getId(source)))
+
+	const cacheKey = buildCacheKey(rawInstalled, rawAdditional, customFunctionsPath)
 	if (!force) {
-		const cached = await readMetadataCache(cacheKey)
+		const cached = await readMetadataCache<FunctionMetadata[]>(FunctionsStorageKey, cacheKey)
 		if (cached) {
-			Logger.info(`Loaded cached metadata (${cached.length} functions).`)
+			Logger.info(`Loaded cached metadata from ${cached.length} functions.`)
 			return cached
 		}
 	}
 
-	let def = "@tryforge/forgescript"
+	let main: FunctionMetadata[] = []
 	let extensionFunctions: FunctionMetadata[] = []
-	let failedFetch = []
 	let fetchMain = false
 
-	const appendPackage = (data: FunctionMetadata[], pkgName: string) =>
-		data.map((x) => ({ ...x, package: pkgName }))
-
-	for (const pkgName of pkgNames) {
+	for (const pkgSource of uniqueInstalled) {
+		const pkgName = pkgSource.label!
 		const pkgPath = path.join(root, "node_modules", pkgName, "package.json")
 		if (!fs.existsSync(pkgPath)) {
-			if (pkgName !== def) failedFetch.push(pkgName)
+			const data = await fetchMetadata(pkgSource)
+			if (data) extensionFunctions.push(...data)
+			else {
+				if (pkgName !== def.label) failedFetch.push(pkgName)
+				else fetchMain = true
+			}
 			continue
 		}
 
-		try {
-			const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
-			const localMeta = path.join(root, "node_modules", pkgName, "metadata", "functions.json")
-
-			if (fs.existsSync(localMeta)) {
-				const data: FunctionMetadata[] = JSON.parse(fs.readFileSync(localMeta, "utf8"))
-				const meta = appendPackage(data, pkgName)
-				extensionFunctions.push(...meta)
+		const localMeta = path.join(root, "node_modules", pkgName, "metadata", "functions.json")
+		if (fs.existsSync(localMeta)) {
+			try {
+				const data = JSON.parse(fs.readFileSync(localMeta, "utf8")) as FunctionMetadata[]
+				extensionFunctions.push(...data.map((x) => ({ ...x, source: pkgSource })))
+				continue
+			} catch {
+				if (pkgName !== def.label) failedFetch.push(pkgName)
+				else fetchMain = true
 				continue
 			}
+		}
 
-			if ("repository" in pkg && pkg.repository?.url) {
-				const repoUrl = pkg.repository.url
-					.replace("git+", "")
-					.replace(".git", "")
-					.replace("github.com", "raw.githubusercontent.com")
-				const metaUrl = `${repoUrl}/main/metadata/functions.json`
-
-				const res = await fetch(metaUrl).catch(() => undefined)
-				if (res?.ok) {
-					const data = await res.json() as FunctionMetadata[]
-					const meta = appendPackage(data, pkgName)
-					extensionFunctions.push(...meta)
-				}
-			} else {
-				if (pkgName !== def) failedFetch.push(pkgName)
-				else fetchMain = true
-			}
-		} catch { }
-	}
-
-	let main: FunctionMetadata[] = []
-	if (!pkgNames.includes(def) || !fs.existsSync(path.join(root, "node_modules")) || fetchMain) {
-		const mainUrl = "https://raw.githubusercontent.com/tryforge/ForgeScript/main/metadata/functions.json"
-		const mainRes = await fetch(mainUrl).catch(() => undefined)
-		if (mainRes?.ok) {
-			const data = await mainRes.json() as FunctionMetadata[]
-			const meta = appendPackage(data, def)
-			main = meta
-		} else {
-			failedFetch.unshift(def)
-			main = []
+		const data = await fetchMetadata(pkgSource)
+		if (data) extensionFunctions.push(...data)
+		else {
+			if (pkgName !== def.label) failedFetch.push(pkgName)
+			else fetchMain = true
 		}
 	}
 
+	for (const source of uniqueAdditional) {
+		const data = await fetchMetadata(source)
+		if (data) extensionFunctions.push(...data)
+		else {
+			if (getId(source) !== getId(def)) failedFetch.push(source.label)
+			else fetchMain = true
+		}
+	}
+
+	const hasDefaultInstalled = uniqueInstalled.some((x) => getId(x) === getId(def))
+	const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def))
+
+	if ((!hasDefaultInstalled && !hasDefaultAdditional) || fetchMain) {
+		const data = await fetchMetadata(def)
+		if (data) main = data
+		else failedFetch.unshift(def.label)
+	}
+
+	const packages = uniqueInstalled.length + uniqueAdditional.length + (main.length ? 1 : 0)
 	const customFunctions = await loadCustomFunctions(customFunctionsPath) as FunctionMetadata[]
 	const metadata = [...main, ...extensionFunctions]
+
+	failedFetch = [...new Set(failedFetch)]
 	const failed = failedFetch.length
-	const fetched = pkgNames.length - failed
+	const fetched = Math.max(packages - failed, 0)
 
 	Logger.info(`Fetched metadata from ${metadata.length} functions across ${fetched} package${fetched === 1 ? "" : "s"}.`)
 	if (customFunctionsPath) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`)
@@ -302,7 +543,7 @@ export async function fetchFunctions(force: boolean = false) {
 	}
 	const merged = overwriteNative(metadata, customFunctions)
 
-	await writeMetadataCache(cacheKey, merged)
+	await writeMetadataCache(FunctionsStorageKey, cacheKey, merged)
 	return merged
 }
 
@@ -325,6 +566,97 @@ export async function getFunctions(force: boolean = false) {
 	}
 
 	return functionsPromise
+}
+
+/**
+ * Fetches all guides from metadata.
+ * @param force Whether to force fetching.
+ */
+export async function fetchGuides(force: boolean = false) {
+	const key = "default"
+
+	if (!force) {
+		const cached = await readMetadataCache<GuideMetadata[]>(GuidesStorageKey, key)
+		if (cached) {
+			Logger.info(`Loaded cached metadata from ${cached.length} guides.`)
+			return cached
+		}
+	}
+
+	const url = "https://raw.githubusercontent.com/tryforge/ForgeVSC/refs/heads/metadata/guides.json"
+	const res = await fetch(url).catch((err) => {
+		const text = "Fetching guides failed: " + err
+		Logger.error(text)
+		vscode.window.showErrorMessage(text)
+		return undefined
+	})
+	if (!res) return []
+
+	if (!res.ok) {
+		const text = `Fetching guides failed: ${res.status} ${res.statusText}`
+		Logger.error(text)
+		vscode.window.showErrorMessage(text)
+		return []
+	}
+
+	const data = await res.json() as GuideMetadata[]
+	Logger.info(`Fetched metadata from ${data.length} guides.`)
+
+	await writeMetadataCache<GuideMetadata[]>(GuidesStorageKey, key, data)
+	return data
+}
+
+/**
+ * Returns all cached guides.
+ * @param force Whether to force fetching.
+ */
+export async function getGuides(force: boolean = false) {
+	if (guides && !force) return guides
+
+	if (!guidesPromise) {
+		guidesPromise = (async () => {
+			const res = await fetchGuides(force)
+			guides = res
+			return res
+		})().finally(() => {
+			guidesPromise = null
+		})
+	}
+
+	return guidesPromise
+}
+
+/**
+ * Returns all runtime cached paths.
+ * @param source The package source.
+ * @returns 
+ */
+export async function getPaths(source: PackageSource) {
+	const { repo, branch } = source
+	const key = `${repo}#${branch}`
+
+	const cached = paths.get(key)
+	if (cached) return cached
+
+	const pending = pathsPromise.get(key)
+	if (pending) return pending
+
+	const promise = (async () => {
+		const url = `https://raw.githubusercontent.com/${repo}/${branch}/metadata/paths.json`
+		const res = await fetch(url).catch(() => undefined)
+		if (!res?.ok) return null
+
+		const data = await res.json() as PathMetadata
+		paths.set(key, data)
+		return data
+	})()
+	pathsPromise.set(key, promise)
+
+	try {
+		return await promise
+	} finally {
+		pathsPromise.delete(key)
+	}
 }
 
 /**
@@ -378,6 +710,24 @@ export function generateUsage(fn: FunctionMetadata, withTypes: boolean = false) 
 		: ""
 
 	return fn.name + usage
+}
+
+/**
+ * Builds the source URL for functions.
+ * @param fn The function metadata.
+ * @returns 
+ */
+export async function buildSourceURL(fn: FunctionMetadata) {
+	const { source, category } = fn
+	if (!source) return null
+
+	const { repo, branch } = source
+	let path = "src/native"
+
+	const paths = await getPaths(source)
+	if (paths) path = paths.functions
+
+	return `https://github.com/${repo}/blob/${branch}/${path}${category ? `/${category}` : ""}/${fn.name.replace("$", "")}.ts`
 }
 
 /**

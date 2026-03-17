@@ -89,15 +89,31 @@ function registerHover(ctx) {
                     if (!found)
                         continue;
                     const { fn, matchedText } = found;
-                    const acceptsArgs = fn.brackets !== undefined;
+                    const actualEnd = start + matchedText.length;
+                    if (position.character < start || position.character > actualEnd)
+                        continue;
+                    const { brackets, name, output, description, version, source } = fn;
+                    const acceptsArgs = brackets !== undefined;
                     const bracketIndex = start + matchedText.length;
                     const hasBracket = acceptsArgs && line[bracketIndex] === "[";
                     const md = new vscode.MarkdownString();
-                    md.appendCodeblock(`${(fn.brackets || hasBracket) ? (0, _1.generateUsage)(fn) : fn.name}${fn.output ? `: ` + fn.output.join(", ") : ""}\n`);
-                    md.appendText(`${fn.description}\n`);
-                    if (fn.version) {
+                    md.appendCodeblock(`${(brackets || hasBracket) ? (0, _1.generateUsage)(fn) : name}${output ? `: ` + output.join(", ") : ""}\n`);
+                    md.appendText(`${description}\n`);
+                    if (version) {
+                        const links = [];
+                        const sourceUrl = await (0, _1.buildSourceURL)(fn);
+                        if (sourceUrl)
+                            links.push(`[Source](${sourceUrl})`);
+                        const guide = await (0, _1.findGuide)({ targetType: "function", targetName: name });
+                        const pkgName = guide?.packageName || (0, _1.getPackageName)(source);
+                        if (pkgName)
+                            links.push(`[Documentation](https://docs.botforge.org/function/${name}?p=${pkgName})`);
+                        if (guide) {
+                            const cmd = vscode.Uri.parse(`command:forgevsc.previewGuide?${encodeURIComponent(JSON.stringify([guide.id]))}`);
+                            links.push(`[Guide](${cmd})`);
+                        }
                         md.appendMarkdown(`---\n`);
-                        md.appendMarkdown(`##### v${fn.version} | [Documentation](https://docs.botforge.org/function/${fn.name})`);
+                        md.appendMarkdown(`##### ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? " | " + links.join(" | ") : ""));
                     }
                     md.isTrusted = true;
                     const hoverEnd = Math.min(end, start + matchedText.length);

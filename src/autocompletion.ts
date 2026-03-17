@@ -6,6 +6,7 @@ import {
     generateUsage,
     getExtensionConfig,
     getFunctions,
+    getPackageName,
     languages,
     locateCodeBlock,
     splitArgs,
@@ -41,7 +42,7 @@ export function registerAutocompletion(ctx: vscode.ExtensionContext) {
                             item.insertText = name
                             item.detail = generateUsage(fn)
                             item.documentation = new vscode.MarkdownString(
-                                `${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${fn.package ?? ""}@${fn.version}\`` : ""}`
+                                `${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${getPackageName(fn.source) ?? ""} v${fn.version}\`` : ""}`
                             )
                             item.kind = vscode.CompletionItemKind.Function
                             if (fn.deprecated) item.tags = [vscode.CompletionItemTag.Deprecated]

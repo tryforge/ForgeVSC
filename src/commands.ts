@@ -1,9 +1,9 @@
-import { Defaults, getFunctions } from "."
+import { Defaults, DocsUrl, getFunctions } from "."
 import * as vscode from "vscode"
 
 export function registerCommands(ctx: vscode.ExtensionContext) {
-    // Create Config
     ctx.subscriptions.push(
+        // Create Config
         vscode.commands.registerCommand("forgevsc.createConfig", async () => {
             const folders = vscode.workspace.workspaceFolders
             if (!folders?.length) {
@@ -37,24 +37,25 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
             await vscode.window.showTextDocument(doc)
 
             vscode.window.showInformationMessage("Successfully created config file (.forgevsc.json)!")
-        })
-    )
+        }),
 
-    // Reload Metadata
-    ctx.subscriptions.push(
-        vscode.commands.registerCommand("forgevsc.reloadMetadata", async () => {
+        // Reload Function Metadata
+        vscode.commands.registerCommand("forgevsc.reloadFunctionMetadata", async () => {
             await getFunctions(true)
-            vscode.window.showInformationMessage("Successfully fetched metadata!")
-        })
-    )
+            vscode.window.showInformationMessage("Successfully fetched function metadata!")
+        }),
 
-    // Open Extension Page
-    ctx.subscriptions.push(
+        // Open Extension Page
         vscode.commands.registerCommand("forgevsc.openExtensionPage", async () => {
             await vscode.commands.executeCommand(
                 "workbench.extensions.action.showExtensionsWithIds",
                 [ctx.extension.id]
             )
+        }),
+
+        // Create Guide
+        vscode.commands.registerCommand("forgevsc.createGuide", async () => {
+            await vscode.env.openExternal(vscode.Uri.parse(DocsUrl))
         })
     )
 }

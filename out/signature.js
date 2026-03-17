@@ -33,7 +33,6 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ForgeSignatureHelpProvider = void 0;
 exports.registerSignatureHelp = registerSignatureHelp;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
@@ -89,5 +88,4 @@ class ForgeSignatureHelpProvider {
         return help;
     }
 }
-exports.ForgeSignatureHelpProvider = ForgeSignatureHelpProvider;
 //# sourceMappingURL=signature.js.map

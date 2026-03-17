@@ -14,7 +14,7 @@ export function registerSuggestions(ctx: vscode.ExtensionContext) {
 	)
 }
 
-export class ForgeInlineCompletionItemProvider implements vscode.InlineCompletionItemProvider {
+class ForgeInlineCompletionItemProvider implements vscode.InlineCompletionItemProvider {
 	async provideInlineCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
 		const code = locateCodeBlock(document, position)
 		const config = getExtensionConfig()

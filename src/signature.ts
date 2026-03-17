@@ -20,7 +20,7 @@ export function registerSignatureHelp(ctx: vscode.ExtensionContext) {
 	)
 }
 
-export class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider {
+class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider {
 	async provideSignatureHelp(document: vscode.TextDocument, position: vscode.Position) {
 		const code = locateCodeBlock(document, position)
 		const config = getExtensionConfig()
