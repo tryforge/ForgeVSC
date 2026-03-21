@@ -233,7 +233,7 @@ function resolveMetadataExpressions(
         return out
     }
 
-    // identifier indirection
+    // Identifier
     if (ts.isIdentifier(expr)) {
         const name = expr.text
         if (seen.has(name)) return []
@@ -274,17 +274,9 @@ function extractCustomFunctions(text: string, fileName: string) {
             const left = unwrapExpression(node.left)
             const right = node.right
 
-            const isModuleExports =
-                ts.isPropertyAccessExpression(left) &&
-                ts.isIdentifier(left.expression) &&
-                left.expression.text === "module" &&
-                left.name.text === "exports"
-
-            const isExportsDefault =
-                ts.isPropertyAccessExpression(left) &&
-                ts.isIdentifier(left.expression) &&
-                left.expression.text === "exports" &&
-                left.name.text === "default"
+            const check = ts.isPropertyAccessExpression(left) && ts.isIdentifier(left.expression)
+            const isModuleExports = check && left.expression.text === "module" && left.name.text === "exports"
+            const isExportsDefault = check && left.expression.text === "exports" && left.name.text === "default"
 
             if (isModuleExports || isExportsDefault) pushResolved(right)
         }

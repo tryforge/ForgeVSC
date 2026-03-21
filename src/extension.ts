@@ -289,10 +289,8 @@ export function getPackageName(source?: PackageSource) {
  * @returns 
  */
 function getPackageId(source: PackageSource) {
-	if (source.label?.startsWith("@")) {
-		return (source.label.split("/")[1] ?? "").toLowerCase().replace(/[^a-z0-9]/g, "")
-	}
-	return (source.repo.split("/")[1] ?? "").toLowerCase().replace(/[^a-z0-9]/g, "")
+	const text = source.label?.startsWith("@") ? source.label : source.repo
+	return (text.split("/")[1] ?? "").toLowerCase().replace(/[^a-z0-9]/g, "")
 }
 
 /**
@@ -439,7 +437,7 @@ export async function fetchFunctions(force: boolean = false) {
 	const root = folders[0].uri.fsPath
 
 	const rawInstalled = getForgePackages()
-	const rawAdditional = additionalPackages ?? []
+	const rawAdditional = additionalPackages?.filter(Boolean) ?? []
 	let failedFetch = []
 
 	const def = buildPackage("tryforge/ForgeScript", "main", "@tryforge/forgescript")
@@ -470,8 +468,8 @@ export async function fetchFunctions(force: boolean = false) {
 		}
 	}
 
-	let main: FunctionMetadata[] = []
 	let extensionFunctions: FunctionMetadata[] = []
+	let fetched = new Set()
 	let fetchMain = false
 
 	for (const pkgSource of uniqueInstalled) {
@@ -479,8 +477,10 @@ export async function fetchFunctions(force: boolean = false) {
 		const pkgPath = path.join(root, "node_modules", pkgName, "package.json")
 		if (!fs.existsSync(pkgPath)) {
 			const data = await fetchMetadata(pkgSource)
-			if (data) extensionFunctions.push(...data)
-			else {
+			if (data) {
+				extensionFunctions.push(...data)
+				fetched.add(pkgName)
+			} else {
 				if (pkgName !== def.label) failedFetch.push(pkgName)
 				else fetchMain = true
 			}
@@ -492,6 +492,7 @@ export async function fetchFunctions(force: boolean = false) {
 			try {
 				const data = JSON.parse(fs.readFileSync(localMeta, "utf8")) as FunctionMetadata[]
 				extensionFunctions.push(...data.map((x) => ({ ...x, source: pkgSource })))
+				fetched.add(pkgName)
 				continue
 			} catch {
 				if (pkgName !== def.label) failedFetch.push(pkgName)
@@ -501,8 +502,10 @@ export async function fetchFunctions(force: boolean = false) {
 		}
 
 		const data = await fetchMetadata(pkgSource)
-		if (data) extensionFunctions.push(...data)
-		else {
+		if (data) {
+			extensionFunctions.push(...data)
+			fetched.add(pkgName)
+		} else {
 			if (pkgName !== def.label) failedFetch.push(pkgName)
 			else fetchMain = true
 		}
@@ -510,8 +513,10 @@ export async function fetchFunctions(force: boolean = false) {
 
 	for (const source of uniqueAdditional) {
 		const data = await fetchMetadata(source)
-		if (data) extensionFunctions.push(...data)
-		else {
+		if (data) {
+			extensionFunctions.push(...data)
+			fetched.add(source.label)
+		} else {
 			if (getId(source) !== getId(def)) failedFetch.push(source.label)
 			else fetchMain = true
 		}
@@ -520,21 +525,24 @@ export async function fetchFunctions(force: boolean = false) {
 	const hasDefaultInstalled = uniqueInstalled.some((x) => getId(x) === getId(def))
 	const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def))
 
+	let main: FunctionMetadata[] = []
 	if ((!hasDefaultInstalled && !hasDefaultAdditional) || fetchMain) {
 		const data = await fetchMetadata(def)
-		if (data) main = data
+		if (data) {
+			main = data
+			fetched.add(def.label)
+		}
 		else failedFetch.unshift(def.label)
 	}
 
-	const packages = uniqueInstalled.length + uniqueAdditional.length + (main.length ? 1 : 0)
 	const customFunctions = await loadCustomFunctions(customFunctionsPath) as FunctionMetadata[]
 	const metadata = [...main, ...extensionFunctions]
 
 	failedFetch = [...new Set(failedFetch)]
 	const failed = failedFetch.length
-	const fetched = Math.max(packages - failed, 0)
+	const count = fetched.size
 
-	Logger.info(`Fetched metadata from ${metadata.length} functions across ${fetched} package${fetched === 1 ? "" : "s"}.`)
+	Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}.`)
 	if (customFunctionsPath) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`)
 	if (failed) {
 		const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")

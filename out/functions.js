@@ -241,7 +241,7 @@ function resolveMetadataExpressions(node, bindings, seen = new Set()) {
         }
         return out;
     }
-    // identifier indirection
+    // Identifier
     if (typescript_1.default.isIdentifier(expr)) {
         const name = expr.text;
         if (seen.has(name))
@@ -274,14 +274,9 @@ function extractCustomFunctions(text, fileName) {
         if (typescript_1.default.isBinaryExpression(node) && node.operatorToken.kind === typescript_1.default.SyntaxKind.EqualsToken) {
             const left = unwrapExpression(node.left);
             const right = node.right;
-            const isModuleExports = typescript_1.default.isPropertyAccessExpression(left) &&
-                typescript_1.default.isIdentifier(left.expression) &&
-                left.expression.text === "module" &&
-                left.name.text === "exports";
-            const isExportsDefault = typescript_1.default.isPropertyAccessExpression(left) &&
-                typescript_1.default.isIdentifier(left.expression) &&
-                left.expression.text === "exports" &&
-                left.name.text === "default";
+            const check = typescript_1.default.isPropertyAccessExpression(left) && typescript_1.default.isIdentifier(left.expression);
+            const isModuleExports = check && left.expression.text === "module" && left.name.text === "exports";
+            const isExportsDefault = check && left.expression.text === "exports" && left.name.text === "default";
             if (isModuleExports || isExportsDefault)
                 pushResolved(right);
         }
