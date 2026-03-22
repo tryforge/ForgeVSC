@@ -244,7 +244,6 @@
     "lint": "eslint src"
   },
   "devDependencies": {
-    "@tryforge/forgescript": "^2.6.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/vscode": "^1.96.0",
@@ -255,5 +254,8 @@
     "eslint": "^9.16.0",
     "ovsx": "^0.10.9",
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@tryforge/forgescript": "^2.6.0"
   }
 }
