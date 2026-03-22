@@ -6,6 +6,8 @@
 Official Visual Studio Code Extension for ForgeScript.
 
 <a href="https://github.com/tryforge/ForgeVSC/"><img src="https://img.shields.io/github/package-json/v/tryforge/ForgeVSC/main?label=ForgeVSC&color=5c16d4" alt="ForgeVSC"></a>
+<a href="https://marketplace.visualstudio.com/items?itemName=tryforge.forgevsc"><img src="https://img.shields.io/visual-studio-marketplace/v/tryforge.forgevsc?label=VSC+Marketplace&color=5c16d4" alt="VSC Marketplace"></a>
+<a href="https://open-vsx.org/extension/tryforge/forgevsc"><img src="https://img.shields.io/open-vsx/v/tryforge/forgevsc?label=OpenVSX+Marketplace&color=5c16d4 " alt="OpenVSX Marketplace"></a>
 <a href="https://github.com/tryforge/ForgeScript/"><img src="https://img.shields.io/github/package-json/v/tryforge/ForgeScript/main?label=@tryforge/forgescript&color=5c16d4" alt="@tryforge/forgescript"></a>
 <a href="https://discord.gg/hcJgjzPvqb"><img src="https://img.shields.io/discord/997899472610795580?logo=discord" alt="Discord"></a>
 
