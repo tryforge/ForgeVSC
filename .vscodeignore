@@ -2,7 +2,6 @@
 .vscode-test/**
 src/**
 .gitignore
-.yarnrc
 vsc-extension-quickstart.md
 **/tsconfig.json
 **/eslint.config.mjs
@@ -10,3 +9,5 @@ vsc-extension-quickstart.md
 **/*.ts
 **/.vscode-test.*
 .tests/**
+\.env
+assets/examples/
