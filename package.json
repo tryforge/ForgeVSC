@@ -236,7 +236,8 @@
     ]
   },
   "scripts": {
-    "publish": "dotenv -- sh -c 'npx @vscode/vsce package && npx ovsx publish -p $OVSX_PAT'",
+    "publish": "dotenv -- sh -c 'npm run package && npx ovsx publish -p $OVSX_PAT'",
+    "package": "npx @vscode/vsce package",
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
@@ -252,10 +253,10 @@
     "@vscode/vsce": "^3.7.1",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9.16.0",
-    "ovsx": "^0.10.9",
-    "typescript": "^5.7.2"
+    "ovsx": "^0.10.9"
   },
   "dependencies": {
-    "@tryforge/forgescript": "^2.6.0"
+    "@tryforge/forgescript": "^2.6.0",
+    "typescript": "^5.9.3"
   }
 }
