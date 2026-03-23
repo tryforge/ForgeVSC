@@ -1,4 +1,4 @@
-import { Defaults, DocsUrl, getFunctions } from "."
+import { Defaults, DocsUrl, getFunctions, Logger } from "."
 import * as vscode from "vscode"
 
 export function registerCommands(ctx: vscode.ExtensionContext) {
@@ -51,6 +51,11 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
                 "workbench.extensions.action.showExtensionsWithIds",
                 [ctx.extension.id]
             )
+        }),
+
+        // Open Extension Log
+        vscode.commands.registerCommand("forgevsc.openExtensionLog", async () => {
+            Logger.show()
         }),
 
         // Create Guide

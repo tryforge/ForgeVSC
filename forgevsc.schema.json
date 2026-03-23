@@ -5,9 +5,9 @@
   "additionalProperties": false,
   "properties": {
     "customFunctionsPath": {
-      "type": "string",
-      "default": "",
-      "description": "Path to your custom functions folder. This is used to generate metadata and to provide full extension feature support for your custom functions."
+      "type": ["string", "array"],
+      "default": [],
+      "description": "Path(s) to your custom functions folder. This is used to generate metadata and to provide full extension feature support for your custom functions."
     },
     "additionalPackages": {
       "type": "array",
@@ -73,7 +73,7 @@
     "features": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The default features included with the extension. You can choose individually which ones to enable or disable.",
+      "description": "The default features included within the extension. You can choose individually which ones to enable or disable.",
       "properties": {
         "folding": {
           "type": "boolean",
