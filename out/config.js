@@ -36,9 +36,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Defaults = void 0;
 exports.getExtensionConfig = getExtensionConfig;
 exports.loadExtensionConfig = loadExtensionConfig;
+const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 exports.Defaults = {
-    customFunctionsPath: "",
+    customFunctionsPath: [],
     additionalPackages: [],
     colors: {
         function: {
@@ -77,7 +78,7 @@ async function loadExtensionConfig() {
         const raw = await vscode.workspace.fs.readFile(uri);
         const parsed = JSON.parse(Buffer.from(raw).toString("utf8"));
         cached = {
-            customFunctionsPath: parsed.customFunctionsPath ?? exports.Defaults.customFunctionsPath,
+            customFunctionsPath: (0, _1.toArray)(parsed.customFunctionsPath ?? exports.Defaults.customFunctionsPath),
             additionalPackages: Array.from(new Set([...exports.Defaults.additionalPackages, ...(parsed.additionalPackages ?? [])])),
             colors: {
                 function: { ...exports.Defaults.colors.function, ...(parsed.colors?.function ?? {}) },

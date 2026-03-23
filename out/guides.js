@@ -44,6 +44,11 @@ const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 const GuideScheme = "forge-guide";
 const FavoriteGuidesKey = "forgevsc.favoriteGuides";
+const IconPaths = {
+    functions: "symbol-function",
+    events: "symbol-event",
+    enums: "symbol-enum"
+};
 let ExtensionContext;
 function clean(value) {
     return value?.trim() || "";
@@ -272,13 +277,17 @@ class ForgeGuidesProvider {
             return item;
         }
         const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Collapsed);
+        let iconPath;
+        if (element.kind === "package")
+            iconPath = "package";
+        else if (element.kind === "category" && element.category)
+            iconPath = IconPaths[element.category] || "folder";
+        else
+            iconPath = "folder";
         item.id = `${element.kind}:${element.key}`;
         item.contextValue = element.kind;
         item.tooltip = element.label;
-        if (element.kind === "package")
-            item.iconPath = new vscode.ThemeIcon("package");
-        else
-            item.iconPath = new vscode.ThemeIcon("folder");
+        item.iconPath = new vscode.ThemeIcon(iconPath);
         return item;
     }
     async getChildren(element) {

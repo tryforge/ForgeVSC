@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DefaultParam = void 0;
 exports.loadCustomFunctions = loadCustomFunctions;
 const forgescript_1 = require("@tryforge/forgescript");
+const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const typescript_1 = __importDefault(require("typescript"));
@@ -339,17 +340,20 @@ async function collectFiles(dir, out = []) {
  * @returns
  */
 async function loadCustomFunctions(customFunctionsPath) {
-    if (!customFunctionsPath)
+    customFunctionsPath = (0, _1.toArray)(customFunctionsPath);
+    if (!customFunctionsPath.length)
         return [];
-    const dirUri = resolveWorkspacePath(customFunctionsPath);
-    if (!dirUri)
-        return [];
-    const files = await collectFiles(dirUri);
     const meta = [];
-    for (const file of files) {
-        const buf = await vscode.workspace.fs.readFile(file);
-        const text = Buffer.from(buf).toString("utf8");
-        meta.push(...extractCustomFunctions(text, file.fsPath));
+    for (const p of customFunctionsPath) {
+        const dirUri = resolveWorkspacePath(p);
+        if (!dirUri)
+            continue;
+        const files = await collectFiles(dirUri);
+        for (const file of files) {
+            const buf = await vscode.workspace.fs.readFile(file);
+            const text = Buffer.from(buf).toString("utf8");
+            meta.push(...extractCustomFunctions(text, file.fsPath));
+        }
     }
     return meta;
 }

@@ -74,6 +74,10 @@ function registerCommands(ctx) {
     vscode.commands.registerCommand("forgevsc.openExtensionPage", async () => {
         await vscode.commands.executeCommand("workbench.extensions.action.showExtensionsWithIds", [ctx.extension.id]);
     }), 
+    // Open Extension Log
+    vscode.commands.registerCommand("forgevsc.openExtensionLog", async () => {
+        _1.Logger.show();
+    }), 
     // Create Guide
     vscode.commands.registerCommand("forgevsc.createGuide", async () => {
         await vscode.env.openExternal(vscode.Uri.parse(_1.DocsUrl));

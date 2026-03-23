@@ -104,7 +104,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	Logger.show(true)
 	Logger.info("Starting extension...")
 
-	await loadExtensionConfig()
+	void loadExtensionConfig()
 
 	registerCommands(ctx)
 	registerGuidePreview(ctx)
@@ -116,9 +116,9 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	const watcher = vscode.workspace.createFileSystemWatcher("**/.forgevsc.json")
 	ctx.subscriptions.push(
 		watcher,
-		watcher.onDidCreate(async () => await loadExtensionConfig()),
-		watcher.onDidChange(async () => await loadExtensionConfig()),
-		watcher.onDidDelete(async () => await loadExtensionConfig())
+		watcher.onDidCreate(async () => void loadExtensionConfig()),
+		watcher.onDidChange(async () => void loadExtensionConfig()),
+		watcher.onDidDelete(async () => void loadExtensionConfig())
 	)
 
 	const diagnostics = vscode.languages.createDiagnosticCollection("forge")
@@ -150,8 +150,8 @@ export async function activate(ctx: vscode.ExtensionContext) {
 
 	const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC"
 	const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
-	status.text = name + " v" + ctx.extension.packageJSON.version
-	status.command = "forgevsc.openExtensionPage"
+	status.text = `$(package) ${name} v` + ctx.extension.packageJSON.version
+	status.command = "forgevsc.openExtensionLog"
 	status.tooltip = name + " Extension Details"
 	status.show()
 
@@ -161,15 +161,25 @@ export async function activate(ctx: vscode.ExtensionContext) {
 }
 
 /**
+ * Converts the given value to an array.
+ * @param value The value to convert.
+ * @returns 
+ */
+export function toArray(value?: string | string[]) {
+	if (!value) return []
+	return Array.isArray(value) ? value : [value]
+}
+
+/**
  * Builds a cache key.
  * @param installed The names of the installed packages.
  * @param additional The names of the additional packages.
- * @param customPath The custom functions folder path.
+ * @param customPaths The custom functions folder paths.
  * @returns 
  */
-function buildCacheKey(installed: WorkspacePackage[], additional: string[] = [], customPath?: string) {
+function buildCacheKey(installed: WorkspacePackage[], additional: string[] = [], customPaths?: string | string[]) {
 	return JSON.stringify({
-		custom: customPath ?? "",
+		custom: toArray(customPaths),
 		installed: [...installed].map((x) => x.name).sort(),
 		additional: [...additional].map((x) => x.trim()).filter(Boolean).sort()
 	})

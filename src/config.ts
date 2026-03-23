@@ -1,7 +1,8 @@
+import { toArray } from "."
 import * as vscode from "vscode"
 
 export interface IExtensionConfig {
-    customFunctionsPath?: string
+    customFunctionsPath?: string | string[]
     additionalPackages?: string[]
     colors?: {
         function?: {
@@ -27,7 +28,7 @@ export interface IExtensionConfig {
 }
 
 export const Defaults: Required<IExtensionConfig> = {
-    customFunctionsPath: "",
+    customFunctionsPath: [],
     additionalPackages: [],
     colors: {
         function: {
@@ -72,7 +73,7 @@ export async function loadExtensionConfig() {
         const parsed = JSON.parse(Buffer.from(raw).toString("utf8")) as IExtensionConfig
 
         cached = {
-            customFunctionsPath: parsed.customFunctionsPath ?? Defaults.customFunctionsPath,
+            customFunctionsPath: toArray(parsed.customFunctionsPath ?? Defaults.customFunctionsPath),
             additionalPackages: Array.from(
                 new Set([...Defaults.additionalPackages, ...(parsed.additionalPackages ?? [])])
             ),

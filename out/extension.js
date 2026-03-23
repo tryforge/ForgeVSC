@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.languages = exports.DocsUrl = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionRegex = exports.FunctionPrefixRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
 exports.activate = activate;
+exports.toArray = toArray;
 exports.clearMetadataCache = clearMetadataCache;
 exports.getForgePackages = getForgePackages;
 exports.buildPackage = buildPackage;
@@ -108,14 +109,14 @@ async function activate(ctx) {
     exports.Logger = vscode.window.createOutputChannel("ForgeVSC", { log: true });
     exports.Logger.show(true);
     exports.Logger.info("Starting extension...");
-    await (0, _1.loadExtensionConfig)();
+    void (0, _1.loadExtensionConfig)();
     (0, _1.registerCommands)(ctx);
     (0, _1.registerGuidePreview)(ctx);
     (0, _1.registerGuidesView)(ctx);
     (0, _1.registerDecorations)(ctx);
     (0, _1.registerFolding)(ctx);
     const watcher = vscode.workspace.createFileSystemWatcher("**/.forgevsc.json");
-    ctx.subscriptions.push(watcher, watcher.onDidCreate(async () => await (0, _1.loadExtensionConfig)()), watcher.onDidChange(async () => await (0, _1.loadExtensionConfig)()), watcher.onDidDelete(async () => await (0, _1.loadExtensionConfig)()));
+    ctx.subscriptions.push(watcher, watcher.onDidCreate(async () => void (0, _1.loadExtensionConfig)()), watcher.onDidChange(async () => void (0, _1.loadExtensionConfig)()), watcher.onDidDelete(async () => void (0, _1.loadExtensionConfig)()));
     const diagnostics = vscode.languages.createDiagnosticCollection("forge");
     ctx.subscriptions.push(diagnostics);
     (0, _1.validateDocument)(vscode.window.activeTextEditor?.document, diagnostics);
@@ -137,23 +138,33 @@ async function activate(ctx) {
     (0, _1.registerSuggestions)(ctx);
     const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC";
     const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    status.text = name + " v" + ctx.extension.packageJSON.version;
-    status.command = "forgevsc.openExtensionPage";
+    status.text = `$(package) ${name} v` + ctx.extension.packageJSON.version;
+    status.command = "forgevsc.openExtensionLog";
     status.tooltip = name + " Extension Details";
     status.show();
     ctx.subscriptions.push(status);
     exports.Logger.info("Extension started successfully!");
 }
 /**
+ * Converts the given value to an array.
+ * @param value The value to convert.
+ * @returns
+ */
+function toArray(value) {
+    if (!value)
+        return [];
+    return Array.isArray(value) ? value : [value];
+}
+/**
  * Builds a cache key.
  * @param installed The names of the installed packages.
  * @param additional The names of the additional packages.
- * @param customPath The custom functions folder path.
+ * @param customPaths The custom functions folder paths.
  * @returns
  */
-function buildCacheKey(installed, additional = [], customPath) {
+function buildCacheKey(installed, additional = [], customPaths) {
     return JSON.stringify({
-        custom: customPath ?? "",
+        custom: toArray(customPaths),
         installed: [...installed].map((x) => x.name).sort(),
         additional: [...additional].map((x) => x.trim()).filter(Boolean).sort()
     });

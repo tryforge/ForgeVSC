@@ -1,4 +1,5 @@
 import { ArgType, IForgeFunction, IForgeFunctionParam } from "@tryforge/forgescript"
+import { toArray } from "."
 import * as vscode from "vscode"
 import * as path from "path"
 import ts from "typescript"
@@ -341,19 +342,22 @@ async function collectFiles(dir: vscode.Uri, out: vscode.Uri[] = []) {
  * @param customFunctionsPath The custom functions folder path.
  * @returns 
  */
-export async function loadCustomFunctions(customFunctionsPath: string) {
-    if (!customFunctionsPath) return []
+export async function loadCustomFunctions(customFunctionsPath: string | string[]) {
+    customFunctionsPath = toArray(customFunctionsPath)
+    if (!customFunctionsPath.length) return []
 
-    const dirUri = resolveWorkspacePath(customFunctionsPath)
-    if (!dirUri) return []
-
-    const files = await collectFiles(dirUri)
     const meta: CustomFunctionMetadata[] = []
+    for (const p of customFunctionsPath) {
+        const dirUri = resolveWorkspacePath(p)
+        if (!dirUri) continue
 
-    for (const file of files) {
-        const buf = await vscode.workspace.fs.readFile(file)
-        const text = Buffer.from(buf).toString("utf8")
-        meta.push(...extractCustomFunctions(text, file.fsPath))
+        const files = await collectFiles(dirUri)
+
+        for (const file of files) {
+            const buf = await vscode.workspace.fs.readFile(file)
+            const text = Buffer.from(buf).toString("utf8")
+            meta.push(...extractCustomFunctions(text, file.fsPath))
+        }
     }
 
     return meta

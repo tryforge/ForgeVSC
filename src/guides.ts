@@ -60,6 +60,12 @@ export type GuideFindQuery =
 const GuideScheme = "forge-guide"
 const FavoriteGuidesKey = "forgevsc.favoriteGuides"
 
+const IconPaths: Record<string, string> = {
+    functions: "symbol-function",
+    events: "symbol-event",
+    enums: "symbol-enum"
+}
+
 let ExtensionContext: vscode.ExtensionContext
 
 type GuideNodeKind = "favorites" | "package" | "category" | "subCategory" | "guide"
@@ -334,12 +340,15 @@ class ForgeGuidesProvider implements vscode.TreeDataProvider<GuideNode> {
             vscode.TreeItemCollapsibleState.Collapsed
         )
 
+        let iconPath
+        if (element.kind === "package") iconPath = "package"
+        else if (element.kind === "category" && element.category) iconPath = IconPaths[element.category] || "folder"
+        else iconPath = "folder"
+
         item.id = `${element.kind}:${element.key}`
         item.contextValue = element.kind
         item.tooltip = element.label
-
-        if (element.kind === "package") item.iconPath = new vscode.ThemeIcon("package")
-        else item.iconPath = new vscode.ThemeIcon("folder")
+        item.iconPath = new vscode.ThemeIcon(iconPath)
 
         return item
     }
