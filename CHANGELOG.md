@@ -1,5 +1,16 @@
 # Change Log
 
+## v1.0.2 <sub>(March 26, 2026)</sub>
+
+### Added
+- Added definition ("go to file") for custom functions *(`Ctrl+Click`/`Cmd+Click`)*
+- Added JavaScript code highlighting to `$djsEval[]`
+- Added escaping support for whole function call
+- Added support for config file inside `.vscode` folder
+
+### Fixed
+- Potential fix for custom functions not registering on first activation
+
 ## v1.0.1 <sub>(March 23, 2026)</sub>
 
 ### Added

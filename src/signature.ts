@@ -1,6 +1,16 @@
-import { findFunction, findOpeningBracket, FunctionRegex, generateUsage, getExtensionConfig, languages, locateCodeBlock, splitArgs } from "."
+import {
+	findFunction,
+	findOpeningBracket,
+	FunctionRegex,
+	generateUsage,
+	getExtensionConfig,
+	isEscaped,
+	languages,
+	locateCodeBlock,
+	splitArgs
+} from "."
 import { IArg } from "@tryforge/forgescript"
-import * as vscode from "vscode"
+import vscode from "vscode"
 
 // export const FunctionPrefixRegex = /\$!?#?(?:@\[[^\]\n]?\])?[a-zA-Z0-9]+$/
 
@@ -33,6 +43,9 @@ class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider {
 		const beforeBracket = text.slice(0, openIndex)
 		const match = beforeBracket.match(new RegExp(FunctionRegex.source + "$"))
 		if (!match) return null
+
+		const startIndex = beforeBracket.lastIndexOf("$")
+		if (isEscaped(beforeBracket, startIndex)) return null
 
 		const typedToken = match[0]
 		const found = await findFunction(typedToken)

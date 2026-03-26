@@ -7,13 +7,14 @@ import {
     getExtensionConfig,
     getFunctions,
     getPackageName,
+    isEscaped,
     languages,
     locateCodeBlock,
     splitArgs,
     validateOperatorPrefix
 } from "."
 import { IArg } from "@tryforge/forgescript"
-import * as vscode from "vscode"
+import vscode from "vscode"
 
 /**
  * Registers the autocompletion for functions and enums.
@@ -31,30 +32,35 @@ export function registerAutocompletion(ctx: vscode.ExtensionContext) {
 
                 // Function autocompletion
                 const match = before.match(FunctionAutocompleteRegex)
-                if (match && !validateOperatorPrefix(match[0]).isInvalidOrder) {
-                    const functions = await getFunctions()
-                    const items = functions.flatMap((fn) => {
-                        const names = [fn.name, ...(fn.aliases ?? [])]
+                if (match) {
+                    const startIndex = position.character - match[0].length
+                    if (isEscaped(before, startIndex)) return
 
-                        return names.map((name) => {
-                            const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function)
+                    if (!validateOperatorPrefix(match[0]).isInvalidOrder) {
+                        const functions = await getFunctions()
+                        const items = functions.flatMap((fn) => {
+                            const names = [fn.name, ...(fn.aliases ?? [])]
 
-                            item.insertText = name
-                            item.detail = generateUsage(fn)
-                            item.documentation = new vscode.MarkdownString(
-                                `${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${getPackageName(fn.source) ?? ""} v${fn.version}\`` : ""}`
-                            )
-                            item.kind = vscode.CompletionItemKind.Function
-                            if (fn.deprecated) item.tags = [vscode.CompletionItemTag.Deprecated]
+                            return names.map((name) => {
+                                const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function)
 
-                            const startPos = position.translate(0, -match[0].length)
-                            item.range = new vscode.Range(startPos, position)
+                                item.insertText = name
+                                item.detail = generateUsage(fn)
+                                item.documentation = new vscode.MarkdownString(
+                                    `${(fn.deprecated ? "🛑 **Deprecated**\n" : fn.experimental ? "⚠️ **Experimental**\n" : "") + "\n" + fn.description}${fn.version ? `\n\n*@since* — \`${getPackageName(fn.source) ?? ""} v${fn.version}\`` : ""}`
+                                )
+                                item.kind = vscode.CompletionItemKind.Function
+                                if (fn.deprecated) item.tags = [vscode.CompletionItemTag.Deprecated]
 
-                            return item
+                                const startPos = position.translate(0, -match[0].length)
+                                item.range = new vscode.Range(startPos, position)
+
+                                return item
+                            })
                         })
-                    })
 
-                    if (items.length) return items
+                        if (items.length) return items
+                    }
                 }
 
                 // Enum autocompletion
@@ -66,6 +72,8 @@ export function registerAutocompletion(ctx: vscode.ExtensionContext) {
                     const argMatch = head.match(FunctionHeadRegex)
                     if (argMatch) {
                         const fnName = argMatch[1]
+                        const startIndex = head.lastIndexOf("$")
+                        if (startIndex !== -1 && isEscaped(head, startIndex)) return
 
                         const found = await findFunction(fnName)
                         const fn = found?.fn

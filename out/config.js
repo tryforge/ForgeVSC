@@ -1,43 +1,14 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Defaults = void 0;
 exports.getExtensionConfig = getExtensionConfig;
+exports.findExtensionConfig = findExtensionConfig;
 exports.loadExtensionConfig = loadExtensionConfig;
 const _1 = require(".");
-const vscode = __importStar(require("vscode"));
+const vscode_1 = __importDefault(require("vscode"));
 exports.Defaults = {
     customFunctionsPath: [],
     additionalPackages: [],
@@ -64,32 +35,62 @@ exports.Defaults = {
     },
 };
 let cached = exports.Defaults;
+/**
+ * Returns the config options of the extension.
+ * @returns
+ */
 function getExtensionConfig() {
     return cached;
 }
+/**
+ * Finds the config file path of the extension.
+ * @param root The root directory.
+ * @returns
+ */
+async function findExtensionConfig(root) {
+    const paths = [
+        vscode_1.default.Uri.joinPath(root, ".forgevsc.json"),
+        vscode_1.default.Uri.joinPath(root, ".vscode", ".forgevsc.json")
+    ];
+    for (const uri of paths) {
+        try {
+            await vscode_1.default.workspace.fs.stat(uri);
+            return uri;
+        }
+        catch { }
+    }
+    return null;
+}
+/**
+ * Loads the config options of the extension.
+ * @returns
+ */
 async function loadExtensionConfig() {
-    const folders = vscode.workspace.workspaceFolders;
+    const folders = vscode_1.default.workspace.workspaceFolders;
     if (!folders?.length) {
         cached = exports.Defaults;
         return cached;
     }
-    const uri = vscode.Uri.joinPath(folders[0].uri, ".forgevsc.json");
-    try {
-        const raw = await vscode.workspace.fs.readFile(uri);
-        const parsed = JSON.parse(Buffer.from(raw).toString("utf8"));
-        cached = {
-            customFunctionsPath: (0, _1.toArray)(parsed.customFunctionsPath ?? exports.Defaults.customFunctionsPath),
-            additionalPackages: Array.from(new Set([...exports.Defaults.additionalPackages, ...(parsed.additionalPackages ?? [])])),
-            colors: {
-                function: { ...exports.Defaults.colors.function, ...(parsed.colors?.function ?? {}) },
-                operators: { ...exports.Defaults.colors.operators, ...(parsed.colors?.operators ?? {}) },
-            },
-            features: { ...exports.Defaults.features, ...(parsed.features ?? {}) },
-        };
+    const root = folders[0].uri;
+    const uri = await findExtensionConfig(root);
+    if (uri) {
+        try {
+            const raw = await vscode_1.default.workspace.fs.readFile(uri);
+            const parsed = JSON.parse(Buffer.from(raw).toString("utf8"));
+            cached = {
+                customFunctionsPath: (0, _1.toArray)(parsed.customFunctionsPath ?? exports.Defaults.customFunctionsPath),
+                additionalPackages: Array.from(new Set([...exports.Defaults.additionalPackages, ...(parsed.additionalPackages ?? [])])),
+                colors: {
+                    function: { ...exports.Defaults.colors.function, ...(parsed.colors?.function ?? {}) },
+                    operators: { ...exports.Defaults.colors.operators, ...(parsed.colors?.operators ?? {}) },
+                },
+                features: { ...exports.Defaults.features, ...(parsed.features ?? {}) },
+            };
+            return cached;
+        }
+        catch { }
     }
-    catch {
-        cached = exports.Defaults;
-    }
+    cached = exports.Defaults;
     return cached;
 }
 //# sourceMappingURL=config.js.map

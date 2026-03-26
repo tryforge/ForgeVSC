@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "Official Visual Studio Code Extension for ForgeScript.",
   "publisher": "tryforge",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "author": {
@@ -23,11 +23,12 @@
   },
   "license": "LGPL-3.0-or-later",
   "activationEvents": [
-    "workspaceContains:.forgevsc.json",
     "onLanguage:javascript",
     "onLanguage:typescript",
     "onLanguage:javascriptreact",
-    "onLanguage:typescriptreact"
+    "onLanguage:typescriptreact",
+    "workspaceContains:.forgevsc.json",
+    "workspaceContains:.vscode/.forgevsc.json"
   ],
   "contributes": {
     "languages": [

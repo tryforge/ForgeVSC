@@ -1,8 +1,13 @@
 import { ArgType, IForgeFunction, IForgeFunctionParam } from "@tryforge/forgescript"
-import { toArray } from "."
-import * as vscode from "vscode"
-import * as path from "path"
+import { getFunctions, toArray } from "."
+import vscode from "vscode"
+import path from "path"
 import ts from "typescript"
+
+export type FunctionLocation = {
+    file: string
+    position: vscode.Position
+}
 
 export type ArgTypeKey = keyof typeof ArgType
 export type CustomFunctionParamMetadata = Omit<IForgeFunctionParam, "type"> & {
@@ -14,6 +19,7 @@ export type CustomFunctionMetadata = Omit<IForgeFunction, "code" | "params"> & {
     output?: Array<ArgTypeKey>
     unwrap: boolean
     description: string
+    location?: FunctionLocation
 }
 
 export const DefaultParam: Omit<CustomFunctionParamMetadata, "name"> = {
@@ -252,6 +258,19 @@ function resolveMetadataExpressions(
     return []
 }
 
+/**
+ * Returns the location of a custom function.
+ * @param name The name of the function.
+ * @returns 
+ */
+export async function getCustomFunctionLocation(name: string) {
+    const all = await getFunctions()
+    const fn = all.find((x) => x.name.toLowerCase() === name.toLowerCase())
+    if (!fn?.location) return
+
+    return new vscode.Location(vscode.Uri.file(fn.location.file), fn.location.position)
+}
+
 function extractCustomFunctions(text: string, fileName: string) {
     const kind = fileName.endsWith(".ts") || fileName.endsWith(".tsx")
         ? ts.ScriptKind.TS
@@ -263,8 +282,21 @@ function extractCustomFunctions(text: string, fileName: string) {
     const bindings = collectBindings(sf)
     const found: CustomFunctionMetadata[] = []
 
-    const pushResolved = (expr: ts.Expression) =>
-        found.push(...resolveMetadataExpressions(expr, bindings))
+    const pushResolved = (expr: ts.Expression) => {
+        const resolved = resolveMetadataExpressions(expr, bindings)
+
+        for (const meta of resolved) {
+            const target = unwrapExpression(expr)
+            const { line, character } = sf.getLineAndCharacterOfPosition(target.getStart())
+
+            meta.location = {
+                file: fileName,
+                position: new vscode.Position(line, character)
+            }
+
+            found.push(meta)
+        }
+    }
 
     function visit(node: ts.Node) {
         // export default ...

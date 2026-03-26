@@ -1,37 +1,7 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isFavoriteGuide = isFavoriteGuide;
 exports.addFavoriteGuide = addFavoriteGuide;
@@ -41,7 +11,7 @@ exports.findGuide = findGuide;
 exports.registerGuidePreview = registerGuidePreview;
 exports.registerGuidesView = registerGuidesView;
 const _1 = require(".");
-const vscode = __importStar(require("vscode"));
+const vscode_1 = __importDefault(require("vscode"));
 const GuideScheme = "forge-guide";
 const FavoriteGuidesKey = "forgevsc.favoriteGuides";
 const IconPaths = {
@@ -246,7 +216,7 @@ async function findGuide(query) {
     return sorted[0] ?? null;
 }
 class ForgeGuidesProvider {
-    onDidChangeTreeDataEmitter = new vscode.EventEmitter();
+    onDidChangeTreeDataEmitter = new vscode_1.default.EventEmitter();
     onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
     refresh() {
         this.onDidChangeTreeDataEmitter.fire();
@@ -255,10 +225,10 @@ class ForgeGuidesProvider {
         if (element.kind === "guide" && element.guide) {
             const guide = element.guide;
             const label = displayGuideTitle(guide);
-            const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
+            const item = new vscode_1.default.TreeItem(label, vscode_1.default.TreeItemCollapsibleState.None);
             item.id = `guide:${element.key}`;
             item.contextValue = isFavoriteGuide(guide.id) ? "guide.favorite" : "guide";
-            item.iconPath = new vscode.ThemeIcon("book");
+            item.iconPath = new vscode_1.default.ThemeIcon("book");
             if (element.isFavorite)
                 item.description = guide.packageName;
             item.command = {
@@ -269,14 +239,14 @@ class ForgeGuidesProvider {
             return item;
         }
         if (element.kind === "favorites") {
-            const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Expanded);
+            const item = new vscode_1.default.TreeItem(element.label, vscode_1.default.TreeItemCollapsibleState.Expanded);
             item.id = "guides:favorites";
             item.contextValue = "favorites";
             item.tooltip = "Favorited Guides";
-            item.iconPath = new vscode.ThemeIcon("star-full");
+            item.iconPath = new vscode_1.default.ThemeIcon("star-full");
             return item;
         }
-        const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Collapsed);
+        const item = new vscode_1.default.TreeItem(element.label, vscode_1.default.TreeItemCollapsibleState.Collapsed);
         let iconPath;
         if (element.kind === "package")
             iconPath = "package";
@@ -287,7 +257,7 @@ class ForgeGuidesProvider {
         item.id = `${element.kind}:${element.key}`;
         item.contextValue = element.kind;
         item.tooltip = element.label;
-        item.iconPath = new vscode.ThemeIcon(iconPath);
+        item.iconPath = new vscode_1.default.ThemeIcon(iconPath);
         return item;
     }
     async getChildren(element) {
@@ -387,7 +357,7 @@ class ForgeGuidesProvider {
  * @param ctx The extension context.
  */
 function registerGuidePreview(ctx) {
-    ctx.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(GuideScheme, {
+    ctx.subscriptions.push(vscode_1.default.workspace.registerTextDocumentContentProvider(GuideScheme, {
         async provideTextDocumentContent(uri) {
             const raw = decodeURIComponent(uri.path.replace(/^\//, "").replace(/\.md$/i, ""));
             let guide = null;
@@ -403,7 +373,7 @@ function registerGuidePreview(ctx) {
         }
     }), 
     // Preview Guide
-    vscode.commands.registerCommand("forgevsc.previewGuide", async (input) => {
+    vscode_1.default.commands.registerCommand("forgevsc.previewGuide", async (input) => {
         let guide = null;
         if (typeof input === "object" && input) {
             guide = input;
@@ -419,15 +389,15 @@ function registerGuidePreview(ctx) {
                 : await findGuide(trimmed);
         }
         if (!guide) {
-            vscode.window.showErrorMessage("No guide found for this function.");
+            vscode_1.default.window.showErrorMessage("No guide found for this function.");
             return;
         }
-        const uri = vscode.Uri.parse(`${GuideScheme}:/${encodeURIComponent(String(guide.id))}.md`);
-        await vscode.commands.executeCommand("markdown.showPreview", uri);
+        const uri = vscode_1.default.Uri.parse(`${GuideScheme}:/${encodeURIComponent(String(guide.id))}.md`);
+        await vscode_1.default.commands.executeCommand("markdown.showPreview", uri);
     }), 
     // Open Guide
-    vscode.commands.registerCommand("forgevsc.openGuide", async (guide) => {
-        await vscode.commands.executeCommand("forgevsc.previewGuide", guide);
+    vscode_1.default.commands.registerCommand("forgevsc.openGuide", async (guide) => {
+        await vscode_1.default.commands.executeCommand("forgevsc.previewGuide", guide);
     }));
 }
 /**
@@ -437,48 +407,48 @@ function registerGuidePreview(ctx) {
 function registerGuidesView(ctx) {
     ExtensionContext = ctx;
     const provider = new ForgeGuidesProvider();
-    const tree = vscode.window.createTreeView("forge.guidesView", {
+    const tree = vscode_1.default.window.createTreeView("forge.guidesView", {
         treeDataProvider: provider,
         showCollapseAll: true
     });
     ctx.subscriptions.push(tree, 
     // Favorite Guide
-    vscode.commands.registerCommand("forgevsc.favoriteGuide", async (node) => {
+    vscode_1.default.commands.registerCommand("forgevsc.favoriteGuide", async (node) => {
         if (!node.guide)
             return;
         await addFavoriteGuide(node.guide.id);
         provider.refresh();
     }), 
     // Unfavorite Guide
-    vscode.commands.registerCommand("forgevsc.unfavoriteGuide", async (node) => {
+    vscode_1.default.commands.registerCommand("forgevsc.unfavoriteGuide", async (node) => {
         if (!node.guide)
             return;
         await removeFavoriteGuide(node.guide.id);
         provider.refresh();
     }), 
     // Open Guide Externally
-    vscode.commands.registerCommand("forgevsc.openGuideExternal", async (node) => {
+    vscode_1.default.commands.registerCommand("forgevsc.openGuideExternal", async (node) => {
         if (!node?.guide)
             return;
-        await vscode.env.openExternal(vscode.Uri.parse(buildGuideURL(node.guide)));
+        await vscode_1.default.env.openExternal(vscode_1.default.Uri.parse(buildGuideURL(node.guide)));
     }), 
     // Search Guides
-    vscode.commands.registerCommand("forgevsc.searchGuides", async () => {
+    vscode_1.default.commands.registerCommand("forgevsc.searchGuides", async () => {
         try {
-            await vscode.commands.executeCommand("forge.guidesView.focus");
-            await vscode.commands.executeCommand("list.find");
+            await vscode_1.default.commands.executeCommand("forge.guidesView.focus");
+            await vscode_1.default.commands.executeCommand("list.find");
         }
         catch (err) {
             _1.Logger?.error(`Opening guide search failed: ${String(err)}`);
-            vscode.window.showErrorMessage("Could not open the guide search bar.");
+            vscode_1.default.window.showErrorMessage("Could not open the guide search bar.");
         }
     }), 
     // Reload Guide Metadata
-    vscode.commands.registerCommand("forgevsc.reloadGuideMetadata", async () => {
+    vscode_1.default.commands.registerCommand("forgevsc.reloadGuideMetadata", async () => {
         const guides = await (0, _1.getGuides)(true);
         provider.refresh();
         if (guides.length)
-            vscode.window.showInformationMessage("Successfully fetched guide metadata!");
+            vscode_1.default.window.showInformationMessage("Successfully fetched guide metadata!");
     }));
 }
 //# sourceMappingURL=guides.js.map

@@ -1,39 +1,9 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.languages = exports.DocsUrl = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionRegex = exports.FunctionPrefixRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
+exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.languages = exports.DocsUrl = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionPrefixRegex = exports.FunctionRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
 exports.activate = activate;
 exports.toArray = toArray;
 exports.clearMetadataCache = clearMetadataCache;
@@ -59,9 +29,9 @@ exports.splitArgs = splitArgs;
 exports.bracketDepth = bracketDepth;
 exports.deactivate = deactivate;
 const _1 = require(".");
-const vscode = __importStar(require("vscode"));
-const path = __importStar(require("path"));
-const fs = __importStar(require("fs"));
+const vscode_1 = __importDefault(require("vscode"));
+const path_1 = __importDefault(require("path"));
+const fs_1 = __importDefault(require("fs"));
 let functions = null;
 let functionsPromise = null;
 let guides = null;
@@ -71,8 +41,8 @@ let pathsPromise = new Map();
 let ExtensionContext;
 exports.OperatorChain = String.raw `(?:!?#?(?:@\[[^\]]?\])?)?`;
 exports.LooseOperatorChain = String.raw `(?:[!#]|(?:@\[[^\]]?\]))*`;
-exports.FunctionPrefixRegex = /^\$(!)?(#)?(?:@\[([^\]]*)\])?/;
 exports.FunctionRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z0-9]+`);
+exports.FunctionPrefixRegex = new RegExp(String.raw `^\$(!)?(#)?(?:@\[[^\]]*\])?`);
 exports.FunctionNameRegex = new RegExp(String.raw `\$${exports.OperatorChain}([a-zA-Z0-9]+)`);
 exports.FunctionHeadRegex = new RegExp(String.raw `(\$${exports.OperatorChain}[a-zA-Z0-9]+)$`);
 exports.FunctionArgumentRegex = new RegExp(String.raw `\$${exports.OperatorChain}([a-zA-Z0-9]+)\[([^\]]*)$`);
@@ -106,38 +76,47 @@ exports.GuidesStorageKey = "forgevsc.guidesCache.v1";
  */
 async function activate(ctx) {
     ExtensionContext = ctx;
-    exports.Logger = vscode.window.createOutputChannel("ForgeVSC", { log: true });
+    exports.Logger = vscode_1.default.window.createOutputChannel("ForgeVSC", { log: true });
     exports.Logger.show(true);
     exports.Logger.info("Starting extension...");
-    void (0, _1.loadExtensionConfig)();
+    await (0, _1.loadExtensionConfig)();
     (0, _1.registerCommands)(ctx);
     (0, _1.registerGuidePreview)(ctx);
     (0, _1.registerGuidesView)(ctx);
     (0, _1.registerDecorations)(ctx);
     (0, _1.registerFolding)(ctx);
-    const watcher = vscode.workspace.createFileSystemWatcher("**/.forgevsc.json");
-    ctx.subscriptions.push(watcher, watcher.onDidCreate(async () => void (0, _1.loadExtensionConfig)()), watcher.onDidChange(async () => void (0, _1.loadExtensionConfig)()), watcher.onDidDelete(async () => void (0, _1.loadExtensionConfig)()));
-    const diagnostics = vscode.languages.createDiagnosticCollection("forge");
+    const watcher = vscode_1.default.workspace.createFileSystemWatcher("**/{.forgevsc.json,.vscode/.forgevsc.json}");
+    ctx.subscriptions.push(watcher, watcher.onDidCreate(async () => await (0, _1.loadExtensionConfig)()), watcher.onDidChange(async () => await (0, _1.loadExtensionConfig)()), watcher.onDidDelete(async () => await (0, _1.loadExtensionConfig)()));
+    const diagnostics = vscode_1.default.languages.createDiagnosticCollection("forge");
     ctx.subscriptions.push(diagnostics);
-    (0, _1.validateDocument)(vscode.window.activeTextEditor?.document, diagnostics);
-    ctx.subscriptions.push(vscode.workspace.onDidChangeTextDocument((event) => {
+    (0, _1.validateDocument)(vscode_1.default.window.activeTextEditor?.document, diagnostics);
+    ctx.subscriptions.push(vscode_1.default.workspace.onDidChangeTextDocument((event) => {
         (0, _1.validateDocument)(event.document, diagnostics);
-        const editor = vscode.window.activeTextEditor;
+        const editor = vscode_1.default.window.activeTextEditor;
         if (!editor || (event.document !== editor.document))
             return;
         for (const change of event.contentChanges) {
             if (change.text === "" || change.text.includes(";")) {
-                vscode.commands.executeCommand("editor.action.triggerParameterHints");
+                vscode_1.default.commands.executeCommand("editor.action.triggerParameterHints");
                 break;
             }
         }
-    }), vscode.workspace.onDidOpenTextDocument((doc) => (0, _1.validateDocument)(doc, diagnostics)));
+    }), vscode_1.default.workspace.onDidOpenTextDocument((doc) => (0, _1.validateDocument)(doc, diagnostics)));
     (0, _1.registerHover)(ctx);
     (0, _1.registerAutocompletion)(ctx);
     (0, _1.registerSignatureHelp)(ctx);
     (0, _1.registerSuggestions)(ctx);
+    ctx.subscriptions.push(vscode_1.default.languages.registerDefinitionProvider(exports.languages, {
+        provideDefinition(document, position) {
+            const range = document.getWordRangeAtPosition(position, /\$[a-zA-Z0-9]+/);
+            if (!range)
+                return;
+            const word = document.getText(range);
+            return (0, _1.getCustomFunctionLocation)(word);
+        }
+    }));
     const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC";
-    const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    const status = vscode_1.default.window.createStatusBarItem(vscode_1.default.StatusBarAlignment.Left, 100);
     status.text = `$(package) ${name} v` + ctx.extension.packageJSON.version;
     status.command = "forgevsc.openExtensionLog";
     status.tooltip = name + " Extension Details";
@@ -208,13 +187,13 @@ async function clearMetadataCache(storageKey) {
  * @returns
  */
 function getForgePackages() {
-    const folders = vscode.workspace.workspaceFolders;
+    const folders = vscode_1.default.workspace.workspaceFolders;
     if (!folders)
         return [];
-    const pkgPath = path.join(folders[0].uri.fsPath, "package.json");
-    if (!fs.existsSync(pkgPath))
+    const pkgPath = path_1.default.join(folders[0].uri.fsPath, "package.json");
+    if (!fs_1.default.existsSync(pkgPath))
         return [];
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    const pkg = JSON.parse(fs_1.default.readFileSync(pkgPath, "utf8"));
     const deps = Object.entries(pkg.dependencies ?? {});
     return deps
         .filter(([name]) => name.startsWith("@tryforge/") || name.toLowerCase().includes("forge"))
@@ -344,10 +323,10 @@ function resolveInstalledPackage(root, pkg) {
     const direct = normalizeRepo(value);
     if (direct)
         return buildPackage(direct.repo, direct.branch, name);
-    const pkgPath = path.join(root, "node_modules", name, "package.json");
-    if (fs.existsSync(pkgPath)) {
+    const pkgPath = path_1.default.join(root, "node_modules", name, "package.json");
+    if (fs_1.default.existsSync(pkgPath)) {
         try {
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+            const pkg = JSON.parse(fs_1.default.readFileSync(pkgPath, "utf8"));
             const repo = pkg.repository;
             const ref = typeof repo === "string" ? normalizeRepo(repo) : normalizeRepo(repo.url);
             if (ref)
@@ -406,7 +385,7 @@ function overwriteNative(native, custom) {
  * @returns
  */
 async function fetchFunctions(force = false) {
-    const folders = vscode.workspace.workspaceFolders;
+    const folders = vscode_1.default.workspace.workspaceFolders;
     if (!folders)
         return [];
     const { additionalPackages, customFunctionsPath } = (0, _1.getExtensionConfig)();
@@ -444,8 +423,8 @@ async function fetchFunctions(force = false) {
     let fetchMain = false;
     for (const pkgSource of uniqueInstalled) {
         const pkgName = pkgSource.label;
-        const pkgPath = path.join(root, "node_modules", pkgName, "package.json");
-        if (!fs.existsSync(pkgPath)) {
+        const pkgPath = path_1.default.join(root, "node_modules", pkgName, "package.json");
+        if (!fs_1.default.existsSync(pkgPath)) {
             const data = await fetchMetadata(pkgSource);
             if (data) {
                 extensionFunctions.push(...data);
@@ -459,10 +438,10 @@ async function fetchFunctions(force = false) {
             }
             continue;
         }
-        const localMeta = path.join(root, "node_modules", pkgName, "metadata", "functions.json");
-        if (fs.existsSync(localMeta)) {
+        const localMeta = path_1.default.join(root, "node_modules", pkgName, "metadata", "functions.json");
+        if (fs_1.default.existsSync(localMeta)) {
             try {
-                const data = JSON.parse(fs.readFileSync(localMeta, "utf8"));
+                const data = JSON.parse(fs_1.default.readFileSync(localMeta, "utf8"));
                 extensionFunctions.push(...data.map((x) => ({ ...x, source: pkgSource })));
                 fetched.add(pkgName);
                 continue;
@@ -518,12 +497,12 @@ async function fetchFunctions(force = false) {
     const failed = failedFetch.length;
     const count = fetched.size;
     exports.Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}.`);
-    if (customFunctionsPath)
+    if (customFunctionsPath.length)
         exports.Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`);
     if (failed) {
         const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
         exports.Logger.error(text);
-        vscode.window.showErrorMessage(text);
+        vscode_1.default.window.showErrorMessage(text);
     }
     const merged = overwriteNative(metadata, customFunctions);
     await writeMetadataCache(exports.FunctionsStorageKey, cacheKey, merged);
@@ -565,7 +544,7 @@ async function fetchGuides(force = false) {
     const res = await fetch(url).catch((err) => {
         const text = "Fetching guides failed: " + err;
         exports.Logger.error(text);
-        vscode.window.showErrorMessage(text);
+        vscode_1.default.window.showErrorMessage(text);
         return undefined;
     });
     if (!res)
@@ -573,7 +552,7 @@ async function fetchGuides(force = false) {
     if (!res.ok) {
         const text = `Fetching guides failed: ${res.status} ${res.statusText}`;
         exports.Logger.error(text);
-        vscode.window.showErrorMessage(text);
+        vscode_1.default.window.showErrorMessage(text);
         return [];
     }
     const data = await res.json();

@@ -1,5 +1,5 @@
 import { toArray } from "."
-import * as vscode from "vscode"
+import vscode from "vscode"
 
 export interface IExtensionConfig {
     customFunctionsPath?: string | string[]
@@ -55,10 +55,39 @@ export const Defaults: Required<IExtensionConfig> = {
 
 let cached: Required<IExtensionConfig> = Defaults
 
+/**
+ * Returns the config options of the extension.
+ * @returns 
+ */
 export function getExtensionConfig() {
     return cached
 }
 
+/**
+ * Finds the config file path of the extension.
+ * @param root The root directory.
+ * @returns 
+ */
+export async function findExtensionConfig(root: vscode.Uri) {
+    const paths = [
+        vscode.Uri.joinPath(root, ".forgevsc.json"),
+        vscode.Uri.joinPath(root, ".vscode", ".forgevsc.json")
+    ]
+
+    for (const uri of paths) {
+        try {
+            await vscode.workspace.fs.stat(uri)
+            return uri
+        } catch { }
+    }
+
+    return null
+}
+
+/**
+ * Loads the config options of the extension.
+ * @returns 
+ */
 export async function loadExtensionConfig() {
     const folders = vscode.workspace.workspaceFolders
     if (!folders?.length) {
@@ -66,26 +95,30 @@ export async function loadExtensionConfig() {
         return cached
     }
 
-    const uri = vscode.Uri.joinPath(folders[0].uri, ".forgevsc.json")
+    const root = folders[0].uri
+    const uri = await findExtensionConfig(root)
 
-    try {
-        const raw = await vscode.workspace.fs.readFile(uri)
-        const parsed = JSON.parse(Buffer.from(raw).toString("utf8")) as IExtensionConfig
+    if (uri) {
+        try {
+            const raw = await vscode.workspace.fs.readFile(uri)
+            const parsed = JSON.parse(Buffer.from(raw).toString("utf8")) as IExtensionConfig
 
-        cached = {
-            customFunctionsPath: toArray(parsed.customFunctionsPath ?? Defaults.customFunctionsPath),
-            additionalPackages: Array.from(
-                new Set([...Defaults.additionalPackages, ...(parsed.additionalPackages ?? [])])
-            ),
-            colors: {
-                function: { ...Defaults.colors.function, ...(parsed.colors?.function ?? {}) },
-                operators: { ...Defaults.colors.operators, ...(parsed.colors?.operators ?? {}) },
-            },
-            features: { ...Defaults.features, ...(parsed.features ?? {}) },
-        }
-    } catch {
-        cached = Defaults
+            cached = {
+                customFunctionsPath: toArray(parsed.customFunctionsPath ?? Defaults.customFunctionsPath),
+                additionalPackages: Array.from(
+                    new Set([...Defaults.additionalPackages, ...(parsed.additionalPackages ?? [])])
+                ),
+                colors: {
+                    function: { ...Defaults.colors.function, ...(parsed.colors?.function ?? {}) },
+                    operators: { ...Defaults.colors.operators, ...(parsed.colors?.operators ?? {}) },
+                },
+                features: { ...Defaults.features, ...(parsed.features ?? {}) },
+            }
+
+            return cached
+        } catch { }
     }
 
+    cached = Defaults
     return cached
 }

@@ -5,13 +5,14 @@ import {
 	FunctionPrefixRegex,
 	FunctionScanRegex,
 	getExtensionConfig,
+	isEscaped,
 	languages,
 	locateCodeBlock,
 	splitArgs,
 	validateOperatorPrefix
 } from "."
 import { IArg } from "@tryforge/forgescript"
-import * as vscode from "vscode"
+import vscode from "vscode"
 
 /**
  * Validates a document for diagnostics.
@@ -35,8 +36,9 @@ export async function validateDocument(
 	let match: RegExpExecArray | null
 
 	while ((match = ScanRegex.exec(text))) {
-		const start = document.positionAt(match.index)
-		if (!locateCodeBlock(document, start)) continue
+		const index = match.index
+		const start = document.positionAt(index)
+		if (!locateCodeBlock(document, start) || isEscaped(text, index)) continue
 
 		const full = match[0]
 		const hasOpening = full.endsWith("[")
@@ -51,8 +53,8 @@ export async function validateDocument(
 		// Invalid operator order
 		if (isInvalidOrder) {
 			const offset = rawPrefix.length
-			const opStart = document.positionAt(match.index + 1)
-			const opEnd = document.positionAt(match.index + offset)
+			const opStart = document.positionAt(index + 1)
+			const opEnd = document.positionAt(index + offset)
 			diagnostics.push(new vscode.Diagnostic(
 				new vscode.Range(opStart, opEnd),
 				`Function \`${fn.name}\` has invalid operator order`,
@@ -64,8 +66,8 @@ export async function validateDocument(
 		// Duplicated operators
 		const strictPrefix = base.match(FunctionPrefixRegex)?.[0] ?? "$"
 		if (rawPrefix.length > strictPrefix.length) {
-			const extraStart = document.positionAt(match.index + strictPrefix.length)
-			const extraEnd = document.positionAt(match.index + rawPrefix.length)
+			const extraStart = document.positionAt(index + strictPrefix.length)
+			const extraEnd = document.positionAt(index + rawPrefix.length)
 			diagnostics.push(new vscode.Diagnostic(
 				new vscode.Range(extraStart, extraEnd),
 				`Function \`${fn.name}\` has duplicated operators supplied`,
@@ -81,7 +83,7 @@ export async function validateDocument(
 		const acceptsArgs = fn.brackets !== undefined && args.length > 0
 		const requiresArgs = fn.brackets
 
-		const end = document.positionAt(match.index + matchedText.length)
+		const end = document.positionAt(index + matchedText.length)
 		const range = new vscode.Range(start, end)
 
 		// Missing required brackets
@@ -97,7 +99,7 @@ export async function validateDocument(
 		if (!isAttached || args.length === 0) continue
 
 		if (acceptsArgs && hasOpening) {
-			const openIndex = match.index + full.length - 1
+			const openIndex = index + full.length - 1
 			const closeIndex = findMatchingBracket(text, openIndex)
 
 			// Missing closing bracket

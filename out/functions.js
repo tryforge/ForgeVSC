@@ -1,47 +1,15 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DefaultParam = void 0;
+exports.getCustomFunctionLocation = getCustomFunctionLocation;
 exports.loadCustomFunctions = loadCustomFunctions;
 const forgescript_1 = require("@tryforge/forgescript");
 const _1 = require(".");
-const vscode = __importStar(require("vscode"));
-const path = __importStar(require("path"));
+const vscode_1 = __importDefault(require("vscode"));
+const path_1 = __importDefault(require("path"));
 const typescript_1 = __importDefault(require("typescript"));
 exports.DefaultParam = {
     type: "String",
@@ -257,6 +225,18 @@ function resolveMetadataExpressions(node, bindings, seen = new Set()) {
     }
     return [];
 }
+/**
+ * Returns the location of a custom function.
+ * @param name The name of the function.
+ * @returns
+ */
+async function getCustomFunctionLocation(name) {
+    const all = await (0, _1.getFunctions)();
+    const fn = all.find((x) => x.name.toLowerCase() === name.toLowerCase());
+    if (!fn?.location)
+        return;
+    return new vscode_1.default.Location(vscode_1.default.Uri.file(fn.location.file), fn.location.position);
+}
 function extractCustomFunctions(text, fileName) {
     const kind = fileName.endsWith(".ts") || fileName.endsWith(".tsx")
         ? typescript_1.default.ScriptKind.TS
@@ -266,7 +246,18 @@ function extractCustomFunctions(text, fileName) {
     const sf = typescript_1.default.createSourceFile(fileName, text, typescript_1.default.ScriptTarget.Latest, true, kind);
     const bindings = collectBindings(sf);
     const found = [];
-    const pushResolved = (expr) => found.push(...resolveMetadataExpressions(expr, bindings));
+    const pushResolved = (expr) => {
+        const resolved = resolveMetadataExpressions(expr, bindings);
+        for (const meta of resolved) {
+            const target = unwrapExpression(expr);
+            const { line, character } = sf.getLineAndCharacterOfPosition(target.getStart());
+            meta.location = {
+                file: fileName,
+                position: new vscode_1.default.Position(line, character)
+            };
+            found.push(meta);
+        }
+    };
     function visit(node) {
         // export default ...
         if (typescript_1.default.isExportAssignment(node))
@@ -295,12 +286,12 @@ function extractCustomFunctions(text, fileName) {
  * @returns
  */
 function resolveWorkspacePath(p) {
-    const folders = vscode.workspace.workspaceFolders;
+    const folders = vscode_1.default.workspace.workspaceFolders;
     if (!folders?.length)
         return null;
-    if (path.isAbsolute(p))
-        return vscode.Uri.file(p);
-    return vscode.Uri.joinPath(folders[0].uri, p);
+    if (path_1.default.isAbsolute(p))
+        return vscode_1.default.Uri.file(p);
+    return vscode_1.default.Uri.joinPath(folders[0].uri, p);
 }
 /**
  * Reads the directory safely.
@@ -309,7 +300,7 @@ function resolveWorkspacePath(p) {
  */
 async function safeReadDirectory(uri) {
     try {
-        return await vscode.workspace.fs.readDirectory(uri);
+        return await vscode_1.default.workspace.fs.readDirectory(uri);
     }
     catch (e) {
         if (e?.code === "FileNotFound" || e?.code === "ENOENT")
@@ -326,8 +317,8 @@ async function safeReadDirectory(uri) {
 async function collectFiles(dir, out = []) {
     const entries = await safeReadDirectory(dir);
     for (const [name, type] of entries) {
-        const uri = vscode.Uri.joinPath(dir, name);
-        if (type === vscode.FileType.Directory)
+        const uri = vscode_1.default.Uri.joinPath(dir, name);
+        if (type === vscode_1.default.FileType.Directory)
             await collectFiles(uri, out);
         else if (/\.(ts|js|tsx|jsx)$/.test(name))
             out.push(uri);
@@ -350,7 +341,7 @@ async function loadCustomFunctions(customFunctionsPath) {
             continue;
         const files = await collectFiles(dirUri);
         for (const file of files) {
-            const buf = await vscode.workspace.fs.readFile(file);
+            const buf = await vscode_1.default.workspace.fs.readFile(file);
             const text = Buffer.from(buf).toString("utf8");
             meta.push(...extractCustomFunctions(text, file.fsPath));
         }
