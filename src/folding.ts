@@ -1,5 +1,5 @@
-import { locateCodeBlock, findMatchingBracket, languages, FunctionOpenScanRegex, getExtensionConfig } from "."
-import * as vscode from "vscode"
+import { locateCodeBlock, findMatchingBracket, languages, FunctionOpenScanRegex, getExtensionConfig, isEscaped } from "."
+import vscode from "vscode"
 
 /**
  * Registers the folding for function contents.
@@ -17,10 +17,11 @@ export function registerFolding(ctx: vscode.ExtensionContext) {
                 let match: RegExpExecArray | null
 
                 while ((match = FunctionOpenScanRegex.exec(text))) {
-                    const openIndex = match.index + match[0].length - 1
-                    const startPos = document.positionAt(match.index)
-                    if (!locateCodeBlock(document, startPos)) continue
+                    const index = match.index
+                    const startPos = document.positionAt(index)
+                    if (!locateCodeBlock(document, startPos) || isEscaped(text, index)) continue
 
+                    const openIndex = index + match[0].length - 1
                     const closeIndex = findMatchingBracket(text, openIndex)
                     if (closeIndex === -1) continue
 

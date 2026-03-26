@@ -1,5 +1,5 @@
-import { Defaults, DocsUrl, getFunctions, Logger } from "."
-import * as vscode from "vscode"
+import { Defaults, DocsUrl, findExtensionConfig, getFunctions, Logger } from "."
+import vscode from "vscode"
 
 export function registerCommands(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
@@ -12,23 +12,54 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
             }
 
             const root = folders[0].uri
-            const uri = vscode.Uri.joinPath(root, ".forgevsc.json")
+            const path = await findExtensionConfig(root)
 
-            try {
-                await vscode.workspace.fs.stat(uri)
-                const choice = await vscode.window.showWarningMessage(
-                    "Extension config file (.forgevsc.json) already exists.",
+            let fileName = ".forgevsc.json"
+            let uri: vscode.Uri
+
+            if (path) {
+                const action = await vscode.window.showWarningMessage(
+                    "Extension config file already exists.",
                     "Open",
                     "Overwrite",
                     "Cancel"
                 )
-                if (choice === "Open") {
-                    const doc = await vscode.workspace.openTextDocument(uri)
+                if (action === "Open") {
+                    const doc = await vscode.workspace.openTextDocument(path)
                     await vscode.window.showTextDocument(doc)
                     return
                 }
-                if (choice !== "Overwrite") return
-            } catch { }
+                if (action !== "Overwrite") return
+                uri = path
+            } else {
+                const choice = await vscode.window.showQuickPick(
+                    [
+                        {
+                            label: "$(root-folder) Workspace Root",
+                            detail: fileName,
+                            description: "Default",
+                            target: vscode.Uri.joinPath(root, fileName)
+                        },
+                        {
+                            label: "$(folder) VSCode Folder",
+                            detail: ".vscode/" + fileName,
+                            target: vscode.Uri.joinPath(root, ".vscode", fileName)
+                        }
+                    ],
+                    {
+                        placeHolder: "Where do you want to create the config file?"
+                    }
+                )
+                if (!choice) return
+
+                uri = choice.target
+                if (choice.detail.startsWith(".vscode")) {
+                    const dir = vscode.Uri.joinPath(root, ".vscode")
+                    try {
+                        await vscode.workspace.fs.createDirectory(dir)
+                    } catch { }
+                }
+            }
 
             const content = JSON.stringify(Defaults, null, 2) + "\n"
             await vscode.workspace.fs.writeFile(uri, Buffer.from(content, "utf8"))
@@ -36,7 +67,10 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
             const doc = await vscode.workspace.openTextDocument(uri)
             await vscode.window.showTextDocument(doc)
 
-            vscode.window.showInformationMessage("Successfully created config file (.forgevsc.json)!")
+            vscode.window.showInformationMessage(path
+                ? "Config file overwritten successfully!"
+                : "Successfully created config file!"
+            )
         }),
 
         // Reload Function Metadata

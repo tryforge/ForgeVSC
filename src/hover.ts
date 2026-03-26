@@ -1,5 +1,17 @@
-import { buildSourceURL, findFunction, findGuide, generateUsage, getExtensionConfig, getPackageName, languages, locateCodeBlock, OperatorChain, OperatorInfo } from "."
-import * as vscode from "vscode"
+import {
+    buildSourceURL,
+    findFunction,
+    findGuide,
+    generateUsage,
+    getExtensionConfig,
+    getPackageName,
+    isEscaped,
+    languages,
+    locateCodeBlock,
+    OperatorChain,
+    OperatorInfo
+} from "."
+import vscode from "vscode"
 
 /**
  * Registers the hover info for functions and operators.
@@ -21,7 +33,7 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                     const opEnd = operatorRange.end.character
 
                     const dollar = line.lastIndexOf("$", opStart)
-                    if (dollar === -1) return
+                    if (dollar === -1 || isEscaped(line, dollar)) return
 
                     const between = line.slice(dollar, opStart)
                     const prefixOnly = between.slice(1)
@@ -47,8 +59,10 @@ export function registerHover(ctx: vscode.ExtensionContext) {
 
                 // Function hover
                 while ((match = Regex.exec(line))) {
-                    const hasOpening = match[1] === "["
                     const start = match.index
+                    if (isEscaped(line, start)) continue
+
+                    const hasOpening = match[1] === "["
                     let end = start + match[0].length
                     if (hasOpening) end--
 

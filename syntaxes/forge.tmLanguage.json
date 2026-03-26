@@ -12,14 +12,28 @@
       "endCaptures": {
         "0": { "name": "meta.forge.code.end" }
       },
-      "patterns": [{ "include": "#forge-brackets" }]
+      "patterns": [{ "include": "#djs-eval" }, { "include": "#forge-brackets" }]
+    },
+
+    "djs-eval": {
+      "name": "meta.function.djsEval.forge",
+      "begin": "(?<!\\\\)\\$(?:!?#?(?:@\\[[^\\]\\n]?\\])?)?(?i:(djsEval|js))\\[",
+      "beginCaptures": {
+        "0": { "name": "entity.name.function.forge" }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": { "name": "punctuation.section.brackets.end.forge" }
+      },
+      "contentName": "source.js",
+      "patterns": [{ "include": "source.js" }]
     },
 
     "forge-brackets": {
       "patterns": [
         {
           "name": "meta.function-call.forge",
-          "begin": "(?:\\$!?#?(?:@)\\[[^\\]\\n]?\\])?[a-zA-Z0-9]+(\\[)",
+          "begin": "(?<!\\\\)(?:\\$!?#?(?:@\\[[^\\]\\n]?\\])?)?[a-zA-Z0-9]+(\\[)",
           "beginCaptures": {
             "1": { "name": "forge.function.bracket.open" }
           },
@@ -27,7 +41,10 @@
           "endCaptures": {
             "1": { "name": "forge.function.bracket.close" }
           },
-          "patterns": [{ "include": "#forge-brackets" }]
+          "patterns": [
+            { "include": "#djs-eval" },
+            { "include": "#forge-brackets" }
+          ]
         }
       ]
     }

@@ -1,5 +1,15 @@
-import { findFunction, locateCodeBlock, getExtensionConfig, FunctionHeadRegex, findOpeningBracket, findMatchingBracket, bracketDepth, languages } from "."
-import * as vscode from "vscode"
+import {
+	bracketDepth,
+	findFunction,
+	findMatchingBracket,
+	findOpeningBracket,
+	FunctionHeadRegex,
+	getExtensionConfig,
+	isEscaped,
+	languages,
+	locateCodeBlock
+} from "."
+import vscode from "vscode"
 
 /**
  * Registers the suggestions for function brackets.
@@ -27,6 +37,9 @@ class ForgeInlineCompletionItemProvider implements vscode.InlineCompletionItemPr
 		if (nextChar !== "[") {
 			const match = slice.match(FunctionHeadRegex)
 			if (match) {
+				const startIndex = slice.lastIndexOf("$")
+				if (startIndex !== -1 && isEscaped(slice, startIndex)) return null
+
 				const found = await findFunction(match[1])
 				if (found?.fn.brackets !== undefined) {
 					return [new vscode.InlineCompletionItem("[]", new vscode.Range(position, position))]
@@ -39,6 +52,9 @@ class ForgeInlineCompletionItemProvider implements vscode.InlineCompletionItemPr
 			const openIndex = findOpeningBracket(code.slice)
 			if (openIndex !== -1) {
 				const head = code.slice.slice(0, openIndex)
+				const index = head.lastIndexOf("$")
+				if (index !== -1 && isEscaped(head, index)) return null
+
 				if (FunctionHeadRegex.test(head)) {
 					const block = document.getText().slice(code.start, code.end)
 					const close = findMatchingBracket(block, openIndex)

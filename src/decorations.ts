@@ -10,7 +10,7 @@ import {
     languages,
     locateCodeBlock
 } from "."
-import * as vscode from "vscode"
+import vscode from "vscode"
 
 let decoFn: vscode.TextEditorDecorationType | null = null
 let decoDollar: vscode.TextEditorDecorationType | null = null
@@ -113,7 +113,7 @@ async function applyDecorations(editor: vscode.TextEditor) {
     while ((match = ScanRegex.exec(text))) {
         const matchIndex = match.index
         const startPos = doc.positionAt(matchIndex)
-        if (!locateCodeBlock(doc, startPos)) continue
+        if (!locateCodeBlock(doc, startPos) || isEscaped(text, matchIndex)) continue
 
         const full = match[0]
         let found = await findFunction(full)

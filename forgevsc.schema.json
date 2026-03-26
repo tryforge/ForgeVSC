@@ -7,6 +7,7 @@
     "customFunctionsPath": {
       "type": ["string", "array"],
       "default": [],
+      "uniqueItems": true,
       "description": "Path(s) to your custom functions folder. This is used to generate metadata and to provide full extension feature support for your custom functions."
     },
     "additionalPackages": {
