@@ -1,11 +1,41 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateDocument = validateDocument;
 const _1 = require(".");
-const vscode_1 = __importDefault(require("vscode"));
+const vscode = __importStar(require("vscode"));
 /**
  * Validates a document for diagnostics.
  * @param document The document to validate.
@@ -34,13 +64,26 @@ async function validateDocument(document, collection) {
         if (!found)
             continue;
         const { fn, matchedText } = found;
+        const end = document.positionAt(index + matchedText.length);
+        // Deprecation warning
+        if (fn.deprecated) {
+            const hint = new vscode.Diagnostic(new vscode.Range(start, end), `This function is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available.`, vscode.DiagnosticSeverity.Hint);
+            const warning = new vscode.Diagnostic(new vscode.Range(start, end), `Function \`${fn.name}\` is deprecated. Use an available alternative instead`, vscode.DiagnosticSeverity.Warning);
+            warning.tags = [vscode.DiagnosticTag.Deprecated];
+            diagnostics.push(hint, warning);
+        }
+        // Experimental hint
+        if (fn.experimental) {
+            const diagnostic = new vscode.Diagnostic(new vscode.Range(start, end), `This is an experimental function. It may not work as expected and is not guaranteed to be stable. Expect bugs, changes, or removal.`, vscode.DiagnosticSeverity.Hint);
+            diagnostics.push(diagnostic);
+        }
         const { isInvalidOrder, rawPrefix } = (0, _1.validateOperatorPrefix)(base);
         // Invalid operator order
         if (isInvalidOrder) {
             const offset = rawPrefix.length;
             const opStart = document.positionAt(index + 1);
             const opEnd = document.positionAt(index + offset);
-            diagnostics.push(new vscode_1.default.Diagnostic(new vscode_1.default.Range(opStart, opEnd), `Function \`${fn.name}\` has invalid operator order`, vscode_1.default.DiagnosticSeverity.Error));
+            diagnostics.push(new vscode.Diagnostic(new vscode.Range(opStart, opEnd), `Function \`${fn.name}\` has invalid operator order`, vscode.DiagnosticSeverity.Error));
             continue;
         }
         // Duplicated operators
@@ -48,7 +91,7 @@ async function validateDocument(document, collection) {
         if (rawPrefix.length > strictPrefix.length) {
             const extraStart = document.positionAt(index + strictPrefix.length);
             const extraEnd = document.positionAt(index + rawPrefix.length);
-            diagnostics.push(new vscode_1.default.Diagnostic(new vscode_1.default.Range(extraStart, extraEnd), `Function \`${fn.name}\` has duplicated operators supplied`, vscode_1.default.DiagnosticSeverity.Error));
+            diagnostics.push(new vscode.Diagnostic(new vscode.Range(extraStart, extraEnd), `Function \`${fn.name}\` has duplicated operators supplied`, vscode.DiagnosticSeverity.Error));
             continue;
         }
         const isAttached = matchedText.length === base.length && matchedText.toLowerCase() === base.toLowerCase();
@@ -56,11 +99,10 @@ async function validateDocument(document, collection) {
         const args = fn.args ?? [];
         const acceptsArgs = fn.brackets !== undefined && args.length > 0;
         const requiresArgs = fn.brackets;
-        const end = document.positionAt(index + matchedText.length);
-        const range = new vscode_1.default.Range(start, end);
+        const range = new vscode.Range(start, end);
         // Missing required brackets
         if (requiresArgs && !hasOpeningAttached) {
-            diagnostics.push(new vscode_1.default.Diagnostic(range, `Function \`${fn.name}\` requires brackets`, vscode_1.default.DiagnosticSeverity.Error));
+            diagnostics.push(new vscode.Diagnostic(range, `Function \`${fn.name}\` requires brackets`, vscode.DiagnosticSeverity.Error));
             continue;
         }
         if (!isAttached || args.length === 0)
@@ -70,7 +112,7 @@ async function validateDocument(document, collection) {
             const closeIndex = (0, _1.findMatchingBracket)(text, openIndex);
             // Missing closing bracket
             if (closeIndex === -1) {
-                diagnostics.push(new vscode_1.default.Diagnostic(range, `Function \`${fn.name}\` is missing brace closure`, vscode_1.default.DiagnosticSeverity.Error));
+                diagnostics.push(new vscode.Diagnostic(range, `Function \`${fn.name}\` is missing brace closure`, vscode.DiagnosticSeverity.Error));
                 continue;
             }
             const argString = text.slice(openIndex + 1, closeIndex);
@@ -82,13 +124,13 @@ async function validateDocument(document, collection) {
                 if (expected.required && provided === undefined) {
                     const argStart = document.positionAt(openIndex + 1);
                     const argEnd = document.positionAt(closeIndex);
-                    diagnostics.push(new vscode_1.default.Diagnostic(new vscode_1.default.Range(argStart, argEnd), `Function \`${fn.name}\` is missing argument \`${expected.name}\``, vscode_1.default.DiagnosticSeverity.Error));
+                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(argStart, argEnd), `Function \`${fn.name}\` is missing argument \`${expected.name}\``, vscode.DiagnosticSeverity.Error));
                 }
             }
             // Too many arguments
             if (providedArgs.length > args.length && !args.at(-1)?.rest) {
                 const end = document.positionAt(closeIndex + 1);
-                diagnostics.push(new vscode_1.default.Diagnostic(new vscode_1.default.Range(start, end), `Function \`${fn.name}\` expects ${args.length} argument${args.length === 1 ? "" : "s"} at most, received ${providedArgs.length}`, vscode_1.default.DiagnosticSeverity.Error));
+                diagnostics.push(new vscode.Diagnostic(new vscode.Range(start, end), `Function \`${fn.name}\` expects ${args.length} argument${args.length === 1 ? "" : "s"} at most, received ${providedArgs.length}`, vscode.DiagnosticSeverity.Error));
             }
         }
     }

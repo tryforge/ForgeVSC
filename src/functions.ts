@@ -1,7 +1,7 @@
 import { ArgType, IForgeFunction, IForgeFunctionParam } from "@tryforge/forgescript"
 import { getFunctions, toArray } from "."
-import vscode from "vscode"
-import path from "path"
+import * as vscode from "vscode"
+import * as path from "path"
 import ts from "typescript"
 
 export type FunctionLocation = {

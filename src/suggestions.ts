@@ -9,7 +9,7 @@ import {
 	languages,
 	locateCodeBlock
 } from "."
-import vscode from "vscode"
+import * as vscode from "vscode"
 
 /**
  * Registers the suggestions for function brackets.

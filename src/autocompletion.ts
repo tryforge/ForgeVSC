@@ -14,7 +14,7 @@ import {
     validateOperatorPrefix
 } from "."
 import { IArg } from "@tryforge/forgescript"
-import vscode from "vscode"
+import * as vscode from "vscode"
 
 /**
  * Registers the autocompletion for functions and enums.

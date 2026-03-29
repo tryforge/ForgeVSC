@@ -17,9 +17,9 @@ import {
 	validateDocument
 } from "."
 import { IArg, INativeFunction } from "@tryforge/forgescript"
-import vscode from "vscode"
-import path from "path"
-import fs from "fs"
+import * as vscode from "vscode"
+import * as path from "path"
+import * as fs from "fs"
 
 export type WorkspacePackage = {
 	name: string
@@ -127,7 +127,19 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	const diagnostics = vscode.languages.createDiagnosticCollection("forge")
 	ctx.subscriptions.push(diagnostics)
 
-	validateDocument(vscode.window.activeTextEditor?.document, diagnostics)
+	for (const editor of vscode.window.visibleTextEditors) {
+		validateDocument(editor.document, diagnostics)
+	}
+
+	setTimeout(async () => {
+		const files = await vscode.workspace.findFiles("**/*.{js,ts,jsx,tsx}", "**/node_modules/**")
+		for (const file of files) {
+			try {
+				const doc = await vscode.workspace.openTextDocument(file)
+				validateDocument(doc, diagnostics)
+			} catch { }
+		}
+	}, 0)
 
 	ctx.subscriptions.push(
 		vscode.workspace.onDidChangeTextDocument((event) => {

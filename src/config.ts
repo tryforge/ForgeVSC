@@ -1,5 +1,5 @@
 import { toArray } from "."
-import vscode from "vscode"
+import * as vscode from "vscode"
 
 export interface IExtensionConfig {
     customFunctionsPath?: string | string[]

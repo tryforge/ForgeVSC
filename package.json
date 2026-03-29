@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "Official Visual Studio Code Extension for ForgeScript.",
   "publisher": "tryforge",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "author": {

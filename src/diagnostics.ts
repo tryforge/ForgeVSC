@@ -12,7 +12,7 @@ import {
 	validateOperatorPrefix
 } from "."
 import { IArg } from "@tryforge/forgescript"
-import vscode from "vscode"
+import * as vscode from "vscode"
 
 /**
  * Validates a document for diagnostics.
@@ -48,6 +48,33 @@ export async function validateDocument(
 		if (!found) continue
 
 		const { fn, matchedText } = found
+		const end = document.positionAt(index + matchedText.length)
+
+		// Deprecation warning
+		if (fn.deprecated) {
+			const hint = new vscode.Diagnostic(
+				new vscode.Range(start, end),
+				`This function is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available.`,
+				vscode.DiagnosticSeverity.Hint
+			)
+			const warning = new vscode.Diagnostic(
+				new vscode.Range(start, end),
+				`Function \`${fn.name}\` is deprecated. Use an available alternative instead`,
+				vscode.DiagnosticSeverity.Warning
+			)
+			warning.tags = [vscode.DiagnosticTag.Deprecated]
+			diagnostics.push(hint, warning)
+		}
+
+		// Experimental hint
+		if (fn.experimental) {
+			const diagnostic = new vscode.Diagnostic(
+				new vscode.Range(start, end),
+				`This is an experimental function. It may not work as expected and is not guaranteed to be stable. Expect bugs, changes, or removal.`,
+				vscode.DiagnosticSeverity.Hint
+			)
+			diagnostics.push(diagnostic)
+		}
 		const { isInvalidOrder, rawPrefix } = validateOperatorPrefix(base)
 
 		// Invalid operator order
@@ -83,7 +110,6 @@ export async function validateDocument(
 		const acceptsArgs = fn.brackets !== undefined && args.length > 0
 		const requiresArgs = fn.brackets
 
-		const end = document.positionAt(index + matchedText.length)
 		const range = new vscode.Range(start, end)
 
 		// Missing required brackets
