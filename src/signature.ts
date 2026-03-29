@@ -10,7 +10,7 @@ import {
 	splitArgs
 } from "."
 import { IArg } from "@tryforge/forgescript"
-import vscode from "vscode"
+import * as vscode from "vscode"
 
 // export const FunctionPrefixRegex = /\$!?#?(?:@\[[^\]\n]?\])?[a-zA-Z0-9]+$/
 

@@ -1,5 +1,5 @@
 import { locateCodeBlock, findMatchingBracket, languages, FunctionOpenScanRegex, getExtensionConfig, isEscaped } from "."
-import vscode from "vscode"
+import * as vscode from "vscode"
 
 /**
  * Registers the folding for function contents.

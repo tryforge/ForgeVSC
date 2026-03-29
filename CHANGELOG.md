@@ -1,5 +1,15 @@
 # Change Log
 
+## v1.0.3 <sub>(March 29, 2026)</sub>
+
+### Added
+- Added diagnostic warning to deprecated functions
+- Added diagnostic hint to experimental functions
+- Added validating all files on first activation
+
+### Fixed
+- Fixed decorations not applying to all visible editors
+
 ## v1.0.2 <sub>(March 26, 2026)</sub>
 
 ### Added

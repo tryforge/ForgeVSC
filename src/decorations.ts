@@ -10,7 +10,7 @@ import {
     languages,
     locateCodeBlock
 } from "."
-import vscode from "vscode"
+import * as vscode from "vscode"
 
 let decoFn: vscode.TextEditorDecorationType | null = null
 let decoDollar: vscode.TextEditorDecorationType | null = null
@@ -196,10 +196,11 @@ async function applyDecorations(editor: vscode.TextEditor) {
 export function registerDecorations(ctx: vscode.ExtensionContext) {
     ensureDecorations()
 
-    const updateActive = () => {
-        const editor = vscode.window.activeTextEditor
-        if (!editor || !languages.includes(editor.document.languageId)) return
-        void applyDecorations(editor)
+    const updateAll = () => {
+        for (const editor of vscode.window.visibleTextEditors) {
+            if (!languages.includes(editor.document.languageId)) continue
+            applyDecorations(editor)
+        }
     }
 
     ctx.subscriptions.push(
@@ -210,13 +211,14 @@ export function registerDecorations(ctx: vscode.ExtensionContext) {
                 }
             }
         },
-        vscode.window.onDidChangeActiveTextEditor(() => updateActive()),
+        vscode.window.onDidChangeVisibleTextEditors(() => updateAll()),
         vscode.workspace.onDidChangeTextDocument((e) => {
-            const editor = vscode.window.activeTextEditor
-            if (!editor || e.document !== editor.document) return
-            updateActive()
+            for (const editor of vscode.window.visibleTextEditors) {
+                if (editor.document !== e.document) continue
+                applyDecorations(editor)
+            }
         })
     )
 
-    updateActive()
+    updateAll()
 }

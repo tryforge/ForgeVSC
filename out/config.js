@@ -1,14 +1,44 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Defaults = void 0;
 exports.getExtensionConfig = getExtensionConfig;
 exports.findExtensionConfig = findExtensionConfig;
 exports.loadExtensionConfig = loadExtensionConfig;
 const _1 = require(".");
-const vscode_1 = __importDefault(require("vscode"));
+const vscode = __importStar(require("vscode"));
 exports.Defaults = {
     customFunctionsPath: [],
     additionalPackages: [],
@@ -49,12 +79,12 @@ function getExtensionConfig() {
  */
 async function findExtensionConfig(root) {
     const paths = [
-        vscode_1.default.Uri.joinPath(root, ".forgevsc.json"),
-        vscode_1.default.Uri.joinPath(root, ".vscode", ".forgevsc.json")
+        vscode.Uri.joinPath(root, ".forgevsc.json"),
+        vscode.Uri.joinPath(root, ".vscode", ".forgevsc.json")
     ];
     for (const uri of paths) {
         try {
-            await vscode_1.default.workspace.fs.stat(uri);
+            await vscode.workspace.fs.stat(uri);
             return uri;
         }
         catch { }
@@ -66,7 +96,7 @@ async function findExtensionConfig(root) {
  * @returns
  */
 async function loadExtensionConfig() {
-    const folders = vscode_1.default.workspace.workspaceFolders;
+    const folders = vscode.workspace.workspaceFolders;
     if (!folders?.length) {
         cached = exports.Defaults;
         return cached;
@@ -75,7 +105,7 @@ async function loadExtensionConfig() {
     const uri = await findExtensionConfig(root);
     if (uri) {
         try {
-            const raw = await vscode_1.default.workspace.fs.readFile(uri);
+            const raw = await vscode.workspace.fs.readFile(uri);
             const parsed = JSON.parse(Buffer.from(raw).toString("utf8"));
             cached = {
                 customFunctionsPath: (0, _1.toArray)(parsed.customFunctionsPath ?? exports.Defaults.customFunctionsPath),

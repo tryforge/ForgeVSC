@@ -1,12 +1,42 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HexRegex = void 0;
 exports.registerDecorations = registerDecorations;
 const _1 = require(".");
-const vscode_1 = __importDefault(require("vscode"));
+const vscode = __importStar(require("vscode"));
 let decoFn = null;
 let decoDollar = null;
 let decoSemi = null;
@@ -66,13 +96,13 @@ function ensureDecorations() {
     for (const d of [decoFn, decoDollar, decoSemi, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
         d?.dispose();
     }
-    decoFn = vscode_1.default.window.createTextEditorDecorationType({ color: fnColor });
-    decoDollar = vscode_1.default.window.createTextEditorDecorationType({ color: dollarColor });
-    decoSemi = vscode_1.default.window.createTextEditorDecorationType({ color: semiColor });
-    decoOpNeg = vscode_1.default.window.createTextEditorDecorationType({ color: negColor });
-    decoOpSilent = vscode_1.default.window.createTextEditorDecorationType({ color: silentColor });
-    decoOpCount = vscode_1.default.window.createTextEditorDecorationType({ color: countColor });
-    decoOpCountDelim = vscode_1.default.window.createTextEditorDecorationType({ color: countDelimColor });
+    decoFn = vscode.window.createTextEditorDecorationType({ color: fnColor });
+    decoDollar = vscode.window.createTextEditorDecorationType({ color: dollarColor });
+    decoSemi = vscode.window.createTextEditorDecorationType({ color: semiColor });
+    decoOpNeg = vscode.window.createTextEditorDecorationType({ color: negColor });
+    decoOpSilent = vscode.window.createTextEditorDecorationType({ color: silentColor });
+    decoOpCount = vscode.window.createTextEditorDecorationType({ color: countColor });
+    decoOpCountDelim = vscode.window.createTextEditorDecorationType({ color: countDelimColor });
 }
 async function applyDecorations(editor) {
     ensureDecorations();
@@ -108,17 +138,17 @@ async function applyDecorations(editor) {
         if (nameLength <= 0)
             continue;
         const nameStart = matchIndex + prefixMatch.length;
-        fnRanges.push(new vscode_1.default.Range(doc.positionAt(nameStart), doc.positionAt(nameStart + nameLength)));
-        dollarRanges.push(new vscode_1.default.Range(doc.positionAt(matchIndex), doc.positionAt(matchIndex + 1)));
+        fnRanges.push(new vscode.Range(doc.positionAt(nameStart), doc.positionAt(nameStart + nameLength)));
+        dollarRanges.push(new vscode.Range(doc.positionAt(matchIndex), doc.positionAt(matchIndex + 1)));
         const prefix = prefixMatch;
         for (let i = 0; i < prefix.length; i++) {
             const c = prefix[i];
             const abs = matchIndex + i;
             if (c === "!") {
-                opNegRanges.push(new vscode_1.default.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
+                opNegRanges.push(new vscode.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
             }
             else if (c === "#") {
-                opSilentRanges.push(new vscode_1.default.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
+                opSilentRanges.push(new vscode.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
             }
             else if (c === "@") {
                 const j = prefix.indexOf("@[", i);
@@ -129,12 +159,12 @@ async function applyDecorations(editor) {
                     const hasDelim = k === j + 3;
                     if (hasDelim) {
                         const delimAbs = absStart + 2;
-                        opCountRanges.push(new vscode_1.default.Range(doc.positionAt(absStart), doc.positionAt(absStart + 2)));
-                        opCountRanges.push(new vscode_1.default.Range(doc.positionAt(absEnd - 1), doc.positionAt(absEnd)));
-                        opCountDelimRanges.push(new vscode_1.default.Range(doc.positionAt(delimAbs), doc.positionAt(delimAbs + 1)));
+                        opCountRanges.push(new vscode.Range(doc.positionAt(absStart), doc.positionAt(absStart + 2)));
+                        opCountRanges.push(new vscode.Range(doc.positionAt(absEnd - 1), doc.positionAt(absEnd)));
+                        opCountDelimRanges.push(new vscode.Range(doc.positionAt(delimAbs), doc.positionAt(delimAbs + 1)));
                     }
                     else {
-                        opCountRanges.push(new vscode_1.default.Range(doc.positionAt(absStart), doc.positionAt(absEnd)));
+                        opCountRanges.push(new vscode.Range(doc.positionAt(absStart), doc.positionAt(absEnd)));
                     }
                 }
                 break;
@@ -156,7 +186,7 @@ async function applyDecorations(editor) {
             else if (ch === "]" && depth > 0 && !escaped)
                 depth--;
             else if (ch === ";" && depth === 0 && !escaped) {
-                semiRanges.push(new vscode_1.default.Range(doc.positionAt(i), doc.positionAt(i + 1)));
+                semiRanges.push(new vscode.Range(doc.positionAt(i), doc.positionAt(i + 1)));
             }
         }
     }
@@ -174,11 +204,12 @@ async function applyDecorations(editor) {
  */
 function registerDecorations(ctx) {
     ensureDecorations();
-    const updateActive = () => {
-        const editor = vscode_1.default.window.activeTextEditor;
-        if (!editor || !_1.languages.includes(editor.document.languageId))
-            return;
-        void applyDecorations(editor);
+    const updateAll = () => {
+        for (const editor of vscode.window.visibleTextEditors) {
+            if (!_1.languages.includes(editor.document.languageId))
+                continue;
+            applyDecorations(editor);
+        }
     };
     ctx.subscriptions.push({
         dispose: () => {
@@ -186,12 +217,13 @@ function registerDecorations(ctx) {
                 d?.dispose();
             }
         }
-    }, vscode_1.default.window.onDidChangeActiveTextEditor(() => updateActive()), vscode_1.default.workspace.onDidChangeTextDocument((e) => {
-        const editor = vscode_1.default.window.activeTextEditor;
-        if (!editor || e.document !== editor.document)
-            return;
-        updateActive();
+    }, vscode.window.onDidChangeVisibleTextEditors(() => updateAll()), vscode.workspace.onDidChangeTextDocument((e) => {
+        for (const editor of vscode.window.visibleTextEditors) {
+            if (editor.document !== e.document)
+                continue;
+            applyDecorations(editor);
+        }
     }));
-    updateActive();
+    updateAll();
 }
 //# sourceMappingURL=decorations.js.map

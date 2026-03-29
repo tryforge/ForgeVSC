@@ -11,7 +11,7 @@ import {
     OperatorChain,
     OperatorInfo
 } from "."
-import vscode from "vscode"
+import * as vscode from "vscode"
 
 /**
  * Registers the hover info for functions and operators.

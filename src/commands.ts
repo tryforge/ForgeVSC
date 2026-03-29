@@ -1,5 +1,5 @@
 import { Defaults, DocsUrl, findExtensionConfig, getFunctions, Logger } from "."
-import vscode from "vscode"
+import * as vscode from "vscode"
 
 export function registerCommands(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(

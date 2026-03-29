@@ -1,5 +1,5 @@
 import { DocsUrl, getGuides, Logger } from "."
-import vscode from "vscode"
+import * as vscode from "vscode"
 
 export type GuideType = "specific" | "dedicated"
 export type GuideTargetType = "function" | "event" | "enum" | "none"
