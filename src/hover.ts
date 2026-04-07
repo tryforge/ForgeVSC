@@ -6,7 +6,7 @@ import {
     getExtensionConfig,
     getPackageName,
     isEscaped,
-    languages,
+    Languages,
     locateCodeBlock,
     OperatorChain,
     OperatorInfo
@@ -19,7 +19,7 @@ import * as vscode from "vscode"
  */
 export function registerHover(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
-        vscode.languages.registerHoverProvider(languages, {
+        vscode.languages.registerHoverProvider(Languages, {
             async provideHover(document, position) {
                 const config = getExtensionConfig()
                 if (!locateCodeBlock(document, position) || !config.features.hoverInfo) return
@@ -87,7 +87,7 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                         )
                         md.appendText(`${description}\n`)
                         if (version) {
-                            const links = []
+                            const links: string[] = []
                             const sourceUrl = await buildSourceURL(fn)
                             if (sourceUrl) links.push(`[Source](${sourceUrl})`)
                             const guide = await findGuide({ targetType: "function", targetName: name })

@@ -41,7 +41,7 @@ const vscode = __importStar(require("vscode"));
  * @param ctx The extension context.
  */
 function registerFolding(ctx) {
-    ctx.subscriptions.push(vscode.languages.registerFoldingRangeProvider(_1.languages, {
+    ctx.subscriptions.push(vscode.languages.registerFoldingRangeProvider(_1.Languages, {
         provideFoldingRanges(document) {
             const config = (0, _1.getExtensionConfig)();
             if (!config.features.folding)

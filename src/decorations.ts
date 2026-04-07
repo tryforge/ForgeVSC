@@ -7,7 +7,7 @@ import {
     getExtensionConfig,
     isEscaped,
     isOpeningBracket,
-    languages,
+    Languages,
     locateCodeBlock
 } from "."
 import * as vscode from "vscode"
@@ -198,7 +198,7 @@ export function registerDecorations(ctx: vscode.ExtensionContext) {
 
     const updateAll = () => {
         for (const editor of vscode.window.visibleTextEditors) {
-            if (!languages.includes(editor.document.languageId)) continue
+            if (!Languages.includes(editor.document.languageId)) continue
             applyDecorations(editor)
         }
     }

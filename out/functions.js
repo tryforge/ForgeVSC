@@ -39,10 +39,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DefaultParam = void 0;
 exports.getCustomFunctionLocation = getCustomFunctionLocation;
 exports.loadCustomFunctions = loadCustomFunctions;
-const forgescript_1 = require("@tryforge/forgescript");
+const types_1 = require("./types");
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
-const path = __importStar(require("path"));
 const typescript_1 = __importDefault(require("typescript"));
 exports.DefaultParam = {
     type: "String",
@@ -67,12 +66,12 @@ function getBoolean(node) {
 function parseArgType(node) {
     if (typescript_1.default.isNumericLiteral(node)) {
         const n = Number(node.text);
-        const key = forgescript_1.ArgType[n];
-        return (typeof key === "string" && key in forgescript_1.ArgType) ? key : undefined;
+        const key = types_1.ArgType[n];
+        return (typeof key === "string" && key in types_1.ArgType) ? key : undefined;
     }
     if (typescript_1.default.isStringLiteral(node) || typescript_1.default.isNoSubstitutionTemplateLiteral(node) || typescript_1.default.isIdentifier(node)) {
         const key = node.text;
-        return (key in forgescript_1.ArgType) ? key : undefined;
+        return (key in types_1.ArgType) ? key : undefined;
     }
     return undefined;
 }
@@ -314,6 +313,14 @@ function extractCustomFunctions(text, fileName) {
     return [...unique.values()];
 }
 /**
+ * Returns whether the input is an absolute path.
+ * @param p The path to check.
+ * @returns
+ */
+function isAbsolutePath(p) {
+    return /^(?:[a-zA-Z]:[\\/]|\/)/.test(p);
+}
+/**
  * Resolves the workspace path.
  * @param p The path to resolve.
  * @returns
@@ -322,7 +329,7 @@ function resolveWorkspacePath(p) {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders?.length)
         return null;
-    if (path.isAbsolute(p))
+    if (isAbsolutePath(p))
         return vscode.Uri.file(p);
     return vscode.Uri.joinPath(folders[0].uri, p);
 }
@@ -375,8 +382,8 @@ async function loadCustomFunctions(customFunctionsPath) {
         const files = await collectFiles(dirUri);
         for (const file of files) {
             const buf = await vscode.workspace.fs.readFile(file);
-            const text = Buffer.from(buf).toString("utf8");
-            meta.push(...extractCustomFunctions(text, file.fsPath));
+            const text = new TextDecoder().decode(buf);
+            meta.push(...extractCustomFunctions(text, file.path));
         }
     }
     return meta;

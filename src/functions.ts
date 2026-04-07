@@ -1,7 +1,6 @@
-import { ArgType, IForgeFunction, IForgeFunctionParam } from "@tryforge/forgescript"
+import { ArgType, IForgeFunction, IForgeFunctionParam } from "./types"
 import { getFunctions, toArray } from "."
 import * as vscode from "vscode"
-import * as path from "path"
 import ts from "typescript"
 
 export type FunctionLocation = {
@@ -326,6 +325,15 @@ function extractCustomFunctions(text: string, fileName: string) {
 }
 
 /**
+ * Returns whether the input is an absolute path.
+ * @param p The path to check.
+ * @returns 
+ */
+function isAbsolutePath(p: string) {
+    return /^(?:[a-zA-Z]:[\\/]|\/)/.test(p)
+}
+
+/**
  * Resolves the workspace path.
  * @param p The path to resolve.
  * @returns 
@@ -333,7 +341,7 @@ function extractCustomFunctions(text: string, fileName: string) {
 function resolveWorkspacePath(p: string) {
     const folders = vscode.workspace.workspaceFolders
     if (!folders?.length) return null
-    if (path.isAbsolute(p)) return vscode.Uri.file(p)
+    if (isAbsolutePath(p)) return vscode.Uri.file(p)
 
     return vscode.Uri.joinPath(folders[0].uri, p)
 }
@@ -387,8 +395,8 @@ export async function loadCustomFunctions(customFunctionsPath: string | string[]
 
         for (const file of files) {
             const buf = await vscode.workspace.fs.readFile(file)
-            const text = Buffer.from(buf).toString("utf8")
-            meta.push(...extractCustomFunctions(text, file.fsPath))
+            const text = new TextDecoder().decode(buf)
+            meta.push(...extractCustomFunctions(text, file.path))
         }
     }
 

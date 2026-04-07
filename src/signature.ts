@@ -5,11 +5,10 @@ import {
 	generateUsage,
 	getExtensionConfig,
 	isEscaped,
-	languages,
+	Languages,
 	locateCodeBlock,
 	splitArgs
 } from "."
-import { IArg } from "@tryforge/forgescript"
 import * as vscode from "vscode"
 
 // export const FunctionPrefixRegex = /\$!?#?(?:@\[[^\]\n]?\])?[a-zA-Z0-9]+$/
@@ -21,7 +20,7 @@ import * as vscode from "vscode"
 export function registerSignatureHelp(ctx: vscode.ExtensionContext) {
 	ctx.subscriptions.push(
 		vscode.languages.registerSignatureHelpProvider(
-			languages,
+			Languages,
 			new ForgeSignatureHelpProvider(),
 			"[",
 			";",
@@ -55,7 +54,7 @@ class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider {
 		if (matchedText.length !== typedToken.length) return null
 
 		const argsTyped = text.slice(openIndex + 1)
-		const args: IArg<any>[] = fn.args ?? []
+		const args = fn.args ?? []
 		if (args.length === 0) return null
 
 		const help = new vscode.SignatureHelp()

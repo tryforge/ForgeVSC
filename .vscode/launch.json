@@ -17,6 +17,20 @@
 				"${workspaceFolder}/out/**/*.js"
 			],
 			"preLaunchTask": "${defaultBuildTask}"
+		},
+		{
+			"name": "Run Web Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "code",
+			"outFiles": [
+				"${workspaceFolder}/out/web/**/*.js"
+			],
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionDevelopmentKind=web",
+				"--disable-extensions"
+			]
 		}
 	]
 }

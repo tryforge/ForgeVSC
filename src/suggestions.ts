@@ -6,7 +6,7 @@ import {
 	FunctionHeadRegex,
 	getExtensionConfig,
 	isEscaped,
-	languages,
+	Languages,
 	locateCodeBlock
 } from "."
 import * as vscode from "vscode"
@@ -18,7 +18,7 @@ import * as vscode from "vscode"
 export function registerSuggestions(ctx: vscode.ExtensionContext) {
 	ctx.subscriptions.push(
 		vscode.languages.registerInlineCompletionItemProvider(
-			languages,
+			Languages,
 			new ForgeInlineCompletionItemProvider()
 		)
 	)

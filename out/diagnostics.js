@@ -44,7 +44,7 @@ const vscode = __importStar(require("vscode"));
  */
 async function validateDocument(document, collection) {
     const config = (0, _1.getExtensionConfig)();
-    if (!document || !_1.languages.includes(document.languageId) || !config.features.diagnostics)
+    if (!document || !_1.Languages.includes(document.languageId) || !config.features.diagnostics)
         return;
     const diagnostics = [];
     const text = document.getText();
