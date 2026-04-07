@@ -62,7 +62,8 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
             }
 
             const content = JSON.stringify(Defaults, null, 2) + "\n"
-            await vscode.workspace.fs.writeFile(uri, Buffer.from(content, "utf8"))
+            const text = new TextEncoder().encode(content)
+            await vscode.workspace.fs.writeFile(uri, text)
 
             const doc = await vscode.workspace.openTextDocument(uri)
             await vscode.window.showTextDocument(doc)

@@ -125,7 +125,7 @@ function formatDate(value?: string) {
 }
 
 function markdownForGuide(guide: GuideMetadata) {
-    const lines = []
+    const lines: string[] = []
 
     lines.push(`# ${displayGuideTitle(guide)}`)
     lines.push("")

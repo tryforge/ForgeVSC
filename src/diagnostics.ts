@@ -6,12 +6,11 @@ import {
 	FunctionScanRegex,
 	getExtensionConfig,
 	isEscaped,
-	languages,
+	Languages,
 	locateCodeBlock,
 	splitArgs,
 	validateOperatorPrefix
 } from "."
-import { IArg } from "@tryforge/forgescript"
 import * as vscode from "vscode"
 
 /**
@@ -25,7 +24,7 @@ export async function validateDocument(
 	collection: vscode.DiagnosticCollection
 ) {
 	const config = getExtensionConfig()
-	if (!document || !languages.includes(document.languageId) || !config.features.diagnostics) return
+	if (!document || !Languages.includes(document.languageId) || !config.features.diagnostics) return
 
 	const diagnostics: vscode.Diagnostic[] = []
 	const text = document.getText()
@@ -106,7 +105,7 @@ export async function validateDocument(
 		const isAttached = matchedText.length === base.length && matchedText.toLowerCase() === base.toLowerCase()
 		const hasOpeningAttached = hasOpening && isAttached
 
-		const args: IArg<any>[] = fn.args ?? []
+		const args = fn.args ?? []
 		const acceptsArgs = fn.brackets !== undefined && args.length > 0
 		const requiresArgs = fn.brackets
 

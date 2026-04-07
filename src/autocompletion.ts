@@ -8,12 +8,11 @@ import {
     getFunctions,
     getPackageName,
     isEscaped,
-    languages,
+    Languages,
     locateCodeBlock,
     splitArgs,
     validateOperatorPrefix
 } from "."
-import { IArg } from "@tryforge/forgescript"
 import * as vscode from "vscode"
 
 /**
@@ -22,7 +21,7 @@ import * as vscode from "vscode"
  */
 export function registerAutocompletion(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
-        vscode.languages.registerCompletionItemProvider(languages, {
+        vscode.languages.registerCompletionItemProvider(Languages, {
             async provideCompletionItems(document, position) {
                 const config = getExtensionConfig()
                 if (!locateCodeBlock(document, position) || !config.features.autocompletion) return
@@ -78,7 +77,7 @@ export function registerAutocompletion(ctx: vscode.ExtensionContext) {
                         const found = await findFunction(fnName)
                         const fn = found?.fn
                         if (fn?.args) {
-                            const args: IArg<any>[] = fn.args
+                            const args = fn.args
                             const lastIndex = args.length - 1
 
                             const parts = splitArgs(argsTyped)

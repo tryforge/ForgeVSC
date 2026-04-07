@@ -101,7 +101,8 @@ export async function loadExtensionConfig() {
     if (uri) {
         try {
             const raw = await vscode.workspace.fs.readFile(uri)
-            const parsed = JSON.parse(Buffer.from(raw).toString("utf8")) as IExtensionConfig
+            const text = new TextDecoder().decode(raw)
+            const parsed = JSON.parse(text) as IExtensionConfig
 
             cached = {
                 customFunctionsPath: toArray(parsed.customFunctionsPath ?? Defaults.customFunctionsPath),

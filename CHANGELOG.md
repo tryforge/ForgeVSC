@@ -1,5 +1,10 @@
 # Change Log
 
+## v1.1.0 <sub>(April 07, 2026)</sub>
+
+### Added
+- Added extension support for web code editors
+
 ## v1.0.3 <sub>(March 29, 2026)</sub>
 
 ### Added

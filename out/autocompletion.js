@@ -41,7 +41,7 @@ const vscode = __importStar(require("vscode"));
  * @param ctx The extension context.
  */
 function registerAutocompletion(ctx) {
-    ctx.subscriptions.push(vscode.languages.registerCompletionItemProvider(_1.languages, {
+    ctx.subscriptions.push(vscode.languages.registerCompletionItemProvider(_1.Languages, {
         async provideCompletionItems(document, position) {
             const config = (0, _1.getExtensionConfig)();
             if (!(0, _1.locateCodeBlock)(document, position) || !config.features.autocompletion)

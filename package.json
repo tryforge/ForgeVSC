@@ -3,9 +3,10 @@
   "displayName": "ForgeVSC",
   "description": "Official Visual Studio Code Extension for ForgeScript.",
   "publisher": "tryforge",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
+  "browser": "./out/web/extension.js",
   "author": {
     "name": "xNickyDev"
   },
@@ -16,6 +17,9 @@
     "Programming Languages",
     "Visualization",
     "Other"
+  ],
+  "extensionKind": [
+    "workspace"
   ],
   "repository": {
     "type": "git",
@@ -237,12 +241,15 @@
     ]
   },
   "scripts": {
+    "web": "npx vscode-test-web --extensionDevelopmentPath=. --port=3001",
     "publish": "dotenv -- sh -c 'npm run package && npx ovsx publish -p $OVSX_PAT'",
     "package": "npx @vscode/vsce package",
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run build",
     "compile": "tsc -p ./",
+    "build:web": "node scripts/esbuild.mjs",
+    "build": "npm run compile && npm run build:web",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
+    "pretest": "npm run build && npm run lint",
     "lint": "eslint src"
   },
   "devDependencies": {
@@ -251,13 +258,14 @@
     "@types/vscode": "^1.96.0",
     "@typescript-eslint/eslint-plugin": "^8.17.0",
     "@typescript-eslint/parser": "^8.17.0",
+    "@vscode/test-web": "^0.0.80",
     "@vscode/vsce": "^3.7.1",
     "dotenv-cli": "^11.0.0",
+    "esbuild": "^0.28.0",
     "eslint": "^9.16.0",
     "ovsx": "^0.10.9"
   },
   "dependencies": {
-    "@tryforge/forgescript": "^2.6.0",
     "typescript": "^5.9.3"
   }
 }

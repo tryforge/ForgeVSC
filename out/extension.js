@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.languages = exports.DocsUrl = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionPrefixRegex = exports.FunctionRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
+exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.Languages = exports.DocsUrl = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionPrefixRegex = exports.FunctionRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
 exports.activate = activate;
 exports.toArray = toArray;
 exports.clearMetadataCache = clearMetadataCache;
@@ -60,15 +60,13 @@ exports.bracketDepth = bracketDepth;
 exports.deactivate = deactivate;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
-const path = __importStar(require("path"));
-const fs = __importStar(require("fs"));
 let functions = null;
 let functionsPromise = null;
 let guides = null;
 let guidesPromise = null;
 let paths = new Map();
 let pathsPromise = new Map();
-let ExtensionContext;
+let Context;
 exports.OperatorChain = String.raw `(?:!?#?(?:@\[[^\]]?\])?)?`;
 exports.LooseOperatorChain = String.raw `(?:[!#]|(?:@\[[^\]]?\]))*`;
 exports.FunctionRegex = new RegExp(String.raw `\$${exports.OperatorChain}[a-zA-Z0-9]+`);
@@ -97,7 +95,7 @@ exports.OperatorInfo = {
     }
 };
 exports.DocsUrl = "https://docs.botforge.org/";
-exports.languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"];
+exports.Languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"];
 exports.FunctionsStorageKey = "forgevsc.functionsCache.v1";
 exports.GuidesStorageKey = "forgevsc.guidesCache.v1";
 /**
@@ -105,7 +103,7 @@ exports.GuidesStorageKey = "forgevsc.guidesCache.v1";
  * @param ctx The extension context.
  */
 async function activate(ctx) {
-    ExtensionContext = ctx;
+    Context = ctx;
     exports.Logger = vscode.window.createOutputChannel("ForgeVSC", { log: true });
     exports.Logger.show(true);
     exports.Logger.info("Starting extension...");
@@ -148,7 +146,7 @@ async function activate(ctx) {
     (0, _1.registerAutocompletion)(ctx);
     (0, _1.registerSignatureHelp)(ctx);
     (0, _1.registerSuggestions)(ctx);
-    ctx.subscriptions.push(vscode.languages.registerDefinitionProvider(exports.languages, {
+    ctx.subscriptions.push(vscode.languages.registerDefinitionProvider(exports.Languages, {
         provideDefinition(document, position) {
             const range = document.getWordRangeAtPosition(position, /\$[a-zA-Z0-9]+/);
             if (!range)
@@ -197,7 +195,7 @@ function buildCacheKey(installed, additional = [], customPaths) {
  * @returns
  */
 async function readMetadataCache(storageKey, key) {
-    const data = ExtensionContext.globalState.get(storageKey);
+    const data = Context.globalState.get(storageKey);
     if (!data || data.version !== 1 || data.key !== key)
         return null;
     return data.metadata;
@@ -215,27 +213,32 @@ async function writeMetadataCache(storageKey, key, data) {
         timestamp: Date.now(),
         metadata: data
     };
-    await ExtensionContext.globalState.update(storageKey, payload);
+    await Context.globalState.update(storageKey, payload);
 }
 /**
  * Clears the metadata from cache.
  * @param storageKey The storage key.
  */
 async function clearMetadataCache(storageKey) {
-    await ExtensionContext.globalState.update(storageKey, undefined);
+    await Context.globalState.update(storageKey, undefined);
 }
 /**
  * Returns all forge packages of the workspace.
  * @returns
  */
-function getForgePackages() {
+async function getForgePackages() {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders)
         return [];
-    const pkgPath = path.join(folders[0].uri.fsPath, "package.json");
-    if (!fs.existsSync(pkgPath))
+    const pkgUri = vscode.Uri.joinPath(folders[0].uri, "package.json");
+    let data;
+    try {
+        data = await vscode.workspace.fs.readFile(pkgUri);
+    }
+    catch {
         return [];
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    }
+    const pkg = JSON.parse(new TextDecoder().decode(data));
     const deps = Object.entries(pkg.dependencies ?? {});
     return deps
         .filter(([name]) => name.startsWith("@tryforge/") || name.toLowerCase().includes("forge"))
@@ -360,22 +363,21 @@ function normalizeRepo(input) {
  * @param pkg The workspace package.
  * @returns
  */
-function resolveInstalledPackage(root, pkg) {
+async function resolveInstalledPackage(root, pkg) {
     const { name, value } = pkg;
     const direct = normalizeRepo(value);
     if (direct)
         return buildPackage(direct.repo, direct.branch, name);
-    const pkgPath = path.join(root, "node_modules", name, "package.json");
-    if (fs.existsSync(pkgPath)) {
-        try {
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-            const repo = pkg.repository;
-            const ref = typeof repo === "string" ? normalizeRepo(repo) : normalizeRepo(repo.url);
-            if (ref)
-                return buildPackage(ref.repo, ref.branch, name);
-        }
-        catch { }
+    const pkgUri = vscode.Uri.joinPath(root, "node_modules", name, "package.json");
+    try {
+        const data = await vscode.workspace.fs.readFile(pkgUri);
+        const pkg = JSON.parse(new TextDecoder().decode(data));
+        const repo = pkg.repository;
+        const ref = typeof repo === "string" ? normalizeRepo(repo) : normalizeRepo(repo?.url);
+        if (ref)
+            return buildPackage(ref.repo, ref.branch, name);
     }
+    catch { }
     const fallback = getRepo(name);
     if (!fallback)
         return null;
@@ -431,18 +433,18 @@ async function fetchFunctions(force = false) {
     if (!folders)
         return [];
     const { additionalPackages, customFunctionsPath } = (0, _1.getExtensionConfig)();
-    const root = folders[0].uri.fsPath;
-    const rawInstalled = getForgePackages();
+    const root = folders[0].uri;
+    const rawInstalled = await getForgePackages();
     const rawAdditional = additionalPackages?.filter(Boolean) ?? [];
     let failedFetch = [];
     const def = buildPackage("tryforge/ForgeScript", "main", "@tryforge/forgescript");
     const getId = (source) => getPackageId(source);
-    const installed = rawInstalled.map((pkg) => {
-        const source = resolveInstalledPackage(root, pkg);
+    const installed = (await Promise.all(rawInstalled.map(async (pkg) => {
+        const source = await resolveInstalledPackage(root, pkg);
         if (!source && pkg.name !== def.label)
             failedFetch.push(pkg.name);
         return source;
-    }).filter((x) => !!x);
+    }))).filter((x) => !!x);
     const additional = rawAdditional.map((input) => {
         const source = resolveAdditionalPackage(input);
         if (!source && input !== def.label)
@@ -465,8 +467,17 @@ async function fetchFunctions(force = false) {
     let fetchMain = false;
     for (const pkgSource of uniqueInstalled) {
         const pkgName = pkgSource.label;
-        const pkgPath = path.join(root, "node_modules", pkgName, "package.json");
-        if (!fs.existsSync(pkgPath)) {
+        let handled = false;
+        try {
+            const localMetaUri = vscode.Uri.joinPath(root, "node_modules", pkgName, "metadata", "functions.json");
+            const data = await vscode.workspace.fs.readFile(localMetaUri);
+            const json = JSON.parse(new TextDecoder().decode(data));
+            extensionFunctions.push(...json.map((x) => ({ ...x, source: pkgSource })));
+            fetched.add(pkgName);
+            handled = true;
+        }
+        catch { }
+        if (!handled) {
             const data = await fetchMetadata(pkgSource);
             if (data) {
                 extensionFunctions.push(...data);
@@ -478,34 +489,6 @@ async function fetchFunctions(force = false) {
                 else
                     fetchMain = true;
             }
-            continue;
-        }
-        const localMeta = path.join(root, "node_modules", pkgName, "metadata", "functions.json");
-        if (fs.existsSync(localMeta)) {
-            try {
-                const data = JSON.parse(fs.readFileSync(localMeta, "utf8"));
-                extensionFunctions.push(...data.map((x) => ({ ...x, source: pkgSource })));
-                fetched.add(pkgName);
-                continue;
-            }
-            catch {
-                if (pkgName !== def.label)
-                    failedFetch.push(pkgName);
-                else
-                    fetchMain = true;
-                continue;
-            }
-        }
-        const data = await fetchMetadata(pkgSource);
-        if (data) {
-            extensionFunctions.push(...data);
-            fetched.add(pkgName);
-        }
-        else {
-            if (pkgName !== def.label)
-                failedFetch.push(pkgName);
-            else
-                fetchMain = true;
         }
     }
     for (const source of uniqueAdditional) {

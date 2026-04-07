@@ -1,4 +1,4 @@
-import { locateCodeBlock, findMatchingBracket, languages, FunctionOpenScanRegex, getExtensionConfig, isEscaped } from "."
+import { locateCodeBlock, findMatchingBracket, Languages, FunctionOpenScanRegex, isEscaped, getExtensionConfig } from "."
 import * as vscode from "vscode"
 
 /**
@@ -7,7 +7,7 @@ import * as vscode from "vscode"
  */
 export function registerFolding(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
-        vscode.languages.registerFoldingRangeProvider(languages, {
+        vscode.languages.registerFoldingRangeProvider(Languages, {
             provideFoldingRanges(document) {
                 const config = getExtensionConfig()
                 if (!config.features.folding) return null

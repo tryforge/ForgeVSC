@@ -42,7 +42,7 @@ const vscode = __importStar(require("vscode"));
  * @param ctx The extension context.
  */
 function registerSignatureHelp(ctx) {
-    ctx.subscriptions.push(vscode.languages.registerSignatureHelpProvider(_1.languages, new ForgeSignatureHelpProvider(), "[", ";", "]"));
+    ctx.subscriptions.push(vscode.languages.registerSignatureHelpProvider(_1.Languages, new ForgeSignatureHelpProvider(), "[", ";", "]"));
 }
 class ForgeSignatureHelpProvider {
     async provideSignatureHelp(document, position) {

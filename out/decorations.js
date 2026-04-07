@@ -206,7 +206,7 @@ function registerDecorations(ctx) {
     ensureDecorations();
     const updateAll = () => {
         for (const editor of vscode.window.visibleTextEditors) {
-            if (!_1.languages.includes(editor.document.languageId))
+            if (!_1.Languages.includes(editor.document.languageId))
                 continue;
             applyDecorations(editor);
         }

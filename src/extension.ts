@@ -16,10 +16,8 @@ import {
 	registerSuggestions,
 	validateDocument
 } from "."
-import { IArg, INativeFunction } from "@tryforge/forgescript"
+import { IMetadataFunction } from "./types"
 import * as vscode from "vscode"
-import * as path from "path"
-import * as fs from "fs"
 
 export type WorkspacePackage = {
 	name: string
@@ -31,8 +29,7 @@ export type PackageSource = {
 	label?: string
 }
 
-export type FunctionMetadata = Omit<INativeFunction<any>, "execute"> & {
-	category?: string
+export type FunctionMetadata = IMetadataFunction & {
 	source?: PackageSource
 	location?: FunctionLocation
 }
@@ -57,7 +54,7 @@ let guidesPromise: Promise<GuideMetadata[]> | null = null
 let paths = new Map<string, PathMetadata>()
 let pathsPromise = new Map<string, Promise<PathMetadata | null>>()
 
-let ExtensionContext: vscode.ExtensionContext
+let Context: vscode.ExtensionContext
 export let Logger: vscode.LogOutputChannel
 
 export const OperatorChain = String.raw`(?:!?#?(?:@\[[^\]]?\])?)?`
@@ -91,7 +88,7 @@ export const OperatorInfo = {
 }
 
 export const DocsUrl = "https://docs.botforge.org/"
-export const languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+export const Languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"]
 
 export const FunctionsStorageKey = "forgevsc.functionsCache.v1"
 export const GuidesStorageKey = "forgevsc.guidesCache.v1"
@@ -101,7 +98,7 @@ export const GuidesStorageKey = "forgevsc.guidesCache.v1"
  * @param ctx The extension context.
  */
 export async function activate(ctx: vscode.ExtensionContext) {
-	ExtensionContext = ctx
+	Context = ctx
 
 	Logger = vscode.window.createOutputChannel("ForgeVSC", { log: true })
 	Logger.show(true)
@@ -164,7 +161,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	registerSuggestions(ctx)
 
 	ctx.subscriptions.push(
-		vscode.languages.registerDefinitionProvider(languages, {
+		vscode.languages.registerDefinitionProvider(Languages, {
 			provideDefinition(document, position) {
 				const range = document.getWordRangeAtPosition(position, /\$[a-zA-Z0-9]+/)
 				if (!range) return
@@ -219,7 +216,7 @@ function buildCacheKey(installed: WorkspacePackage[], additional: string[] = [],
  * @returns 
  */
 async function readMetadataCache<T>(storageKey: string, key: string) {
-	const data = ExtensionContext.globalState.get<IMetadataCache<T>>(storageKey)
+	const data = Context.globalState.get<IMetadataCache<T>>(storageKey)
 	if (!data || data.version !== 1 || data.key !== key) return null
 	return data.metadata
 }
@@ -238,7 +235,7 @@ async function writeMetadataCache<T>(storageKey: string, key: string, data: T) {
 		metadata: data
 	}
 
-	await ExtensionContext.globalState.update(storageKey, payload)
+	await Context.globalState.update(storageKey, payload)
 }
 
 /**
@@ -246,21 +243,27 @@ async function writeMetadataCache<T>(storageKey: string, key: string, data: T) {
  * @param storageKey The storage key.
  */
 export async function clearMetadataCache(storageKey: string) {
-	await ExtensionContext.globalState.update(storageKey, undefined)
+	await Context.globalState.update(storageKey, undefined)
 }
 
 /**
  * Returns all forge packages of the workspace.
  * @returns 
  */
-export function getForgePackages(): WorkspacePackage[] {
+export async function getForgePackages(): Promise<WorkspacePackage[]> {
 	const folders = vscode.workspace.workspaceFolders
 	if (!folders) return []
 
-	const pkgPath = path.join(folders[0].uri.fsPath, "package.json")
-	if (!fs.existsSync(pkgPath)) return []
+	const pkgUri = vscode.Uri.joinPath(folders[0].uri, "package.json")
+	let data
 
-	const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
+	try {
+		data = await vscode.workspace.fs.readFile(pkgUri)
+	} catch {
+		return []
+	}
+
+	const pkg = JSON.parse(new TextDecoder().decode(data))
 	const deps = Object.entries<string>(pkg.dependencies ?? {})
 
 	return deps
@@ -379,7 +382,7 @@ function normalizeRepo(input: string) {
 
 		const owner = parts[0]
 		const repo = parts[1]
-		let branch = undefined
+		let branch: string | undefined = undefined
 
 		if ((parts[2] === "tree" || parts[2] === "blob") && parts[3]) branch = parts[3]
 
@@ -395,21 +398,22 @@ function normalizeRepo(input: string) {
  * @param pkg The workspace package.
  * @returns 
  */
-function resolveInstalledPackage(root: string, pkg: WorkspacePackage) {
+async function resolveInstalledPackage(root: vscode.Uri, pkg: WorkspacePackage) {
 	const { name, value } = pkg
 
 	const direct = normalizeRepo(value)
 	if (direct) return buildPackage(direct.repo, direct.branch, name)
 
-	const pkgPath = path.join(root, "node_modules", name, "package.json")
-	if (fs.existsSync(pkgPath)) {
-		try {
-			const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
-			const repo = pkg.repository
-			const ref = typeof repo === "string" ? normalizeRepo(repo) : normalizeRepo(repo.url)
-			if (ref) return buildPackage(ref.repo, ref.branch, name)
-		} catch { }
-	}
+	const pkgUri = vscode.Uri.joinPath(root, "node_modules", name, "package.json")
+	try {
+		const data = await vscode.workspace.fs.readFile(pkgUri)
+		const pkg = JSON.parse(new TextDecoder().decode(data))
+
+		const repo = pkg.repository
+		const ref = typeof repo === "string" ? normalizeRepo(repo) : normalizeRepo(repo?.url)
+
+		if (ref) return buildPackage(ref.repo, ref.branch, name)
+	} catch { }
 
 	const fallback = getRepo(name)
 	if (!fallback) return null
@@ -471,20 +475,22 @@ export async function fetchFunctions(force: boolean = false) {
 	if (!folders) return []
 
 	const { additionalPackages, customFunctionsPath } = getExtensionConfig()
-	const root = folders[0].uri.fsPath
+	const root = folders[0].uri
 
-	const rawInstalled = getForgePackages()
+	const rawInstalled = await getForgePackages()
 	const rawAdditional = additionalPackages?.filter(Boolean) ?? []
-	let failedFetch = []
+	let failedFetch: any[] = []
 
 	const def = buildPackage("tryforge/ForgeScript", "main", "@tryforge/forgescript")
 	const getId = (source: PackageSource) => getPackageId(source)
 
-	const installed = rawInstalled.map((pkg) => {
-		const source = resolveInstalledPackage(root, pkg)
-		if (!source && pkg.name !== def.label) failedFetch.push(pkg.name)
-		return source
-	}).filter((x): x is PackageSource => !!x)
+	const installed = (await Promise.all(
+		rawInstalled.map(async (pkg) => {
+			const source = await resolveInstalledPackage(root, pkg)
+			if (!source && pkg.name !== def.label) failedFetch.push(pkg.name)
+			return source
+		})
+	)).filter((x): x is PackageSource => !!x)
 
 	const additional = rawAdditional.map((input) => {
 		const source = resolveAdditionalPackage(input)
@@ -511,8 +517,19 @@ export async function fetchFunctions(force: boolean = false) {
 
 	for (const pkgSource of uniqueInstalled) {
 		const pkgName = pkgSource.label!
-		const pkgPath = path.join(root, "node_modules", pkgName, "package.json")
-		if (!fs.existsSync(pkgPath)) {
+		let handled = false
+
+		try {
+			const localMetaUri = vscode.Uri.joinPath(root, "node_modules", pkgName, "metadata", "functions.json")
+			const data = await vscode.workspace.fs.readFile(localMetaUri)
+			const json = JSON.parse(new TextDecoder().decode(data)) as FunctionMetadata[]
+
+			extensionFunctions.push(...json.map((x) => ({ ...x, source: pkgSource })))
+			fetched.add(pkgName)
+			handled = true
+		} catch { }
+
+		if (!handled) {
 			const data = await fetchMetadata(pkgSource)
 			if (data) {
 				extensionFunctions.push(...data)
@@ -521,30 +538,6 @@ export async function fetchFunctions(force: boolean = false) {
 				if (pkgName !== def.label) failedFetch.push(pkgName)
 				else fetchMain = true
 			}
-			continue
-		}
-
-		const localMeta = path.join(root, "node_modules", pkgName, "metadata", "functions.json")
-		if (fs.existsSync(localMeta)) {
-			try {
-				const data = JSON.parse(fs.readFileSync(localMeta, "utf8")) as FunctionMetadata[]
-				extensionFunctions.push(...data.map((x) => ({ ...x, source: pkgSource })))
-				fetched.add(pkgName)
-				continue
-			} catch {
-				if (pkgName !== def.label) failedFetch.push(pkgName)
-				else fetchMain = true
-				continue
-			}
-		}
-
-		const data = await fetchMetadata(pkgSource)
-		if (data) {
-			extensionFunctions.push(...data)
-			fetched.add(pkgName)
-		} else {
-			if (pkgName !== def.label) failedFetch.push(pkgName)
-			else fetchMain = true
 		}
 	}
 
@@ -747,7 +740,7 @@ export function locateCodeBlock(document: vscode.TextDocument, position: vscode.
  * @returns
  */
 export function generateUsage(fn: FunctionMetadata, withTypes: boolean = false) {
-	const args = fn.args as IArg<any>[] | undefined
+	const args = fn.args
 	const usage = args?.length
 		? `[${args.map((arg) =>
 			`${arg.rest ? "..." : ""}${arg.name}${arg.required ? "" : "?"}${withTypes ? `: ${arg.type}` : ""}`

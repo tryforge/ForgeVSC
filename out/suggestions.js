@@ -41,7 +41,7 @@ const vscode = __importStar(require("vscode"));
  * @param ctx The extension context.
  */
 function registerSuggestions(ctx) {
-    ctx.subscriptions.push(vscode.languages.registerInlineCompletionItemProvider(_1.languages, new ForgeInlineCompletionItemProvider()));
+    ctx.subscriptions.push(vscode.languages.registerInlineCompletionItemProvider(_1.Languages, new ForgeInlineCompletionItemProvider()));
 }
 class ForgeInlineCompletionItemProvider {
     async provideInlineCompletionItems(document, position) {
