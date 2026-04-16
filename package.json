@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "Official Visual Studio Code Extension for ForgeScript.",
   "publisher": "tryforge",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "browser": "./out/web/extension.js",
@@ -110,6 +110,12 @@
         "title": "Open Guide",
         "category": "ForgeVSC",
         "icon": "$(link-external)"
+      },
+      {
+        "command": "forgevsc.openExtensionSettings",
+        "title": "Open Extension Settings",
+        "category": "ForgeVSC",
+        "icon": "$(settings)"
       }
     ],
     "grammars": [
@@ -122,6 +128,15 @@
           "source.jsx",
           "source.tsx"
         ]
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": [
+          ".forgevsc.json",
+          ".vscode/.forgevsc.json"
+        ],
+        "url": "./forgevsc.schema.json"
       }
     ],
     "viewsContainers": {
@@ -230,15 +245,119 @@
         ]
       }
     },
-    "jsonValidation": [
-      {
-        "fileMatch": [
-          ".forgevsc.json",
-          ".vscode/.forgevsc.json"
-        ],
-        "url": "./forgevsc.schema.json"
+    "configuration": {
+      "title": "ForgeVSC",
+      "properties": {
+        "forgevsc.global.enabledWorkspaces": {
+          "order": 0,
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "uniqueItems": true,
+          "scope": "machine",
+          "description": "List of workspace names where ForgeVSC is enabled. Leave empty to enable the extension for all workspaces."
+        },
+        "forgevsc.workspace.additionalPackages": {
+          "order": 1,
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "description": "Additional packages/extensions to fetch metadata from. By default, installed Forge packages are detected automatically. This property is only needed if metadata fetching fails or you want to include extra packages."
+        },
+        "forgevsc.workspace.customFunctionPaths": {
+          "order": 2,
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "uniqueItems": true,
+          "description": "Path(s) to your custom functions folder(s). This is used to generate metadata and to provide full extension feature support for your custom functions."
+        },
+        "forgevsc.workspace.colors.function.name": {
+          "order": 10,
+          "type": "string",
+          "default": "#ac75ff",
+          "description": "The highlight color used for function names."
+        },
+        "forgevsc.workspace.colors.function.dollar": {
+          "order": 11,
+          "type": "string",
+          "default": "#fe7ceb",
+          "description": "The highlight color used for function dollar signs ($)."
+        },
+        "forgevsc.workspace.colors.function.semicolon": {
+          "order": 12,
+          "type": "string",
+          "default": "#c586c0",
+          "description": "The highlight color used for function semicolons (;)."
+        },
+        "forgevsc.workspace.colors.operators.negation": {
+          "order": 13,
+          "type": "string",
+          "default": "#4FA3FF",
+          "description": "The highlight color used for the negation operator (!)."
+        },
+        "forgevsc.workspace.colors.operators.silent": {
+          "order": 14,
+          "type": "string",
+          "default": "#FF9F43",
+          "description": "The highlight color used for the silent operator (#)."
+        },
+        "forgevsc.workspace.colors.operators.count": {
+          "order": 15,
+          "type": "string",
+          "default": "#33D17A",
+          "description": "The highlight color used for the count operator (@[x])."
+        },
+        "forgevsc.workspace.colors.operators.countDelimiter": {
+          "order": 16,
+          "type": "string",
+          "default": "#76E3A0",
+          "description": "The highlight color used for the count operator delimiter (separator)."
+        },
+        "forgevsc.workspace.features.folding": {
+          "order": 30,
+          "type": "boolean",
+          "default": true,
+          "description": "Whether folding for multi-line function contents should be enabled."
+        },
+        "forgevsc.workspace.features.hoverInfo": {
+          "order": 31,
+          "type": "boolean",
+          "default": true,
+          "description": "Whether hover info cards for functions and operators should be enabled."
+        },
+        "forgevsc.workspace.features.suggestions": {
+          "order": 32,
+          "type": "boolean",
+          "default": true,
+          "description": "Whether suggestions for bracket placement should be enabled."
+        },
+        "forgevsc.workspace.features.signatureHelp": {
+          "order": 33,
+          "type": "boolean",
+          "default": true,
+          "description": "Whether signature help for function arguments should be enabled."
+        },
+        "forgevsc.workspace.features.diagnostics": {
+          "order": 34,
+          "type": "boolean",
+          "default": true,
+          "description": "Whether diagnostics for function validation should be enabled."
+        },
+        "forgevsc.workspace.features.autocompletion": {
+          "order": 35,
+          "type": "boolean",
+          "default": true,
+          "description": "Whether autocompletion for functions and arguments should be enabled."
+        }
       }
-    ]
+    }
   },
   "scripts": {
     "web": "npx vscode-test-web --extensionDevelopmentPath=. --port=3001",
@@ -254,18 +373,18 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "20.x",
-    "@types/vscode": "^1.96.0",
-    "@typescript-eslint/eslint-plugin": "^8.17.0",
-    "@typescript-eslint/parser": "^8.17.0",
+    "@types/node": "^25.6.0",
+    "@types/vscode": "^1.116.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/parser": "^8.58.2",
     "@vscode/test-web": "^0.0.80",
-    "@vscode/vsce": "^3.7.1",
+    "@vscode/vsce": "^3.9.0",
     "dotenv-cli": "^11.0.0",
     "esbuild": "^0.28.0",
-    "eslint": "^9.16.0",
-    "ovsx": "^0.10.9"
+    "eslint": "^10.2.0",
+    "ovsx": "^0.10.11"
   },
   "dependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.2"
   }
 }

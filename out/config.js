@@ -34,13 +34,15 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Defaults = void 0;
+exports.getSettingsConfig = getSettingsConfig;
 exports.getExtensionConfig = getExtensionConfig;
 exports.findExtensionConfig = findExtensionConfig;
 exports.loadExtensionConfig = loadExtensionConfig;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 exports.Defaults = {
-    customFunctionsPath: [],
+    enabledWorkspaces: [],
+    customFunctionPaths: [],
     additionalPackages: [],
     colors: {
         function: {
@@ -65,6 +67,43 @@ exports.Defaults = {
     },
 };
 let cached = exports.Defaults;
+/**
+ * Returns the settings config of the extension.
+ * @returns
+ */
+function getSettingsConfig() {
+    const vs = vscode.workspace.getConfiguration("forgevsc");
+    return {
+        global: {
+            enabledWorkspaces: vs.get("global.enabledWorkspaces")
+        },
+        workspace: {
+            customFunctionPaths: vs.get("workspace.customFunctionPaths"),
+            additionalPackages: vs.get("workspace.additionalPackages"),
+            colors: {
+                function: {
+                    name: vs.get("workspace.colors.function.name"),
+                    dollar: vs.get("workspace.colors.function.dollar"),
+                    semicolon: vs.get("workspace.colors.function.semicolon"),
+                },
+                operators: {
+                    negation: vs.get("workspace.colors.operators.negation"),
+                    silent: vs.get("workspace.colors.operators.silent"),
+                    count: vs.get("workspace.colors.operators.count"),
+                    countDelimiter: vs.get("workspace.colors.operators.countDelimiter"),
+                }
+            },
+            features: {
+                folding: vs.get("workspace.features.folding"),
+                hoverInfo: vs.get("workspace.features.hoverInfo"),
+                suggestions: vs.get("workspace.features.suggestions"),
+                signatureHelp: vs.get("workspace.features.signatureHelp"),
+                diagnostics: vs.get("workspace.features.diagnostics"),
+                autocompletion: vs.get("workspace.features.autocompletion"),
+            }
+        }
+    };
+}
 /**
  * Returns the config options of the extension.
  * @returns
@@ -97,31 +136,49 @@ async function findExtensionConfig(root) {
  */
 async function loadExtensionConfig() {
     const folders = vscode.workspace.workspaceFolders;
-    if (!folders?.length) {
-        cached = exports.Defaults;
-        return cached;
-    }
-    const root = folders[0].uri;
-    const uri = await findExtensionConfig(root);
-    if (uri) {
-        try {
-            const raw = await vscode.workspace.fs.readFile(uri);
-            const text = new TextDecoder().decode(raw);
-            const parsed = JSON.parse(text);
-            cached = {
-                customFunctionsPath: (0, _1.toArray)(parsed.customFunctionsPath ?? exports.Defaults.customFunctionsPath),
-                additionalPackages: Array.from(new Set([...exports.Defaults.additionalPackages, ...(parsed.additionalPackages ?? [])])),
-                colors: {
-                    function: { ...exports.Defaults.colors.function, ...(parsed.colors?.function ?? {}) },
-                    operators: { ...exports.Defaults.colors.operators, ...(parsed.colors?.operators ?? {}) },
-                },
-                features: { ...exports.Defaults.features, ...(parsed.features ?? {}) },
-            };
-            return cached;
+    const vs = getSettingsConfig();
+    let file = {};
+    if (folders?.length) {
+        const root = folders[0].uri;
+        const uri = await findExtensionConfig(root);
+        if (uri) {
+            try {
+                const raw = await vscode.workspace.fs.readFile(uri);
+                const text = new TextDecoder().decode(raw);
+                file = JSON.parse(text);
+            }
+            catch { }
         }
-        catch { }
     }
-    cached = exports.Defaults;
+    cached = {
+        enabledWorkspaces: vs.global.enabledWorkspaces ?? [],
+        customFunctionPaths: (0, _1.toArray)(file.customFunctionPaths ?? vs.workspace.customFunctionPaths ?? exports.Defaults.customFunctionPaths),
+        additionalPackages: Array.from(new Set([
+            ...exports.Defaults.additionalPackages,
+            ...(vs.workspace.additionalPackages ?? []),
+            ...(file.additionalPackages ?? [])
+        ])),
+        colors: {
+            function: {
+                ...exports.Defaults.colors.function,
+                ...(vs.workspace.colors?.function ?? {}),
+                ...(file.colors?.function ?? {})
+            },
+            operators: {
+                ...exports.Defaults.colors.operators,
+                ...(vs.workspace.colors?.operators ?? {}),
+                ...(file.colors?.operators ?? {})
+            }
+        },
+        features: {
+            folding: file.features?.folding ?? vs.workspace.features?.folding ?? exports.Defaults.features.folding,
+            hoverInfo: file.features?.hoverInfo ?? vs.workspace.features?.hoverInfo ?? exports.Defaults.features.hoverInfo,
+            suggestions: file.features?.suggestions ?? vs.workspace.features?.suggestions ?? exports.Defaults.features.suggestions,
+            signatureHelp: file.features?.signatureHelp ?? vs.workspace.features?.signatureHelp ?? exports.Defaults.features.signatureHelp,
+            diagnostics: file.features?.diagnostics ?? vs.workspace.features?.diagnostics ?? exports.Defaults.features.diagnostics,
+            autocompletion: file.features?.autocompletion ?? vs.workspace.features?.autocompletion ?? exports.Defaults.features.autocompletion,
+        }
+    };
     return cached;
 }
 //# sourceMappingURL=config.js.map

@@ -1,8 +1,11 @@
 import { DocsUrl, getGuides, Logger } from "."
 import * as vscode from "vscode"
 
-export type GuideType = "specific" | "dedicated"
-export type GuideTargetType = "function" | "event" | "enum" | "none"
+export const GuideTypes = ["specific", "dedicated"] as const
+export const GuideTargetTypes = ["function", "event", "enum", "none"] as const
+
+export type GuideType = typeof GuideTypes[number]
+export type GuideTargetType = typeof GuideTargetTypes[number]
 export type GuideUser = {
     id: number
     username: string
@@ -49,8 +52,10 @@ export type GuideFindQuery =
         approvedBefore?: string
         reviewerId?: number
         approverId?: number
+        approverUsername?: string
         contributorId?: number
         contributorUsername?: string
+        authorUsername?: string
         sortBy?: "relevance" | "approvedAt" | "title"
         sortDir?: "asc" | "desc"
         limit?: number
@@ -78,6 +83,15 @@ type GuideNode = {
     subCategory?: string
     guide?: GuideMetadata
     isFavorite?: boolean
+}
+
+/**
+ * Converts a value to title case.
+ * @param value The value to format.
+ * @returns 
+ */
+export function toTitleCase(value: string) {
+    return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 function clean(value?: string | null) {
@@ -199,12 +213,12 @@ function matchesGuide(guide: GuideMetadata, query: Exclude<GuideFindQuery, strin
     if (query.id != null && guide.id !== query.id) return false
     if (query.referenceId != null && guide.referenceId !== query.referenceId) return false
     if (query.guideType && guide.guideType !== query.guideType) return false
-    if (query.packageName && normalize(guide.packageName) !== normalize(query.packageName)) return false
+    if (query.packageName && !normalize(guide.packageName).includes(normalize(query.packageName))) return false
     if (query.targetType && guide.targetType !== query.targetType) return false
     if (query.targetName != null && normalize(guide.targetName) !== normalize(query.targetName)) return false
     if (query.title != null && normalize(guide.title) !== normalize(query.title)) return false
-    if (query.category != null && normalize(guide.category) !== normalize(query.category)) return false
-    if (query.subCategory != null && normalize(guide.subCategory) !== normalize(query.subCategory)) return false
+    if (query.category != null && !normalize(guide.category).includes(normalize(query.category))) return false
+    if (query.subCategory != null && !normalize(guide.subCategory).includes(normalize(query.subCategory))) return false
 
     if (query.approvedAfter) {
         const approvedAfter = new Date(query.approvedAfter).getTime()
@@ -221,6 +235,9 @@ function matchesGuide(guide: GuideMetadata, query: Exclude<GuideFindQuery, strin
     if (query.reviewerId != null && guide.reviewerId !== query.reviewerId) return false
     if (query.approverId != null && guide.approver?.id !== query.approverId) return false
 
+    if (query.approverUsername && !normalize(guide.approver?.username).includes(normalize(query.approverUsername)))
+        return false
+
     if (query.contributorId != null) {
         const hasContributor = (guide.contributors ?? []).some((x) => x.id === query.contributorId)
         if (!hasContributor) return false
@@ -228,8 +245,16 @@ function matchesGuide(guide: GuideMetadata, query: Exclude<GuideFindQuery, strin
 
     if (query.contributorUsername) {
         const wanted = normalize(query.contributorUsername)
-        const hasContributor = (guide.contributors ?? []).some((x) => normalize(x.username) === wanted)
+        const hasContributor = (guide.contributors ?? []).some((x) => normalize(x.username).includes(wanted))
         if (!hasContributor) return false
+    }
+
+    if (query.authorUsername) {
+        const wanted = normalize(query.authorUsername)
+        const hasAuthor = (guide.contributors ?? []).some(
+            (c) => c.isOriginalAuthor && normalize(c.username).includes(wanted)
+        )
+        if (!hasAuthor) return false
     }
 
     if (query.text) {
@@ -297,6 +322,159 @@ export async function findGuide(query: GuideFindQuery) {
     const sorted = sortFoundGuides(matches, query)
 
     return sorted[0] ?? null
+}
+
+function parseGuideQuery(input: string) {
+    const filters: Record<string, string> = {}
+    const textParts: string[] = []
+
+    let activeKey: string | undefined
+    let activeValue: string | undefined
+
+    const tokens = input.trim().split(/\s+/)
+    for (const token of tokens) {
+        const match = token.match(/^(\w+):(.*)$/)
+
+        if (match) {
+            const [, key, value] = match
+            const lowerKey = key.toLowerCase()
+
+            filters[lowerKey] = value
+
+            if (!value) {
+                activeKey = lowerKey
+                activeValue = value
+            }
+        } else {
+            textParts.push(token)
+        }
+    }
+
+    return {
+        text: textParts.join(" "),
+        filters,
+        activeKey,
+        activeValue
+    }
+}
+
+function collectValues(guides: GuideMetadata[]) {
+    return {
+        category: [...new Set(guides.map((g) => g.category).filter(Boolean))],
+        subcategory: [...new Set(guides.map((g) => g.subCategory).filter(Boolean))],
+        author: [
+            ...new Set(guides.flatMap((g) => g.contributors.filter((c) => c.isOriginalAuthor).map((c) => c.username)))
+        ],
+        contributor: [
+            ...new Set(guides.flatMap((g) => g.contributors.filter((c) => !c.isOriginalAuthor).map((c) => c.username)))
+        ],
+        approver: [...new Set(guides.map((g) => g.approver.username))],
+        package: [...new Set(guides.map((g) => g.packageName))],
+        type: GuideTargetTypes
+    }
+}
+
+async function searchGuides() {
+    const guides = await getGuides()
+    if (!guides.length) {
+        vscode.window.showInformationMessage("No guides available.")
+        return
+    }
+
+    const qp = vscode.window.createQuickPick<any>()
+    qp.placeholder = "Search guides... (e.g. author:Nicky package:ForgeScript)"
+
+    const values = collectValues(guides)
+    type Keys = keyof typeof values
+
+    const update = (input: string) => {
+        const { text, filters, activeKey, activeValue } = parseGuideQuery(input)
+        const keys = Object.keys(values) as Keys[]
+
+        const query: any = {}
+        if (text) query.text = text
+        if (filters.category) query.category = filters.category
+        if (filters.subcategory) query.subCategory = filters.subcategory
+        if (filters.package) query.packageName = filters.package
+        if (filters.type) query.targetType = filters.type
+        if (filters.author) query.authorUsername = filters.author
+        if (filters.contributor) query.contributorUsername = filters.contributor
+        if (filters.approver) query.approverUsername = filters.approver
+
+        const filteredGuides = guides.filter((g) => matchesGuide(g, query)).sort(sortGuides)
+        const guideItems = filteredGuides.map((guide) => ({
+            label: displayGuideTitle(guide),
+            description: guide.packageName,
+            detail: guide.targetType !== "none"
+                ? toTitleCase(guide.targetType)
+                : [guide.category, guide.subCategory].filter(Boolean).join(" • "),
+            iconPath: new vscode.ThemeIcon("book"),
+            guide,
+            alwaysShow: true
+        }))
+
+        const usedKeys = Object.keys(filters)
+        const keyItems = keys
+            .filter((key) => !usedKeys.includes(key))
+            .map((key) => ({
+                label: key + ":",
+                description: "Filter",
+                action: "key",
+                alwaysShow: true
+            }))
+
+        let suggestionItems: any[] = []
+
+        if (!!activeKey && activeKey && values[activeKey as Keys]) {
+            const suggestions = values[activeKey as Keys]
+
+            suggestionItems = suggestions
+                .filter((v) => (!activeValue || v!.toLowerCase().includes(activeValue.toLowerCase())))
+                .map((value) => ({
+                    label: value!,
+                    description: `${activeKey}`,
+                    action: "set-filter",
+                    key: activeKey,
+                    value,
+                    alwaysShow: true
+                }))
+        }
+
+        qp.items = [
+            ...(activeKey ? [] : keyItems),
+            ...suggestionItems,
+            ...guideItems
+        ]
+    }
+
+    update("")
+    qp.onDidChangeValue(update)
+    qp.onDidAccept(async () => {
+        const item = qp.selectedItems[0]
+        if (!item) return
+
+        if (item.action === "key") {
+            qp.value = qp.value + item.label
+            return
+        }
+
+        if (item.action === "set-filter") {
+            const parts = qp.value.split(/\s+/).filter(Boolean)
+            const newParts = parts.map((p) => (p.startsWith(item.key + ":") ? `${item.key}:${item.value}` : p))
+
+            if (!newParts.some((part) => part.startsWith(item.key + ":"))) {
+                newParts.push(`${item.key}:${item.value}`)
+            }
+
+            qp.value = newParts.join(" ") + " "
+            return
+        }
+
+        await vscode.commands.executeCommand("forgevsc.openGuide", item.guide)
+        qp.hide()
+    })
+
+    qp.show()
 }
 
 class ForgeGuidesProvider implements vscode.TreeDataProvider<GuideNode> {
@@ -554,11 +732,10 @@ export function registerGuidesView(ctx: vscode.ExtensionContext) {
         // Search Guides
         vscode.commands.registerCommand("forgevsc.searchGuides", async () => {
             try {
-                await vscode.commands.executeCommand("forge.guidesView.focus")
-                await vscode.commands.executeCommand("list.find")
+                await searchGuides()
             } catch (err) {
-                Logger?.error(`Opening guide search failed: ${String(err)}`)
-                vscode.window.showErrorMessage("Could not open the guide search bar.")
+                Logger?.error(`Guide search failed: ${String(err)}`)
+                vscode.window.showErrorMessage("Could not open guide search.")
             }
         }),
 

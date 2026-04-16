@@ -4,14 +4,20 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "customFunctionsPath": {
+    "customFunctionPaths": {
       "type": ["string", "array"],
+      "items": {
+        "type": "string"
+      },
       "default": [],
       "uniqueItems": true,
-      "description": "Path(s) to your custom functions folder. This is used to generate metadata and to provide full extension feature support for your custom functions."
+      "description": "Path(s) to your custom functions folder(s). This is used to generate metadata and to provide full extension feature support for your custom functions."
     },
     "additionalPackages": {
       "type": "array",
+      "items": {
+        "type": "string"
+      },
       "uniqueItems": true,
       "description": "Additional packages/extensions to fetch metadata from. By default, installed Forge packages are detected automatically. This property is only needed if metadata fetching fails or you want to include extra packages."
     },

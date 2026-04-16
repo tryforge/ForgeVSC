@@ -1,4 +1,11 @@
-import { locateCodeBlock, findMatchingBracket, Languages, FunctionOpenScanRegex, isEscaped, getExtensionConfig } from "."
+import {
+    findMatchingBracket,
+    FunctionOpenScanRegex,
+    getExtensionConfig,
+    isEscaped,
+    Languages,
+    locateCodeBlock
+} from "."
 import * as vscode from "vscode"
 
 /**
