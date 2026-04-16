@@ -1,2 +1,2 @@
-dist/* linguist-generated
-out/* linguist-generated
+dist/** linguist-generated
+out/** linguist-generated
