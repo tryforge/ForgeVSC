@@ -5,6 +5,16 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
         // Create Config
         vscode.commands.registerCommand("forgevsc.createConfig", async () => {
+            const action = await vscode.window.showWarningMessage(
+                "The custom configuration file is deprecated and maintained only for legacy compatibility. Please use extension settings instead.",
+                "Open Settings",
+                "Dismiss"
+            )
+            if (action === "Open Settings") {
+                await vscode.commands.executeCommand("forgevsc.openExtensionSettings")
+                return
+            }
+
             const folders = vscode.workspace.workspaceFolders
             if (!folders?.length) {
                 vscode.window.showErrorMessage("Open a workspace folder first.")
@@ -61,7 +71,8 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
                 }
             }
 
-            const content = JSON.stringify(Defaults, null, 2) + "\n"
+            const { enabledWorkspaces, ...Config } = Defaults
+            const content = JSON.stringify(Config, null, 2) + "\n"
             const text = new TextEncoder().encode(content)
             await vscode.workspace.fs.writeFile(uri, text)
 
@@ -78,14 +89,6 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
         vscode.commands.registerCommand("forgevsc.reloadFunctionMetadata", async () => {
             await getFunctions(true)
             vscode.window.showInformationMessage("Successfully fetched function metadata!")
-        }),
-
-        // Open Extension Page
-        vscode.commands.registerCommand("forgevsc.openExtensionPage", async () => {
-            await vscode.commands.executeCommand(
-                "workbench.extensions.action.showExtensionsWithIds",
-                [ctx.extension.id]
-            )
         }),
 
         // Open Extension Log

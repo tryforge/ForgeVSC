@@ -1,4 +1,4 @@
-name: Publish guides.json (metadata branch)
+name: Publish guides.json
 
 on:
   workflow_dispatch:
@@ -37,7 +37,7 @@ jobs:
           test -f guides.json
           test -s guides.json
 
-      - name: Publish to metadata branch (force, single commit)
+      - name: Publish to metadata branch
         run: |
           set -euo pipefail
 

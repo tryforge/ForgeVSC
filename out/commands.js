@@ -40,6 +40,11 @@ function registerCommands(ctx) {
     ctx.subscriptions.push(
     // Create Config
     vscode.commands.registerCommand("forgevsc.createConfig", async () => {
+        const action = await vscode.window.showWarningMessage("The custom configuration file is deprecated and maintained only for legacy compatibility. Please use extension settings instead.", "Open Settings", "Dismiss");
+        if (action === "Open Settings") {
+            await vscode.commands.executeCommand("forgevsc.openExtensionSettings");
+            return;
+        }
         const folders = vscode.workspace.workspaceFolders;
         if (!folders?.length) {
             vscode.window.showErrorMessage("Open a workspace folder first.");
@@ -87,7 +92,8 @@ function registerCommands(ctx) {
                 catch { }
             }
         }
-        const content = JSON.stringify(_1.Defaults, null, 2) + "\n";
+        const { enabledWorkspaces, ...Config } = _1.Defaults;
+        const content = JSON.stringify(Config, null, 2) + "\n";
         const text = new TextEncoder().encode(content);
         await vscode.workspace.fs.writeFile(uri, text);
         const doc = await vscode.workspace.openTextDocument(uri);
@@ -100,10 +106,6 @@ function registerCommands(ctx) {
     vscode.commands.registerCommand("forgevsc.reloadFunctionMetadata", async () => {
         await (0, _1.getFunctions)(true);
         vscode.window.showInformationMessage("Successfully fetched function metadata!");
-    }), 
-    // Open Extension Page
-    vscode.commands.registerCommand("forgevsc.openExtensionPage", async () => {
-        await vscode.commands.executeCommand("workbench.extensions.action.showExtensionsWithIds", [ctx.extension.id]);
     }), 
     // Open Extension Log
     vscode.commands.registerCommand("forgevsc.openExtensionLog", async () => {

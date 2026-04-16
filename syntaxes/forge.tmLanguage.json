@@ -1,6 +1,6 @@
 {
   "scopeName": "forge.inject",
-  "injectionSelector": "L:source.js, L:source.ts, L:source.jsx, L:source.tsx",
+  "injectionSelector": "L:source.js -comment, L:source.ts -comment, L:source.jsx -comment, L:source.tsx -comment",
   "patterns": [{ "include": "#code-property-string" }],
   "repository": {
     "code-property-string": {

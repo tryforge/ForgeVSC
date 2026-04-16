@@ -1,5 +1,23 @@
 # Change Log
 
+## v1.2.0 <sub>(April 16, 2026)</sub>
+
+### Added
+- Added advanced guide search
+- Added extension settings
+- Added ability to enable/disable the extension for specific workspaces
+- Added "**ForgeVSC: Open Extension Settings**" command
+
+### Changed
+- Renamed config property "customFunctionsPath" to `customFunctionPaths`
+
+### Fixed
+- Fixed code still highlighted inside JavaScript comments
+
+### Deprecated
+- Deprecated `.forgevsc.json` config file (replaced by extension settings)\
+    <sub>This file remains supported for compatibility, but is legacy. Extension settings are recommended instead.</sub>
+
 ## v1.1.0 <sub>(April 07, 2026)</sub>
 
 ### Added

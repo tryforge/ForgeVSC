@@ -54,6 +54,7 @@ let guidesPromise: Promise<GuideMetadata[]> | null = null
 let paths = new Map<string, PathMetadata>()
 let pathsPromise = new Map<string, Promise<PathMetadata | null>>()
 
+let isEnabled = true
 let Context: vscode.ExtensionContext
 export let Logger: vscode.LogOutputChannel
 
@@ -100,26 +101,70 @@ export const GuidesStorageKey = "forgevsc.guidesCache.v1"
 export async function activate(ctx: vscode.ExtensionContext) {
 	Context = ctx
 
-	Logger = vscode.window.createOutputChannel("ForgeVSC", { log: true })
+	await loadExtensionConfig()
+	isEnabled = isWorkspaceEnabled()
+
+	const name: string = ctx.extension.packageJSON.displayName ?? "ForgeVSC"
+	Logger = vscode.window.createOutputChannel(name, { log: true })
+
+	ctx.subscriptions.push(
+		Logger,
+		// Open Extension Settings
+		vscode.commands.registerCommand("forgevsc.openExtensionSettings", async (setting?: string) => {
+			await vscode.commands.executeCommand(
+				"workbench.action.openSettings",
+				setting?.trim() || "forgevsc."
+			)
+		})
+	)
+
+	if (!isEnabled) {
+		Logger.info("Extension is disabled for this workspace.")
+		const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left)
+		status.text = `$(circle-slash) ${name} Disabled`
+		status.tooltip = "Open Extension Settings"
+		status.command = {
+			command: "forgevsc.openExtensionSettings",
+			title: "Open Extension Settings",
+			arguments: ["forgevsc.global.enabledWorkspaces"]
+		}
+		status.show()
+		ctx.subscriptions.push(status)
+	} else {
+		initialize(ctx)
+	}
+
+	const watcher = vscode.workspace.createFileSystemWatcher("**/{.forgevsc.json,.vscode/.forgevsc.json}")
+	ctx.subscriptions.push(
+		watcher,
+		watcher.onDidCreate(reload),
+		watcher.onDidChange(reload),
+		watcher.onDidDelete(reload),
+		vscode.workspace.onDidChangeConfiguration(async (e) => {
+			if (e.affectsConfiguration("forgevsc")) await reload()
+		})
+	)
+}
+
+/**
+ * Initializes the extension.
+ * @param ctx The extension context.
+ */
+function initialize(ctx: vscode.ExtensionContext) {
 	Logger.show(true)
 	Logger.info("Starting extension...")
-
-	await loadExtensionConfig()
 
 	registerCommands(ctx)
 	registerGuidePreview(ctx)
 	registerGuidesView(ctx)
 
 	registerDecorations(ctx)
+	registerHover(ctx)
 	registerFolding(ctx)
 
-	const watcher = vscode.workspace.createFileSystemWatcher("**/{.forgevsc.json,.vscode/.forgevsc.json}")
-	ctx.subscriptions.push(
-		watcher,
-		watcher.onDidCreate(async () => await loadExtensionConfig()),
-		watcher.onDidChange(async () => await loadExtensionConfig()),
-		watcher.onDidDelete(async () => await loadExtensionConfig())
-	)
+	registerAutocompletion(ctx)
+	registerSignatureHelp(ctx)
+	registerSuggestions(ctx)
 
 	const diagnostics = vscode.languages.createDiagnosticCollection("forge")
 	ctx.subscriptions.push(diagnostics)
@@ -155,11 +200,6 @@ export async function activate(ctx: vscode.ExtensionContext) {
 		vscode.workspace.onDidOpenTextDocument((doc) => validateDocument(doc, diagnostics))
 	)
 
-	registerHover(ctx)
-	registerAutocompletion(ctx)
-	registerSignatureHelp(ctx)
-	registerSuggestions(ctx)
-
 	ctx.subscriptions.push(
 		vscode.languages.registerDefinitionProvider(Languages, {
 			provideDefinition(document, position) {
@@ -172,7 +212,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
 		})
 	)
 
-	const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC"
+	const name: string = ctx.extension.packageJSON.displayName ?? "ForgeVSC"
 	const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
 	status.text = `$(package) ${name} v` + ctx.extension.packageJSON.version
 	status.command = "forgevsc.openExtensionLog"
@@ -182,6 +222,42 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	ctx.subscriptions.push(status)
 
 	Logger.info("Extension started successfully!")
+}
+
+/**
+ * Reloads the extension configuration.
+ * @returns 
+ */
+async function reload() {
+	await loadExtensionConfig()
+
+	const newState = isWorkspaceEnabled()
+	if (newState === isEnabled) return
+
+	const showInformationMessage = async (message: string) => {
+		const action = await vscode.window.showInformationMessage(
+			message,
+			"Reload",
+			"Open Settings"
+		)
+		if (action === "Reload") await vscode.commands.executeCommand("workbench.action.reloadWindow")
+		else if (action === "Open Settings") {
+			await vscode.commands.executeCommand(
+				"forgevsc.openExtensionSettings",
+				"forgevsc.global.enabledWorkspaces"
+			)
+		}
+	}
+
+	isEnabled = newState
+	if (!isEnabled) {
+		Logger.info("Extension disabled after configuration change.")
+		await showInformationMessage("Extension is disabled for this workspace. Reload recommended.",)
+		return
+	}
+
+	Logger.info("Extension enabled after configuration change.")
+	await showInformationMessage("Extension has been enabled. Reload to fully activate.",)
 }
 
 /**
@@ -244,6 +320,21 @@ async function writeMetadataCache<T>(storageKey: string, key: string, data: T) {
  */
 export async function clearMetadataCache(storageKey: string) {
 	await Context.globalState.update(storageKey, undefined)
+}
+
+/**
+ * Checks whether the current workspace is enabled.
+ * @returns 
+ */
+export function isWorkspaceEnabled() {
+	const folders = vscode.workspace.workspaceFolders
+	if (!folders?.length) return true
+
+	const config = getExtensionConfig()
+	const enabled = config.enabledWorkspaces ?? []
+	if (!enabled.length) return true
+
+	return folders.some((folder) => enabled.includes(folder.name))
 }
 
 /**
@@ -474,7 +565,7 @@ export async function fetchFunctions(force: boolean = false) {
 	const folders = vscode.workspace.workspaceFolders
 	if (!folders) return []
 
-	const { additionalPackages, customFunctionsPath } = getExtensionConfig()
+	const { additionalPackages, customFunctionPaths } = getExtensionConfig()
 	const root = folders[0].uri
 
 	const rawInstalled = await getForgePackages()
@@ -502,7 +593,7 @@ export async function fetchFunctions(force: boolean = false) {
 	const overridden = new Set(uniqueAdditional.map(getId))
 	const uniqueInstalled = installed.filter((source) => !overridden.has(getId(source)))
 
-	const cacheKey = buildCacheKey(rawInstalled, rawAdditional, customFunctionsPath)
+	const cacheKey = buildCacheKey(rawInstalled, rawAdditional, customFunctionPaths)
 	if (!force) {
 		const cached = await readMetadataCache<FunctionMetadata[]>(FunctionsStorageKey, cacheKey)
 		if (cached) {
@@ -565,7 +656,7 @@ export async function fetchFunctions(force: boolean = false) {
 		else failedFetch.unshift(def.label)
 	}
 
-	const customFunctions = await loadCustomFunctions(customFunctionsPath)
+	const customFunctions = await loadCustomFunctions(customFunctionPaths)
 	const metadata = [...main, ...extensionFunctions]
 
 	failedFetch = [...new Set(failedFetch)]
@@ -573,7 +664,7 @@ export async function fetchFunctions(force: boolean = false) {
 	const count = fetched.size
 
 	Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}.`)
-	if (customFunctionsPath.length) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`)
+	if (customFunctionPaths.length) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`)
 	if (failed) {
 		const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")
 		Logger.error(text)
@@ -714,6 +805,11 @@ export function locateCodeBlock(document: vscode.TextDocument, position: vscode.
 		const quoteChar = match[1]
 		const start = CodeRegex.lastIndex
 
+		if (isInsideComment(text, match.index)) {
+			CodeRegex.lastIndex = start
+			continue
+		}
+
 		let end = -1
 		for (let i = start; i < text.length; i++) {
 			if (text[i] !== quoteChar || isEscaped(text, i, true)) continue
@@ -836,6 +932,27 @@ export function isEscaped(input: string, i: number, single: boolean = false, min
 	let slashes = 0
 	for (let j = i - 1; j >= minIndex && input[j] === "\\"; j--) slashes++
 	return single ? (slashes % 2 === 1) : (slashes >= 2 && slashes % 2 === 0)
+}
+
+/**
+ * Checks whether the input is inside a comment.
+ * @param input The input text.
+ * @param index The index number.
+ * @returns 
+ */
+export function isInsideComment(input: string, index: number) {
+	// Line comments (//)
+	const lineStart = input.lastIndexOf("\n", index) + 1
+	const line = input.slice(lineStart, index)
+	const lineComment = line.indexOf("//")
+	if (lineComment !== -1) return true
+
+	// Block comments (/* */)
+	const before = input.slice(0, index)
+	const open = before.lastIndexOf("/*")
+	const close = before.lastIndexOf("*/")
+
+	return open !== -1 && open > close
 }
 
 /**

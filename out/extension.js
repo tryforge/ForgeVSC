@@ -37,6 +37,7 @@ exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.Languages = exp
 exports.activate = activate;
 exports.toArray = toArray;
 exports.clearMetadataCache = clearMetadataCache;
+exports.isWorkspaceEnabled = isWorkspaceEnabled;
 exports.getForgePackages = getForgePackages;
 exports.buildPackage = buildPackage;
 exports.getPackageName = getPackageName;
@@ -52,6 +53,7 @@ exports.findFunction = findFunction;
 exports.validateOperatorPrefix = validateOperatorPrefix;
 exports.cloneRegex = cloneRegex;
 exports.isEscaped = isEscaped;
+exports.isInsideComment = isInsideComment;
 exports.isOpeningBracket = isOpeningBracket;
 exports.findOpeningBracket = findOpeningBracket;
 exports.findMatchingBracket = findMatchingBracket;
@@ -66,6 +68,7 @@ let guides = null;
 let guidesPromise = null;
 let paths = new Map();
 let pathsPromise = new Map();
+let isEnabled = true;
 let Context;
 exports.OperatorChain = String.raw `(?:!?#?(?:@\[[^\]]?\])?)?`;
 exports.LooseOperatorChain = String.raw `(?:[!#]|(?:@\[[^\]]?\]))*`;
@@ -104,17 +107,53 @@ exports.GuidesStorageKey = "forgevsc.guidesCache.v1";
  */
 async function activate(ctx) {
     Context = ctx;
-    exports.Logger = vscode.window.createOutputChannel("ForgeVSC", { log: true });
+    await (0, _1.loadExtensionConfig)();
+    isEnabled = isWorkspaceEnabled();
+    const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC";
+    exports.Logger = vscode.window.createOutputChannel(name, { log: true });
+    ctx.subscriptions.push(exports.Logger, 
+    // Open Extension Settings
+    vscode.commands.registerCommand("forgevsc.openExtensionSettings", async (setting) => {
+        await vscode.commands.executeCommand("workbench.action.openSettings", setting?.trim() || "forgevsc.");
+    }));
+    if (!isEnabled) {
+        exports.Logger.info("Extension is disabled for this workspace.");
+        const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+        status.text = `$(circle-slash) ${name} Disabled`;
+        status.tooltip = "Open Extension Settings";
+        status.command = {
+            command: "forgevsc.openExtensionSettings",
+            title: "Open Extension Settings",
+            arguments: ["forgevsc.global.enabledWorkspaces"]
+        };
+        status.show();
+        ctx.subscriptions.push(status);
+    }
+    else {
+        initialize(ctx);
+    }
+    const watcher = vscode.workspace.createFileSystemWatcher("**/{.forgevsc.json,.vscode/.forgevsc.json}");
+    ctx.subscriptions.push(watcher, watcher.onDidCreate(reload), watcher.onDidChange(reload), watcher.onDidDelete(reload), vscode.workspace.onDidChangeConfiguration(async (e) => {
+        if (e.affectsConfiguration("forgevsc"))
+            await reload();
+    }));
+}
+/**
+ * Initializes the extension.
+ * @param ctx The extension context.
+ */
+function initialize(ctx) {
     exports.Logger.show(true);
     exports.Logger.info("Starting extension...");
-    await (0, _1.loadExtensionConfig)();
     (0, _1.registerCommands)(ctx);
     (0, _1.registerGuidePreview)(ctx);
     (0, _1.registerGuidesView)(ctx);
     (0, _1.registerDecorations)(ctx);
+    (0, _1.registerHover)(ctx);
     (0, _1.registerFolding)(ctx);
-    const watcher = vscode.workspace.createFileSystemWatcher("**/{.forgevsc.json,.vscode/.forgevsc.json}");
-    ctx.subscriptions.push(watcher, watcher.onDidCreate(async () => await (0, _1.loadExtensionConfig)()), watcher.onDidChange(async () => await (0, _1.loadExtensionConfig)()), watcher.onDidDelete(async () => await (0, _1.loadExtensionConfig)()));
+    (0, _1.registerAutocompletion)(ctx);
+    (0, _1.registerSignatureHelp)(ctx);
+    (0, _1.registerSuggestions)(ctx);
     const diagnostics = vscode.languages.createDiagnosticCollection("forge");
     ctx.subscriptions.push(diagnostics);
     for (const editor of vscode.window.visibleTextEditors) {
@@ -142,10 +181,6 @@ async function activate(ctx) {
             }
         }
     }), vscode.workspace.onDidOpenTextDocument((doc) => (0, _1.validateDocument)(doc, diagnostics)));
-    (0, _1.registerHover)(ctx);
-    (0, _1.registerAutocompletion)(ctx);
-    (0, _1.registerSignatureHelp)(ctx);
-    (0, _1.registerSuggestions)(ctx);
     ctx.subscriptions.push(vscode.languages.registerDefinitionProvider(exports.Languages, {
         provideDefinition(document, position) {
             const range = document.getWordRangeAtPosition(position, /\$[a-zA-Z0-9]+/);
@@ -163,6 +198,32 @@ async function activate(ctx) {
     status.show();
     ctx.subscriptions.push(status);
     exports.Logger.info("Extension started successfully!");
+}
+/**
+ * Reloads the extension configuration.
+ * @returns
+ */
+async function reload() {
+    await (0, _1.loadExtensionConfig)();
+    const newState = isWorkspaceEnabled();
+    if (newState === isEnabled)
+        return;
+    const showInformationMessage = async (message) => {
+        const action = await vscode.window.showInformationMessage(message, "Reload", "Open Settings");
+        if (action === "Reload")
+            await vscode.commands.executeCommand("workbench.action.reloadWindow");
+        else if (action === "Open Settings") {
+            await vscode.commands.executeCommand("forgevsc.openExtensionSettings", "forgevsc.global.enabledWorkspaces");
+        }
+    };
+    isEnabled = newState;
+    if (!isEnabled) {
+        exports.Logger.info("Extension disabled after configuration change.");
+        await showInformationMessage("Extension is disabled for this workspace. Reload recommended.");
+        return;
+    }
+    exports.Logger.info("Extension enabled after configuration change.");
+    await showInformationMessage("Extension has been enabled. Reload to fully activate.");
 }
 /**
  * Converts the given value to an array.
@@ -221,6 +282,20 @@ async function writeMetadataCache(storageKey, key, data) {
  */
 async function clearMetadataCache(storageKey) {
     await Context.globalState.update(storageKey, undefined);
+}
+/**
+ * Checks whether the current workspace is enabled.
+ * @returns
+ */
+function isWorkspaceEnabled() {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders?.length)
+        return true;
+    const config = (0, _1.getExtensionConfig)();
+    const enabled = config.enabledWorkspaces ?? [];
+    if (!enabled.length)
+        return true;
+    return folders.some((folder) => enabled.includes(folder.name));
 }
 /**
  * Returns all forge packages of the workspace.
@@ -432,7 +507,7 @@ async function fetchFunctions(force = false) {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders)
         return [];
-    const { additionalPackages, customFunctionsPath } = (0, _1.getExtensionConfig)();
+    const { additionalPackages, customFunctionPaths } = (0, _1.getExtensionConfig)();
     const root = folders[0].uri;
     const rawInstalled = await getForgePackages();
     const rawAdditional = additionalPackages?.filter(Boolean) ?? [];
@@ -454,7 +529,7 @@ async function fetchFunctions(force = false) {
     const uniqueAdditional = [...new Map(additional.map((source) => [getId(source), source])).values()];
     const overridden = new Set(uniqueAdditional.map(getId));
     const uniqueInstalled = installed.filter((source) => !overridden.has(getId(source)));
-    const cacheKey = buildCacheKey(rawInstalled, rawAdditional, customFunctionsPath);
+    const cacheKey = buildCacheKey(rawInstalled, rawAdditional, customFunctionPaths);
     if (!force) {
         const cached = await readMetadataCache(exports.FunctionsStorageKey, cacheKey);
         if (cached) {
@@ -516,13 +591,13 @@ async function fetchFunctions(force = false) {
         else
             failedFetch.unshift(def.label);
     }
-    const customFunctions = await (0, _1.loadCustomFunctions)(customFunctionsPath);
+    const customFunctions = await (0, _1.loadCustomFunctions)(customFunctionPaths);
     const metadata = [...main, ...extensionFunctions];
     failedFetch = [...new Set(failedFetch)];
     const failed = failedFetch.length;
     const count = fetched.size;
     exports.Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}.`);
-    if (customFunctionsPath.length)
+    if (customFunctionPaths.length)
         exports.Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`);
     if (failed) {
         const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
@@ -648,6 +723,10 @@ function locateCodeBlock(document, position) {
     while ((match = CodeRegex.exec(text)) !== null) {
         const quoteChar = match[1];
         const start = CodeRegex.lastIndex;
+        if (isInsideComment(text, match.index)) {
+            CodeRegex.lastIndex = start;
+            continue;
+        }
         let end = -1;
         for (let i = start; i < text.length; i++) {
             if (text[i] !== quoteChar || isEscaped(text, i, true))
@@ -755,6 +834,25 @@ function isEscaped(input, i, single = false, minIndex = 0) {
     for (let j = i - 1; j >= minIndex && input[j] === "\\"; j--)
         slashes++;
     return single ? (slashes % 2 === 1) : (slashes >= 2 && slashes % 2 === 0);
+}
+/**
+ * Checks whether the input is inside a comment.
+ * @param input The input text.
+ * @param index The index number.
+ * @returns
+ */
+function isInsideComment(input, index) {
+    // Line comments (//)
+    const lineStart = input.lastIndexOf("\n", index) + 1;
+    const line = input.slice(lineStart, index);
+    const lineComment = line.indexOf("//");
+    if (lineComment !== -1)
+        return true;
+    // Block comments (/* */)
+    const before = input.slice(0, index);
+    const open = before.lastIndexOf("/*");
+    const close = before.lastIndexOf("*/");
+    return open !== -1 && open > close;
 }
 /**
  * Checks whether the input is an opening function bracket.
