@@ -1,5 +1,12 @@
 # Change Log
 
+## v1.2.1 <sub>(May 09, 2026)</sub>
+
+### Added
+- Added comment highlighting to `$c[]`
+- Added quick pick options for opening extension settings via command
+- Added resolved package names to extension logs
+
 ## v1.2.0 <sub>(April 16, 2026)</sub>
 
 ### Added

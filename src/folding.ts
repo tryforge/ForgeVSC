@@ -2,6 +2,7 @@ import {
     findMatchingBracket,
     FunctionOpenScanRegex,
     getExtensionConfig,
+    isComment,
     isEscaped,
     Languages,
     locateCodeBlock
@@ -26,7 +27,7 @@ export function registerFolding(ctx: vscode.ExtensionContext) {
                 while ((match = FunctionOpenScanRegex.exec(text))) {
                     const index = match.index
                     const startPos = document.positionAt(index)
-                    if (!locateCodeBlock(document, startPos) || isEscaped(text, index)) continue
+                    if (!locateCodeBlock(document, startPos) || isEscaped(text, index) || isComment(text, index)) continue
 
                     const openIndex = index + match[0].length - 1
                     const closeIndex = findMatchingBracket(text, openIndex)

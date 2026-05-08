@@ -48,7 +48,7 @@ class ForgeSignatureHelpProvider {
     async provideSignatureHelp(document, position) {
         const code = (0, _1.locateCodeBlock)(document, position);
         const config = (0, _1.getExtensionConfig)();
-        if (!code || !config.features.signatureHelp)
+        if (!code || !config.features.signatureHelp || (0, _1.isComment)(document.getText(), document.offsetAt(position)))
             return null;
         const text = code.slice;
         const openIndex = (0, _1.findOpeningBracket)(text);

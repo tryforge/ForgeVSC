@@ -55,7 +55,7 @@ async function validateDocument(document, collection) {
     while ((match = ScanRegex.exec(text))) {
         const index = match.index;
         const start = document.positionAt(index);
-        if (!(0, _1.locateCodeBlock)(document, start) || (0, _1.isEscaped)(text, index))
+        if (!(0, _1.locateCodeBlock)(document, start) || (0, _1.isEscaped)(text, index) || (0, _1.isComment)(text, index))
             continue;
         const full = match[0];
         const hasOpening = full.endsWith("[");

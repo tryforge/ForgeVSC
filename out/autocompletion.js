@@ -46,6 +46,8 @@ function registerAutocompletion(ctx) {
             const config = (0, _1.getExtensionConfig)();
             if (!(0, _1.locateCodeBlock)(document, position) || !config.features.autocompletion)
                 return;
+            if ((0, _1.isComment)(document.getText(), document.offsetAt(position)))
+                return;
             const line = document.lineAt(position).text;
             const before = line.substring(0, position.character);
             // Function autocompletion

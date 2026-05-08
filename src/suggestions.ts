@@ -5,6 +5,7 @@ import {
 	findOpeningBracket,
 	FunctionHeadRegex,
 	getExtensionConfig,
+	isComment,
 	isEscaped,
 	Languages,
 	locateCodeBlock
@@ -28,7 +29,10 @@ class ForgeInlineCompletionItemProvider implements vscode.InlineCompletionItemPr
 	async provideInlineCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
 		const code = locateCodeBlock(document, position)
 		const config = getExtensionConfig()
-		if (!code || !config.features.suggestions) return null
+		if (!code || !config.features.suggestions) return 
+		
+		const text = document.getText()
+		if (isComment(text, document.offsetAt(position))) return
 
 		const slice = code.slice.replace(/[ \t\r]+$/g, "")
 		const nextChar = document.getText(new vscode.Range(position, position.translate(0, 1)))
@@ -56,7 +60,7 @@ class ForgeInlineCompletionItemProvider implements vscode.InlineCompletionItemPr
 				if (index !== -1 && isEscaped(head, index)) return null
 
 				if (FunctionHeadRegex.test(head)) {
-					const block = document.getText().slice(code.start, code.end)
+					const block = text.slice(code.start, code.end)
 					const close = findMatchingBracket(block, openIndex)
 					const missingClosing = bracketDepth(block) > 0
 

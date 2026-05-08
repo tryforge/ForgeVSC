@@ -5,6 +5,7 @@ import {
     FunctionPrefixRegex,
     FunctionScanRegex,
     getExtensionConfig,
+    isComment,
     isEscaped,
     isOpeningBracket,
     Languages,
@@ -113,14 +114,17 @@ async function applyDecorations(editor: vscode.TextEditor) {
     while ((match = ScanRegex.exec(text))) {
         const matchIndex = match.index
         const startPos = doc.positionAt(matchIndex)
-        if (!locateCodeBlock(doc, startPos) || isEscaped(text, matchIndex)) continue
+        if (!locateCodeBlock(doc, startPos) || isEscaped(text, matchIndex) || isComment(text, matchIndex)) continue
 
         const full = match[0]
+        const hasOpening = full.endsWith("[")
+
         let found = await findFunction(full)
-        if (!found && full.endsWith("[")) found = await findFunction(full.slice(0, -1))
+        if (!found && hasOpening) found = await findFunction(full.slice(0, -1))
         if (!found) continue
 
         const { matchedText, fn } = found
+        if (fn.name === "$c" && hasOpening) continue
 
         const prefixMatch = matchedText.match(FunctionPrefixRegex)?.[0] ?? "$"
         const nameLength = Math.max(matchedText.length - prefixMatch.length, 0)

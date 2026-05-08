@@ -409,8 +409,8 @@ async function searchGuides() {
                 ? toTitleCase(guide.targetType)
                 : [guide.category, guide.subCategory].filter(Boolean).join(" • "),
             iconPath: new vscode.ThemeIcon("book"),
-            guide,
-            alwaysShow: true
+            alwaysShow: true,
+            guide
         }))
 
         const usedKeys = Object.keys(filters)
@@ -420,7 +420,8 @@ async function searchGuides() {
                 label: key + ":",
                 description: "Filter",
                 action: "key",
-                alwaysShow: true
+                alwaysShow: true,
+                iconPath: new vscode.ThemeIcon("filter")
             }))
 
         let suggestionItems: any[] = []
@@ -435,8 +436,8 @@ async function searchGuides() {
                     description: `${activeKey}`,
                     action: "set-filter",
                     key: activeKey,
-                    value,
-                    alwaysShow: true
+                    alwaysShow: true,
+                    value
                 }))
         }
 

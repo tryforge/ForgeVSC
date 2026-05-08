@@ -47,11 +47,22 @@ jobs:
 
           cd .publish
           git init
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+          if git fetch origin metadata 2>/dev/null; then
+            git checkout origin/metadata -- guides.json 2>/dev/null || true
+          fi
+
+          if [ -f guides.json ] && diff -q guides.json ../guides.json > /dev/null 2>&1; then
+            echo "Data unchanged, skipping publish"
+            exit 0
+          fi
+
+          cp ../guides.json guides.json
+
           git checkout --orphan metadata
           git add -A
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "Update guides.json"
-
-          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
           git push -f origin metadata

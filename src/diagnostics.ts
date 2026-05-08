@@ -5,6 +5,7 @@ import {
 	FunctionPrefixRegex,
 	FunctionScanRegex,
 	getExtensionConfig,
+	isComment,
 	isEscaped,
 	Languages,
 	locateCodeBlock,
@@ -37,7 +38,7 @@ export async function validateDocument(
 	while ((match = ScanRegex.exec(text))) {
 		const index = match.index
 		const start = document.positionAt(index)
-		if (!locateCodeBlock(document, start) || isEscaped(text, index)) continue
+		if (!locateCodeBlock(document, start) || isEscaped(text, index) || isComment(text, index)) continue
 
 		const full = match[0]
 		const hasOpening = full.endsWith("[")

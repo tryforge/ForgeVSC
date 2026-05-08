@@ -48,7 +48,10 @@ class ForgeInlineCompletionItemProvider {
         const code = (0, _1.locateCodeBlock)(document, position);
         const config = (0, _1.getExtensionConfig)();
         if (!code || !config.features.suggestions)
-            return null;
+            return;
+        const text = document.getText();
+        if ((0, _1.isComment)(text, document.offsetAt(position)))
+            return;
         const slice = code.slice.replace(/[ \t\r]+$/g, "");
         const nextChar = document.getText(new vscode.Range(position, position.translate(0, 1)));
         // Suggest brackets
@@ -73,7 +76,7 @@ class ForgeInlineCompletionItemProvider {
                 if (index !== -1 && (0, _1.isEscaped)(head, index))
                     return null;
                 if (_1.FunctionHeadRegex.test(head)) {
-                    const block = document.getText().slice(code.start, code.end);
+                    const block = text.slice(code.start, code.end);
                     const close = (0, _1.findMatchingBracket)(block, openIndex);
                     const missingClosing = (0, _1.bracketDepth)(block) > 0;
                     if (close === -1 || missingClosing) {

@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "Official Visual Studio Code Extension for ForgeScript.",
   "publisher": "tryforge",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "browser": "./out/web/extension.js",
@@ -11,7 +11,7 @@
     "name": "xNickyDev"
   },
   "engines": {
-    "vscode": "^1.116.0"
+    "vscode": ">=1.96.0"
   },
   "categories": [
     "Programming Languages",
@@ -227,23 +227,7 @@
         "comments": false,
         "strings": true
       },
-      "editor.suggestOnTriggerCharacters": true,
-      "editor.tokenColorCustomizations": {
-        "textMateRules": [
-          {
-            "scope": "forge.function.bracket.open",
-            "settings": {
-              "foreground": "#ffd700"
-            }
-          },
-          {
-            "scope": "forge.function.bracket.close",
-            "settings": {
-              "foreground": "#ffd700"
-            }
-          }
-        ]
-      }
+      "editor.suggestOnTriggerCharacters": true
     },
     "configuration": {
       "title": "ForgeVSC",
@@ -375,16 +359,16 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.6.0",
     "@types/vscode": "^1.116.0",
-    "@typescript-eslint/eslint-plugin": "^8.58.2",
-    "@typescript-eslint/parser": "^8.58.2",
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
     "@vscode/test-web": "^0.0.80",
-    "@vscode/vsce": "^3.9.0",
+    "@vscode/vsce": "^3.9.1",
     "dotenv-cli": "^11.0.0",
     "esbuild": "^0.28.0",
-    "eslint": "^10.2.0",
+    "eslint": "^10.2.1",
     "ovsx": "^0.10.11"
   },
   "dependencies": {
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   }
 }

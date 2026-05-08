@@ -53,6 +53,7 @@ exports.findFunction = findFunction;
 exports.validateOperatorPrefix = validateOperatorPrefix;
 exports.cloneRegex = cloneRegex;
 exports.isEscaped = isEscaped;
+exports.isComment = isComment;
 exports.isInsideComment = isInsideComment;
 exports.isOpeningBracket = isOpeningBracket;
 exports.findOpeningBracket = findOpeningBracket;
@@ -111,18 +112,15 @@ async function activate(ctx) {
     isEnabled = isWorkspaceEnabled();
     const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC";
     exports.Logger = vscode.window.createOutputChannel(name, { log: true });
-    ctx.subscriptions.push(exports.Logger, 
-    // Open Extension Settings
-    vscode.commands.registerCommand("forgevsc.openExtensionSettings", async (setting) => {
-        await vscode.commands.executeCommand("workbench.action.openSettings", setting?.trim() || "forgevsc.");
-    }));
+    ctx.subscriptions.push(exports.Logger);
+    (0, _1.registerDefaultCommands)(ctx);
     if (!isEnabled) {
         exports.Logger.info("Extension is disabled for this workspace.");
         const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
         status.text = `$(circle-slash) ${name} Disabled`;
         status.tooltip = "Open Extension Settings";
         status.command = {
-            command: "forgevsc.openExtensionSettings",
+            command: "forgevsc.openSettings",
             title: "Open Extension Settings",
             arguments: ["forgevsc.global.enabledWorkspaces"]
         };
@@ -213,7 +211,7 @@ async function reload() {
         if (action === "Reload")
             await vscode.commands.executeCommand("workbench.action.reloadWindow");
         else if (action === "Open Settings") {
-            await vscode.commands.executeCommand("forgevsc.openExtensionSettings", "forgevsc.global.enabledWorkspaces");
+            await vscode.commands.executeCommand("forgevsc.openSettings", "forgevsc.global.enabledWorkspaces");
         }
     };
     isEnabled = newState;
@@ -596,6 +594,7 @@ async function fetchFunctions(force = false) {
     failedFetch = [...new Set(failedFetch)];
     const failed = failedFetch.length;
     const count = fetched.size;
+    exports.Logger.info(`Resolved ${count} package${count === 1 ? "" : "s"}: ${Array.from(fetched).join(", ")}`);
     exports.Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}.`);
     if (customFunctionPaths.length)
         exports.Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`);
@@ -822,7 +821,7 @@ function cloneRegex(regex) {
     return new RegExp(regex.source, regex.flags);
 }
 /**
- * Checks whether the input is escaped.
+ * Checks whether the input is escaped by backslashes.
  * @param input The input text.
  * @param i The index number.
  * @param single Whether the input is escaped using a single backslash.
@@ -836,7 +835,30 @@ function isEscaped(input, i, single = false, minIndex = 0) {
     return single ? (slashes % 2 === 1) : (slashes >= 2 && slashes % 2 === 0);
 }
 /**
- * Checks whether the input is inside a comment.
+ * Checks whether the input is inside a ForgeScript comment.
+ * @param input The input text.
+ * @param index The index number.
+ * @returns
+ */
+function isComment(text, index) {
+    const regex = new RegExp(String.raw `\$${exports.OperatorChain}[cC]\[`, "g");
+    let match;
+    while ((match = regex.exec(text))) {
+        const start = match.index;
+        if (isEscaped(text, start))
+            continue;
+        const openBracket = start + match[0].length - 1;
+        const closeBracket = findMatchingBracket(text, openBracket);
+        if (closeBracket === -1)
+            continue;
+        if (index > start && index < closeBracket) {
+            return true;
+        }
+    }
+    return false;
+}
+/**
+ * Checks whether the input is inside a JavaScript comment.
  * @param input The input text.
  * @param index The index number.
  * @returns

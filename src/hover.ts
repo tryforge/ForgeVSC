@@ -5,6 +5,7 @@ import {
     generateUsage,
     getExtensionConfig,
     getPackageName,
+    isComment,
     isEscaped,
     Languages,
     locateCodeBlock,
@@ -24,13 +25,16 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                 const config = getExtensionConfig()
                 if (!locateCodeBlock(document, position) || !config.features.hoverInfo) return
 
+                const text = document.getText()
+
                 // Operator hover
                 const operatorRange = document.getWordRangeAtPosition(position, /@\[[^\]]?\]|[!#]/)
                 if (operatorRange && operatorRange.contains(position)) {
                     const line = document.lineAt(position.line).text
-                    const opStr = document.getText(operatorRange)
                     const opStart = operatorRange.start.character
-                    const opEnd = operatorRange.end.character
+
+                    const offset = document.offsetAt(new vscode.Position(position.line, opStart))
+                    if (isComment(text, offset)) return
 
                     const dollar = line.lastIndexOf("$", opStart)
                     if (dollar === -1 || isEscaped(line, dollar)) return
@@ -39,10 +43,12 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                     const prefixOnly = between.slice(1)
                     if (prefixOnly.length && !new RegExp(`^${OperatorChain}$`).test(prefixOnly)) return
 
+                    const opEnd = operatorRange.end.character
                     const after = line.slice(opEnd)
                     const afterOk = new RegExp(String.raw`^(?:${OperatorChain})[a-zA-Z0-9]`).test(after)
                     if (!afterOk) return
 
+                    const opStr = document.getText(operatorRange)
                     const op = (opStr.startsWith("@") ? "@" : opStr) as keyof typeof OperatorInfo
                     const doc = OperatorInfo[op]
                     if (!doc) return
@@ -60,7 +66,8 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                 // Function hover
                 while ((match = Regex.exec(line))) {
                     const start = match.index
-                    if (isEscaped(line, start)) continue
+                    const offset = document.offsetAt(new vscode.Position(position.line, start))
+                    if (isEscaped(line, start) || isComment(text, offset)) continue
 
                     const hasOpening = match[1] === "["
                     let end = start + match[0].length

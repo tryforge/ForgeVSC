@@ -46,13 +46,15 @@ function registerHover(ctx) {
             const config = (0, _1.getExtensionConfig)();
             if (!(0, _1.locateCodeBlock)(document, position) || !config.features.hoverInfo)
                 return;
+            const text = document.getText();
             // Operator hover
             const operatorRange = document.getWordRangeAtPosition(position, /@\[[^\]]?\]|[!#]/);
             if (operatorRange && operatorRange.contains(position)) {
                 const line = document.lineAt(position.line).text;
-                const opStr = document.getText(operatorRange);
                 const opStart = operatorRange.start.character;
-                const opEnd = operatorRange.end.character;
+                const offset = document.offsetAt(new vscode.Position(position.line, opStart));
+                if ((0, _1.isComment)(text, offset))
+                    return;
                 const dollar = line.lastIndexOf("$", opStart);
                 if (dollar === -1 || (0, _1.isEscaped)(line, dollar))
                     return;
@@ -60,10 +62,12 @@ function registerHover(ctx) {
                 const prefixOnly = between.slice(1);
                 if (prefixOnly.length && !new RegExp(`^${_1.OperatorChain}$`).test(prefixOnly))
                     return;
+                const opEnd = operatorRange.end.character;
                 const after = line.slice(opEnd);
                 const afterOk = new RegExp(String.raw `^(?:${_1.OperatorChain})[a-zA-Z0-9]`).test(after);
                 if (!afterOk)
                     return;
+                const opStr = document.getText(operatorRange);
                 const op = (opStr.startsWith("@") ? "@" : opStr);
                 const doc = _1.OperatorInfo[op];
                 if (!doc)
@@ -79,7 +83,8 @@ function registerHover(ctx) {
             // Function hover
             while ((match = Regex.exec(line))) {
                 const start = match.index;
-                if ((0, _1.isEscaped)(line, start))
+                const offset = document.offsetAt(new vscode.Position(position.line, start));
+                if ((0, _1.isEscaped)(line, start) || (0, _1.isComment)(text, offset))
                     continue;
                 const hasOpening = match[1] === "[";
                 let end = start + match[0].length;

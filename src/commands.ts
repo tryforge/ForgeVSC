@@ -1,6 +1,58 @@
 import { Defaults, DocsUrl, findExtensionConfig, getFunctions, Logger } from "."
 import * as vscode from "vscode"
 
+/**
+ * Registers the default commands which do not require extension enablement.
+ * @param ctx The extension context.
+ */
+export function registerDefaultCommands(ctx: vscode.ExtensionContext) {
+    ctx.subscriptions.push(
+        // Open Extension Log
+        vscode.commands.registerCommand("forgevsc.openExtensionLog", () => {
+            Logger.show()
+        }),
+
+        // Open Settings (Backend)
+        vscode.commands.registerCommand("forgevsc.openSettings", async (setting?: string, user: boolean = true) => {
+            await vscode.commands.executeCommand(
+                "workbench.action." + (user ? "openSettings" : "openWorkspaceSettings"),
+                setting?.trim() || "@ext:tryforge.forgevsc"
+            )
+        }),
+
+        // Open Extension Settings (UI)
+        vscode.commands.registerCommand("forgevsc.openExtensionSettings", async () => {
+            const items = []
+
+            if (!!vscode.workspace.workspaceFolders?.length) {
+                items.push({
+                    label: "$(folder) Workspace Settings",
+                    detail: vscode.workspace.name || "Workspace",
+                    description: "Folder",
+                    target: "workbench.action.openWorkspaceSettings"
+                })
+            }
+
+            items.push({
+                label: "$(account) User Settings",
+                description: "Global",
+                target: "workbench.action.openSettings"
+            })
+
+            const choice = await vscode.window.showQuickPick(items, {
+                placeHolder: "Which extension settings would you like to open?"
+            })
+            if (!choice) return
+
+            await vscode.commands.executeCommand(choice.target, "@ext:tryforge.forgevsc")
+        })
+    )
+}
+
+/**
+ * Registers the commands which require extension enablement.
+ * @param ctx The extension context.
+ */
 export function registerCommands(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
         // Create Config
@@ -11,7 +63,7 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
                 "Dismiss"
             )
             if (action === "Open Settings") {
-                await vscode.commands.executeCommand("forgevsc.openExtensionSettings")
+                await vscode.commands.executeCommand("forgevsc.openSettings", undefined, false)
                 return
             }
 
@@ -89,11 +141,6 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
         vscode.commands.registerCommand("forgevsc.reloadFunctionMetadata", async () => {
             await getFunctions(true)
             vscode.window.showInformationMessage("Successfully fetched function metadata!")
-        }),
-
-        // Open Extension Log
-        vscode.commands.registerCommand("forgevsc.openExtensionLog", async () => {
-            Logger.show()
         }),
 
         // Create Guide

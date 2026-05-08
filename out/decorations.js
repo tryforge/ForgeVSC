@@ -124,15 +124,18 @@ async function applyDecorations(editor) {
     while ((match = ScanRegex.exec(text))) {
         const matchIndex = match.index;
         const startPos = doc.positionAt(matchIndex);
-        if (!(0, _1.locateCodeBlock)(doc, startPos) || (0, _1.isEscaped)(text, matchIndex))
+        if (!(0, _1.locateCodeBlock)(doc, startPos) || (0, _1.isEscaped)(text, matchIndex) || (0, _1.isComment)(text, matchIndex))
             continue;
         const full = match[0];
+        const hasOpening = full.endsWith("[");
         let found = await (0, _1.findFunction)(full);
-        if (!found && full.endsWith("["))
+        if (!found && hasOpening)
             found = await (0, _1.findFunction)(full.slice(0, -1));
         if (!found)
             continue;
         const { matchedText, fn } = found;
+        if (fn.name === "$c" && hasOpening)
+            continue;
         const prefixMatch = matchedText.match(_1.FunctionPrefixRegex)?.[0] ?? "$";
         const nameLength = Math.max(matchedText.length - prefixMatch.length, 0);
         if (nameLength <= 0)

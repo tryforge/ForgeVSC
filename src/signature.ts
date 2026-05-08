@@ -4,6 +4,7 @@ import {
 	FunctionRegex,
 	generateUsage,
 	getExtensionConfig,
+	isComment,
 	isEscaped,
 	Languages,
 	locateCodeBlock,
@@ -33,7 +34,8 @@ class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider {
 	async provideSignatureHelp(document: vscode.TextDocument, position: vscode.Position) {
 		const code = locateCodeBlock(document, position)
 		const config = getExtensionConfig()
-		if (!code || !config.features.signatureHelp) return null
+		if (!code || !config.features.signatureHelp || isComment(document.getText(), document.offsetAt(position)))
+			return null
 
 		const text = code.slice
 		const openIndex = findOpeningBracket(text)
