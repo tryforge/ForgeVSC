@@ -7,5 +7,5 @@
   "command.openGuideExternal.title": "Leitfaden öffnen (External)",
   "command.openExtensionSettings.title": "Erweiterungseinstellungen öffnen",
   "view.guides.title": "Leitfäden",
-  "view.guides.welcome": "Keine Leitfäden verfügbar.\n[$(refresh) Leitfäden aktualisieren](command:forgevsc.reloadGuideMetadata)\\n[$(add) Leitfaden erstellen](command:forgevsc.createGuide)"
+  "view.guides.welcome": "Keine Leitfäden verfügbar.\n[$(refresh) Leitfäden aktualisieren](command:forgevsc.reloadGuideMetadata)\n[$(add) Leitfaden erstellen](command:forgevsc.createGuide)"
 }
