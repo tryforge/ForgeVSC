@@ -96,15 +96,15 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                         if (version) {
                             const links: string[] = []
                             const sourceUrl = await buildSourceURL(fn)
-                            if (sourceUrl) links.push(`[Source](${sourceUrl})`)
+                            if (sourceUrl) links.push(`[${vscode.l10n.t("Source")}](${sourceUrl})`)
                             const guide = await findGuide({ targetType: "function", targetName: name })
                             const pkgName = guide?.packageName || getPackageName(source)
-                            if (pkgName) links.push(`[Documentation](https://docs.botforge.org/function/${name}?p=${pkgName})`)
+                            if (pkgName) links.push(`[${vscode.l10n.t("Documentation")}](https://docs.botforge.org/function/${name}?p=${pkgName})`)
                             if (guide) {
                                 const cmd = vscode.Uri.parse(
                                     `command:forgevsc.previewGuide?${encodeURIComponent(JSON.stringify([guide.id]))}`
                                 )
-                                links.push(`[Guide](${cmd})`)
+                                links.push(`[${vscode.l10n.t("Guide")}](${cmd})`)
                             }
                             md.appendMarkdown(`---\n`)
                             md.appendMarkdown(

@@ -1,12 +1,13 @@
 {
   "name": "forgevsc",
   "displayName": "ForgeVSC",
-  "description": "Official Visual Studio Code Extension for ForgeScript.",
+  "description": "%extension.description%",
   "publisher": "tryforge",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "browser": "./out/web/extension.js",
+  "l10n": "./translations",
   "author": {
     "name": "xNickyDev"
   },
@@ -56,64 +57,64 @@
     "commands": [
       {
         "command": "forgevsc.createConfig",
-        "title": "Create config file (.forgevsc.json)",
+        "title": "%command.createConfig.title%",
         "category": "ForgeVSC"
       },
       {
         "command": "forgevsc.reloadFunctionMetadata",
-        "title": "Fetch function metadata. Use with caution!",
+        "title": "%command.reloadFunctionMetadata.title%",
         "category": "ForgeVSC",
         "icon": "$(refresh)"
       },
       {
         "command": "forgevsc.searchGuides",
-        "title": "Search Guides",
+        "title": "%command.searchGuides.title%",
         "category": "ForgeVSC",
         "icon": "$(search)"
       },
       {
         "command": "forgevsc.reloadGuideMetadata",
-        "title": "Refresh Guides",
+        "title": "%command.reloadGuideMetadata.title%",
         "category": "ForgeVSC",
         "icon": "$(refresh)"
       },
       {
         "command": "forgevsc.openGuide",
-        "title": "Open Guide",
+        "title": "%command.openGuide.title%",
         "category": "ForgeVSC"
       },
       {
         "command": "forgevsc.previewGuide",
-        "title": "Preview Guide",
+        "title": "%command.previewGuide.title%",
         "category": "ForgeVSC"
       },
       {
         "command": "forgevsc.favoriteGuide",
-        "title": "Add to Favorites",
+        "title": "%command.favoriteGuide.title%",
         "category": "ForgeVSC",
         "icon": "$(star-empty)"
       },
       {
         "command": "forgevsc.unfavoriteGuide",
-        "title": "Remove from Favorites",
+        "title": "%command.unfavoriteGuide.title%",
         "category": "ForgeVSC",
         "icon": "$(star-full)"
       },
       {
         "command": "forgevsc.createGuide",
-        "title": "Create Guide",
+        "title": "%command.createGuide.title%",
         "category": "ForgeVSC",
         "icon": "$(add)"
       },
       {
         "command": "forgevsc.openGuideExternal",
-        "title": "Open Guide",
+        "title": "%command.openGuideExternal.title%",
         "category": "ForgeVSC",
         "icon": "$(link-external)"
       },
       {
         "command": "forgevsc.openExtensionSettings",
-        "title": "Open Extension Settings",
+        "title": "%command.openExtensionSettings.title%",
         "category": "ForgeVSC",
         "icon": "$(settings)"
       }
@@ -143,7 +144,7 @@
       "activitybar": [
         {
           "id": "forge",
-          "title": "Guides",
+          "title": "%view.guides.title%",
           "icon": "$(book)"
         }
       ]
@@ -151,14 +152,14 @@
     "viewsWelcome": [
       {
         "view": "forge.guidesView",
-        "contents": "No guides available.\n[$(refresh) Reload Guides](command:forgevsc.reloadGuideMetadata)\n[$(add) Create Guide](command:forgevsc.createGuide)"
+        "contents": "%view.guides.welcome%"
       }
     ],
     "views": {
       "forge": [
         {
           "id": "forge.guidesView",
-          "name": "Guides",
+          "name": "%view.guides.title%",
           "icon": "$(book)"
         }
       ]
@@ -345,6 +346,7 @@
   },
   "scripts": {
     "web": "npx vscode-test-web --extensionDevelopmentPath=. --port=3001",
+    "trans": "npx @vscode/l10n-dev export -o ./translations ./src && node scripts/translations.mjs",
     "publish": "dotenv -- sh -c 'npm run package && npx ovsx publish -p $OVSX_PAT'",
     "package": "npx @vscode/vsce package",
     "vscode:prepublish": "npm run build",
@@ -361,6 +363,7 @@
     "@types/vscode": "^1.116.0",
     "@typescript-eslint/eslint-plugin": "^8.59.0",
     "@typescript-eslint/parser": "^8.59.0",
+    "@vscode/l10n-dev": "^0.0.35",
     "@vscode/test-web": "^0.0.80",
     "@vscode/vsce": "^3.9.1",
     "dotenv-cli": "^11.0.0",

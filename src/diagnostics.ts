@@ -54,12 +54,12 @@ export async function validateDocument(
 		if (fn.deprecated) {
 			const hint = new vscode.Diagnostic(
 				new vscode.Range(start, end),
-				`This function is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available.`,
+				vscode.l10n.t("This function is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available."),
 				vscode.DiagnosticSeverity.Hint
 			)
 			const warning = new vscode.Diagnostic(
 				new vscode.Range(start, end),
-				`Function \`${fn.name}\` is deprecated. Use an available alternative instead`,
+				vscode.l10n.t("Function `{0}` is deprecated. Use an available alternative instead", fn.name),
 				vscode.DiagnosticSeverity.Warning
 			)
 			warning.tags = [vscode.DiagnosticTag.Deprecated]
@@ -70,7 +70,7 @@ export async function validateDocument(
 		if (fn.experimental) {
 			const diagnostic = new vscode.Diagnostic(
 				new vscode.Range(start, end),
-				`This is an experimental function. It may not work as expected and is not guaranteed to be stable. Expect bugs, changes, or removal.`,
+				vscode.l10n.t("This is an experimental function. It may not work as expected and is not guaranteed to be stable. Expect bugs, changes, or removal."),
 				vscode.DiagnosticSeverity.Hint
 			)
 			diagnostics.push(diagnostic)
@@ -84,7 +84,7 @@ export async function validateDocument(
 			const opEnd = document.positionAt(index + offset)
 			diagnostics.push(new vscode.Diagnostic(
 				new vscode.Range(opStart, opEnd),
-				`Function \`${fn.name}\` has invalid operator order`,
+				vscode.l10n.t("Function `{0}` has invalid operator order", fn.name),
 				vscode.DiagnosticSeverity.Error
 			))
 			continue
@@ -97,7 +97,7 @@ export async function validateDocument(
 			const extraEnd = document.positionAt(index + rawPrefix.length)
 			diagnostics.push(new vscode.Diagnostic(
 				new vscode.Range(extraStart, extraEnd),
-				`Function \`${fn.name}\` has duplicated operators supplied`,
+				vscode.l10n.t("Function `{0}` has duplicated operators supplied", fn.name),
 				vscode.DiagnosticSeverity.Error
 			))
 			continue
@@ -116,7 +116,7 @@ export async function validateDocument(
 		if (requiresArgs && !hasOpeningAttached) {
 			diagnostics.push(new vscode.Diagnostic(
 				range,
-				`Function \`${fn.name}\` requires brackets`,
+				vscode.l10n.t("Function `{0}` requires brackets", fn.name),
 				vscode.DiagnosticSeverity.Error
 			))
 			continue
@@ -132,7 +132,7 @@ export async function validateDocument(
 			if (closeIndex === -1) {
 				diagnostics.push(new vscode.Diagnostic(
 					range,
-					`Function \`${fn.name}\` is missing brace closure`,
+					vscode.l10n.t("Function `{0}` is missing brace closure", fn.name),
 					vscode.DiagnosticSeverity.Error
 				))
 				continue
@@ -151,7 +151,7 @@ export async function validateDocument(
 					const argEnd = document.positionAt(closeIndex)
 					diagnostics.push(new vscode.Diagnostic(
 						new vscode.Range(argStart, argEnd),
-						`Function \`${fn.name}\` is missing argument \`${expected.name}\``,
+						vscode.l10n.t("Function `{0}` is missing argument `{1}`", fn.name, expected.name),
 						vscode.DiagnosticSeverity.Error
 					))
 				}

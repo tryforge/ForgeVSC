@@ -72,20 +72,22 @@ export const FunctionOpenScanRegex = new RegExp(String.raw`\$${OperatorChain}[a-
 export const FunctionScanRegex = new RegExp(String.raw`\$${LooseOperatorChain}[a-zA-Z0-9]+(?:\[)?`, "g")
 export const LooseFunctionNameRegex = new RegExp(String.raw`^\$${LooseOperatorChain}([a-zA-Z0-9]+)`)
 export const LooseFunctionPrefixRegex = new RegExp(String.raw`^\$${LooseOperatorChain}`)
+
+export const ConditionOperatorRegex = /==|!=|<=|>=|<|>/g
 export const InvalidOperatorRegex = /#.*!|@\[\].*!|@\[\].*#/
 
 export const OperatorInfo = {
 	"!": {
-		name: "Negation Operator",
-		description: `The negation operator disables any possible output of a function. This can be useful for functions that return a "status" after execution, such as booleans or numbers.`,
+		name: vscode.l10n.t("Negation Operator"),
+		description: vscode.l10n.t(`The negation operator disables any possible output of a function. This can be useful for functions that return a "status" after execution, such as booleans or numbers.`),
 	},
 	"#": {
-		name: "Silent Operator",
-		description: "The silent operator will suppress any error a function might throw and stops further code execution as well.",
+		name: vscode.l10n.t("Silent Operator"),
+		description: vscode.l10n.t("The silent operator will suppress any error a function might throw and stops further code execution as well."),
 	},
 	"@": {
-		name: "Count Operator",
-		description: "The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**.",
+		name: vscode.l10n.t("Count Operator"),
+		description: vscode.l10n.t("The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**."),
 	}
 }
 
@@ -114,11 +116,11 @@ export async function activate(ctx: vscode.ExtensionContext) {
 	if (!isEnabled) {
 		Logger.info("Extension is disabled for this workspace.")
 		const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left)
-		status.text = `$(circle-slash) ${name} Disabled`
-		status.tooltip = "Open Extension Settings"
+		status.text = vscode.l10n.t("$(circle-slash) {0} Disabled", name)
+		status.tooltip = vscode.l10n.t("Open Extension Settings")
 		status.command = {
 			command: "forgevsc.openSettings",
-			title: "Open Extension Settings",
+			title: vscode.l10n.t("Open Extension Settings"),
 			arguments: ["forgevsc.global.enabledWorkspaces"]
 		}
 		status.show()
@@ -209,7 +211,7 @@ function initialize(ctx: vscode.ExtensionContext) {
 	const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
 	status.text = `$(package) ${name} v` + ctx.extension.packageJSON.version
 	status.command = "forgevsc.openExtensionLog"
-	status.tooltip = name + " Extension Details"
+	status.tooltip = vscode.l10n.t("{0} Extension Details", name)
 	status.show()
 
 	ctx.subscriptions.push(status)
@@ -228,13 +230,15 @@ async function reload() {
 	if (newState === isEnabled) return
 
 	const showInformationMessage = async (message: string) => {
+		const btnReload = vscode.l10n.t("Reload")
+		const btnOpenSettings = vscode.l10n.t("Open Settings")
 		const action = await vscode.window.showInformationMessage(
 			message,
-			"Reload",
-			"Open Settings"
+			btnReload,
+			btnOpenSettings
 		)
-		if (action === "Reload") await vscode.commands.executeCommand("workbench.action.reloadWindow")
-		else if (action === "Open Settings") {
+		if (action === btnReload) await vscode.commands.executeCommand("workbench.action.reloadWindow")
+		else if (action === btnOpenSettings) {
 			await vscode.commands.executeCommand(
 				"forgevsc.openSettings",
 				"forgevsc.global.enabledWorkspaces"
@@ -245,12 +249,12 @@ async function reload() {
 	isEnabled = newState
 	if (!isEnabled) {
 		Logger.info("Extension disabled after configuration change.")
-		await showInformationMessage("Extension is disabled for this workspace. Reload recommended.",)
+		await showInformationMessage(vscode.l10n.t("Extension is disabled for this workspace. Reload recommended."))
 		return
 	}
 
 	Logger.info("Extension enabled after configuration change.")
-	await showInformationMessage("Extension has been enabled. Reload to fully activate.",)
+	await showInformationMessage(vscode.l10n.t("Extension has been enabled. Reload to fully activate."))
 }
 
 /**
@@ -656,8 +660,7 @@ export async function fetchFunctions(force: boolean = false) {
 	const failed = failedFetch.length
 	const count = fetched.size
 
-	Logger.info(`Resolved ${count} package${count === 1 ? "" : "s"}: ${Array.from(fetched).join(", ")}`)
-	Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}.`)
+	Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}. (${Array.from(fetched).join(", ")})`)
 	if (customFunctionPaths.length) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`)
 	if (failed) {
 		const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")

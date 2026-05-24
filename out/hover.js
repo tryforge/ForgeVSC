@@ -110,14 +110,14 @@ function registerHover(ctx) {
                         const links = [];
                         const sourceUrl = await (0, _1.buildSourceURL)(fn);
                         if (sourceUrl)
-                            links.push(`[Source](${sourceUrl})`);
+                            links.push(`[${vscode.l10n.t("Source")}](${sourceUrl})`);
                         const guide = await (0, _1.findGuide)({ targetType: "function", targetName: name });
                         const pkgName = guide?.packageName || (0, _1.getPackageName)(source);
                         if (pkgName)
-                            links.push(`[Documentation](https://docs.botforge.org/function/${name}?p=${pkgName})`);
+                            links.push(`[${vscode.l10n.t("Documentation")}](https://docs.botforge.org/function/${name}?p=${pkgName})`);
                         if (guide) {
                             const cmd = vscode.Uri.parse(`command:forgevsc.previewGuide?${encodeURIComponent(JSON.stringify([guide.id]))}`);
-                            links.push(`[Guide](${cmd})`);
+                            links.push(`[${vscode.l10n.t("Guide")}](${cmd})`);
                         }
                         md.appendMarkdown(`---\n`);
                         md.appendMarkdown(`##### ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? " | " + links.join(" | ") : ""));

@@ -49,6 +49,7 @@ exports.Defaults = {
             name: "#ac75ff",
             dollar: "#fe7ceb",
             semicolon: "#c586c0",
+            condition: "#569cd6"
         },
         operators: {
             negation: "#4FA3FF",
@@ -85,6 +86,7 @@ function getSettingsConfig() {
                     name: vs.get("workspace.colors.function.name"),
                     dollar: vs.get("workspace.colors.function.dollar"),
                     semicolon: vs.get("workspace.colors.function.semicolon"),
+                    condition: vs.get("workspace.colors.function.condition"),
                 },
                 operators: {
                     negation: vs.get("workspace.colors.operators.negation"),

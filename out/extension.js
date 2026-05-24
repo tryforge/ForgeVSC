@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.Languages = exports.DocsUrl = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionPrefixRegex = exports.FunctionRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
+exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.Languages = exports.DocsUrl = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.ConditionOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionPrefixRegex = exports.FunctionRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
 exports.activate = activate;
 exports.toArray = toArray;
 exports.clearMetadataCache = clearMetadataCache;
@@ -83,19 +83,20 @@ exports.FunctionOpenScanRegex = new RegExp(String.raw `\$${exports.OperatorChain
 exports.FunctionScanRegex = new RegExp(String.raw `\$${exports.LooseOperatorChain}[a-zA-Z0-9]+(?:\[)?`, "g");
 exports.LooseFunctionNameRegex = new RegExp(String.raw `^\$${exports.LooseOperatorChain}([a-zA-Z0-9]+)`);
 exports.LooseFunctionPrefixRegex = new RegExp(String.raw `^\$${exports.LooseOperatorChain}`);
+exports.ConditionOperatorRegex = /==|!=|<=|>=|<|>/g;
 exports.InvalidOperatorRegex = /#.*!|@\[\].*!|@\[\].*#/;
 exports.OperatorInfo = {
     "!": {
-        name: "Negation Operator",
-        description: `The negation operator disables any possible output of a function. This can be useful for functions that return a "status" after execution, such as booleans or numbers.`,
+        name: vscode.l10n.t("Negation Operator"),
+        description: vscode.l10n.t(`The negation operator disables any possible output of a function. This can be useful for functions that return a "status" after execution, such as booleans or numbers.`),
     },
     "#": {
-        name: "Silent Operator",
-        description: "The silent operator will suppress any error a function might throw and stops further code execution as well.",
+        name: vscode.l10n.t("Silent Operator"),
+        description: vscode.l10n.t("The silent operator will suppress any error a function might throw and stops further code execution as well."),
     },
     "@": {
-        name: "Count Operator",
-        description: "The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**.",
+        name: vscode.l10n.t("Count Operator"),
+        description: vscode.l10n.t("The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**."),
     }
 };
 exports.DocsUrl = "https://docs.botforge.org/";
@@ -117,11 +118,11 @@ async function activate(ctx) {
     if (!isEnabled) {
         exports.Logger.info("Extension is disabled for this workspace.");
         const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-        status.text = `$(circle-slash) ${name} Disabled`;
-        status.tooltip = "Open Extension Settings";
+        status.text = vscode.l10n.t("$(circle-slash) {0} Disabled", name);
+        status.tooltip = vscode.l10n.t("Open Extension Settings");
         status.command = {
             command: "forgevsc.openSettings",
-            title: "Open Extension Settings",
+            title: vscode.l10n.t("Open Extension Settings"),
             arguments: ["forgevsc.global.enabledWorkspaces"]
         };
         status.show();
@@ -192,7 +193,7 @@ function initialize(ctx) {
     const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     status.text = `$(package) ${name} v` + ctx.extension.packageJSON.version;
     status.command = "forgevsc.openExtensionLog";
-    status.tooltip = name + " Extension Details";
+    status.tooltip = vscode.l10n.t("{0} Extension Details", name);
     status.show();
     ctx.subscriptions.push(status);
     exports.Logger.info("Extension started successfully!");
@@ -207,21 +208,23 @@ async function reload() {
     if (newState === isEnabled)
         return;
     const showInformationMessage = async (message) => {
-        const action = await vscode.window.showInformationMessage(message, "Reload", "Open Settings");
-        if (action === "Reload")
+        const btnReload = vscode.l10n.t("Reload");
+        const btnOpenSettings = vscode.l10n.t("Open Settings");
+        const action = await vscode.window.showInformationMessage(message, btnReload, btnOpenSettings);
+        if (action === btnReload)
             await vscode.commands.executeCommand("workbench.action.reloadWindow");
-        else if (action === "Open Settings") {
+        else if (action === btnOpenSettings) {
             await vscode.commands.executeCommand("forgevsc.openSettings", "forgevsc.global.enabledWorkspaces");
         }
     };
     isEnabled = newState;
     if (!isEnabled) {
         exports.Logger.info("Extension disabled after configuration change.");
-        await showInformationMessage("Extension is disabled for this workspace. Reload recommended.");
+        await showInformationMessage(vscode.l10n.t("Extension is disabled for this workspace. Reload recommended."));
         return;
     }
     exports.Logger.info("Extension enabled after configuration change.");
-    await showInformationMessage("Extension has been enabled. Reload to fully activate.");
+    await showInformationMessage(vscode.l10n.t("Extension has been enabled. Reload to fully activate."));
 }
 /**
  * Converts the given value to an array.
@@ -594,8 +597,7 @@ async function fetchFunctions(force = false) {
     failedFetch = [...new Set(failedFetch)];
     const failed = failedFetch.length;
     const count = fetched.size;
-    exports.Logger.info(`Resolved ${count} package${count === 1 ? "" : "s"}: ${Array.from(fetched).join(", ")}`);
-    exports.Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}.`);
+    exports.Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}. (${Array.from(fetched).join(", ")})`);
     if (customFunctionPaths.length)
         exports.Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`);
     if (failed) {

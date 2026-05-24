@@ -10,6 +10,7 @@ export interface IExtensionConfig {
             name?: string
             dollar?: string
             semicolon?: string
+            condition?: string
         }
         operators?: {
             negation?: string
@@ -37,6 +38,7 @@ export const Defaults: Required<IExtensionConfig> = {
             name: "#ac75ff",
             dollar: "#fe7ceb",
             semicolon: "#c586c0",
+            condition: "#569cd6"
         },
         operators: {
             negation: "#4FA3FF",
@@ -76,6 +78,7 @@ export function getSettingsConfig() {
                     name: vs.get<string>("workspace.colors.function.name"),
                     dollar: vs.get<string>("workspace.colors.function.dollar"),
                     semicolon: vs.get<string>("workspace.colors.function.semicolon"),
+                    condition: vs.get<string>("workspace.colors.function.condition"),
                 },
                 operators: {
                     negation: vs.get<string>("workspace.colors.operators.negation"),

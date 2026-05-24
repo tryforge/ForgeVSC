@@ -108,7 +108,7 @@ function markdownForGuide(guide) {
     lines.push("");
     lines.push("---");
     lines.push("");
-    lines.push(guide.content || "*No guide content available.*");
+    lines.push(guide.content || vscode.l10n.t("*No guide content available.*"));
     return lines.join("\n");
 }
 function getFavoriteGuideIds() {
@@ -311,11 +311,11 @@ function collectValues(guides) {
 async function searchGuides() {
     const guides = await (0, _1.getGuides)();
     if (!guides.length) {
-        vscode.window.showInformationMessage("No guides available.");
+        vscode.window.showInformationMessage(vscode.l10n.t("No guides available."));
         return;
     }
     const qp = vscode.window.createQuickPick();
-    qp.placeholder = "Search guides... (e.g. author:Nicky package:ForgeScript)";
+    qp.placeholder = vscode.l10n.t("Search guides... (e.g. author:Nicky package:ForgeScript)");
     const values = collectValues(guides);
     const update = (input) => {
         const { text, filters, activeKey, activeValue } = parseGuideQuery(input);
@@ -353,7 +353,7 @@ async function searchGuides() {
             .filter((key) => !usedKeys.includes(key))
             .map((key) => ({
             label: key + ":",
-            description: "Filter",
+            description: vscode.l10n.t("Filter"),
             action: "key",
             alwaysShow: true,
             iconPath: new vscode.ThemeIcon("filter")
@@ -429,7 +429,7 @@ class ForgeGuidesProvider {
             const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Expanded);
             item.id = "guides:favorites";
             item.contextValue = "favorites";
-            item.tooltip = "Favorited Guides";
+            item.tooltip = vscode.l10n.t("Favorited Guides");
             item.iconPath = new vscode.ThemeIcon("star-full");
             return item;
         }
@@ -463,7 +463,7 @@ class ForgeGuidesProvider {
             const favoritesNode = {
                 kind: "favorites",
                 key: "favorites",
-                label: "Favorites"
+                label: vscode.l10n.t("Favorites")
             };
             return [favoritesNode, ...packages];
         }
@@ -554,7 +554,7 @@ function registerGuidePreview(ctx) {
             if (!guide)
                 guide = await findGuide(raw);
             if (!guide) {
-                return "# 404: Guide Not Found\n\nNo metadata was found for this guide.";
+                return vscode.l10n.t("# 404: Guide Not Found\n\nNo metadata was found for this guide.");
             }
             return markdownForGuide(guide);
         }
@@ -576,7 +576,7 @@ function registerGuidePreview(ctx) {
                 : await findGuide(trimmed);
         }
         if (!guide) {
-            vscode.window.showErrorMessage("No guide found for this function.");
+            vscode.window.showErrorMessage(vscode.l10n.t("No guide found for this function."));
             return;
         }
         const uri = vscode.Uri.parse(`${GuideScheme}:/${encodeURIComponent(String(guide.id))}.md`);
@@ -626,7 +626,7 @@ function registerGuidesView(ctx) {
         }
         catch (err) {
             _1.Logger?.error(`Guide search failed: ${String(err)}`);
-            vscode.window.showErrorMessage("Could not open guide search.");
+            vscode.window.showErrorMessage(vscode.l10n.t("Could not open guide search."));
         }
     }), 
     // Reload Guide Metadata
@@ -634,7 +634,7 @@ function registerGuidesView(ctx) {
         const guides = await (0, _1.getGuides)(true);
         provider.refresh();
         if (guides.length)
-            vscode.window.showInformationMessage("Successfully fetched guide metadata!");
+            vscode.window.showInformationMessage(vscode.l10n.t("Successfully fetched guide metadata!"));
     }));
 }
 //# sourceMappingURL=guides.js.map
