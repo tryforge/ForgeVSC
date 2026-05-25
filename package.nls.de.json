@@ -1,6 +1,8 @@
 {
   "extension.description": "Offizielle Visual Studio Code-Erweiterung für ForgeScript.",
   "command.createConfig.title": "Konfigurationsdatei erstellen (.forgevsc.json)",
+  "command.reloadFunctionMetadata.title": "Funktions-Metadaten abrufen. Mit Vorsicht verwenden!",
+  "command.searchGuides.title": "Leitfäden suchen",
   "command.reloadGuideMetadata.title": "Leitfäden aktualisieren",
   "command.openGuide.title": "Leitfaden öffnen",
   "command.createGuide.title": "Leitfaden erstellen",
