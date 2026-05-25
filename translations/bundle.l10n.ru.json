@@ -1,1 +1,8 @@
-{}
+{
+  "*(Conditional)*": "*(Условный)*",
+  "Source": "Источник",
+  "Documentation": "Документация",
+  "Filter": "Фильтр",
+  "Favorites": "Избранное",
+  "Folder": "Папка"
+}
