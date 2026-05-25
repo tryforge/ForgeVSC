@@ -66,7 +66,7 @@ class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider {
 		sig.parameters = args.map((arg) => {
 			const param = new vscode.ParameterInformation(
 				`${arg.rest ? "..." : ""}${arg.name}${arg.required ? "" : "?"}: ${arg.type}`,
-				new vscode.MarkdownString(`${arg.description}${arg.condition ? "\n\n*(Conditional)*" : ""}\n\n---`)
+				new vscode.MarkdownString(`${arg.description}${arg.condition ? `\n\n${vscode.l10n.t("*(Conditional)*")}` : ""}\n\n---`)
 			)
 			return param
 		})

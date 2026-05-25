@@ -76,7 +76,7 @@ class ForgeSignatureHelpProvider {
         const sig = new vscode.SignatureInformation((0, _1.generateUsage)(fn, true));
         sig.documentation = fn.description;
         sig.parameters = args.map((arg) => {
-            const param = new vscode.ParameterInformation(`${arg.rest ? "..." : ""}${arg.name}${arg.required ? "" : "?"}: ${arg.type}`, new vscode.MarkdownString(`${arg.description}${arg.condition ? "\n\n*(Conditional)*" : ""}\n\n---`));
+            const param = new vscode.ParameterInformation(`${arg.rest ? "..." : ""}${arg.name}${arg.required ? "" : "?"}: ${arg.type}`, new vscode.MarkdownString(`${arg.description}${arg.condition ? `\n\n${vscode.l10n.t("*(Conditional)*")}` : ""}\n\n---`));
             return param;
         });
         const parts = (0, _1.splitArgs)(argsTyped);
