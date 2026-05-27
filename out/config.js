@@ -46,10 +46,10 @@ exports.Defaults = {
     additionalPackages: [],
     colors: {
         function: {
-            name: "#ac75ff",
-            dollar: "#fe7ceb",
-            semicolon: "#c586c0",
-            condition: "#569cd6"
+            name: "#AC75FF",
+            dollar: "#FE7CEB",
+            semicolon: "#C586C0",
+            // condition: "#569CD6"
         },
         operators: {
             negation: "#4FA3FF",

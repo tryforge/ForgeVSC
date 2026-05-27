@@ -33,18 +33,24 @@
           "properties": {
             "name": {
               "type": "string",
-              "default": "#ac75ff",
-              "description": "The highlight color used for function names."
+              "default": "#AC75FF",
+              "description": "The highlight color used for function names.",
+              "pattern": "^(?:#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?))?$",
+              "errorMessage": "Input must be a valid hex color, e.g. #AC75FF"
             },
             "dollar": {
               "type": "string",
-              "default": "#fe7ceb",
-              "description": "The highlight color used for function dollar signs ($)."
+              "default": "#FE7CEB",
+              "description": "The highlight color used for function dollar signs ($).",
+              "pattern": "^(?:#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?))?$",
+              "errorMessage": "Input must be a valid hex color, e.g. #FE7CEB"
             },
             "semicolon": {
               "type": "string",
-              "default": "#c586c0",
-              "description": "The highlight color used for function semicolons (;)."
+              "default": "#C586C0",
+              "description": "The highlight color used for function semicolons (;).",
+              "pattern": "^(?:#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?))?$",
+              "errorMessage": "Input must be a valid hex color, e.g. #C586C0"
             }
           }
         },
@@ -56,22 +62,30 @@
             "negation": {
               "type": "string",
               "default": "#4FA3FF",
-              "description": "The highlight color used for the negation operator (!)."
+              "description": "The highlight color used for the negation operator (!).",
+              "pattern": "^(?:#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?))?$",
+              "errorMessage": "Input must be a valid hex color, e.g. #4FA3FF"
             },
             "silent": {
               "type": "string",
               "default": "#FF9F43",
-              "description": "The highlight color used for the silent operator (#)."
+              "description": "The highlight color used for the silent operator (#).",
+              "pattern": "^(?:#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?))?$",
+              "errorMessage": "Input must be a valid hex color, e.g. #FF9F43"
             },
             "count": {
               "type": "string",
               "default": "#33D17A",
-              "description": "The highlight color used for the count operator (@[x])."
+              "description": "The highlight color used for the count operator (@[x]).",
+              "pattern": "^(?:#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?))?$",
+              "errorMessage": "Input must be a valid hex color, e.g. #33D17A"
             },
             "countDelimiter": {
               "type": "string",
               "default": "#76E3A0",
-              "description": "The highlight color used for the count operator delimiter (separator)."
+              "description": "The highlight color used for the count operator delimiter (separator).",
+              "pattern": "^(?:#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?))?$",
+              "errorMessage": "Input must be a valid hex color, e.g. #76E3A0"
             }
           }
         }

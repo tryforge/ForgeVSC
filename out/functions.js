@@ -63,28 +63,101 @@ function getBoolean(node) {
         return false;
     return undefined;
 }
-function parseArgType(node) {
-    if (typescript_1.default.isNumericLiteral(node)) {
-        const n = Number(node.text);
-        const key = types_1.ArgType[n];
-        return (typeof key === "string" && key in types_1.ArgType) ? key : undefined;
-    }
-    if (typescript_1.default.isStringLiteral(node) || typescript_1.default.isNoSubstitutionTemplateLiteral(node) || typescript_1.default.isIdentifier(node)) {
-        const key = node.text;
-        return (key in types_1.ArgType) ? key : undefined;
-    }
+function getEnumName(node) {
+    node = unwrapExpression(node);
+    if (typescript_1.default.isIdentifier(node))
+        return node.text;
+    if (typescript_1.default.isPropertyAccessExpression(node))
+        return node.name.text;
     return undefined;
+}
+function resolveArgType(node) {
+    if (typescript_1.default.isPropertyAccessExpression(node)) {
+        if (typescript_1.default.isIdentifier(node.expression) && node.expression.text === "ArgType") {
+            return node.name.text;
+        }
+        return node.name.text;
+    }
+    if (typescript_1.default.isIdentifier(node))
+        return node.text;
+    if (typescript_1.default.isStringLiteral(node))
+        return node.text;
+    return undefined;
+}
+function parseArgType(node) {
+    const key = resolveArgType(node);
+    if (!key)
+        return undefined;
+    return (key in types_1.ArgType) ? key : undefined;
 }
 function normalizeParam(partial) {
     if (!partial.name)
         return undefined;
-    return {
-        name: partial.name,
-        type: partial.type ?? exports.DefaultParam.type,
-        required: partial.required ?? exports.DefaultParam.required,
-        rest: partial.rest ?? exports.DefaultParam.rest,
-        description: partial.description ?? exports.DefaultParam.description,
+    let param = {};
+    param.name = partial.name;
+    param.type = partial.type ?? exports.DefaultParam.type;
+    param.required = partial.required ?? exports.DefaultParam.required;
+    param.rest = partial.rest ?? exports.DefaultParam.rest;
+    param.description = partial.description ?? exports.DefaultParam.description;
+    if (partial.enum)
+        param.enum = partial.enum;
+    if (partial.enumName)
+        param.enumName = partial.enumName;
+    if (partial.pointer)
+        param.pointer = partial.pointer;
+    if (partial.pointerProperty)
+        param.pointerProperty = partial.pointerProperty;
+    if (partial.condition)
+        param.condition = partial.condition;
+    if (partial.delimiter)
+        param.delimiter = partial.delimiter;
+    return param;
+}
+function getArgCall(node) {
+    if (!typescript_1.default.isPropertyAccessExpression(node.expression))
+        return undefined;
+    const access = node.expression;
+    if (!typescript_1.default.isIdentifier(access.expression) || access.expression.text !== "Arg")
+        return undefined;
+    const method = access.name.text;
+    const match = method.match(/^(optional|required|rest)(.+)$/);
+    if (!match)
+        return undefined;
+    const [, mode, rawType] = match;
+    let type = rawType;
+    const param = {
+        required: mode === "required",
+        rest: mode === "rest",
+        type
     };
+    let offset = 0;
+    if (type === "Enum") {
+        offset = 1;
+        param.enumName = getEnumName(node.arguments[0]);
+    }
+    const name = node.arguments[offset];
+    param.name = name && typescript_1.default.isStringLiteral(name) ? name.text : undefined;
+    const desc = node.arguments[offset + 1];
+    param.description = desc && typescript_1.default.isStringLiteral(desc) ? desc.text : exports.DefaultParam.description;
+    if (mode === "rest") {
+        const req = node.arguments[offset + 2];
+        const required = req && getBoolean(req);
+        if (required !== undefined)
+            param.required = required;
+    }
+    switch (type) {
+        case "GuildEmoji":
+            param.pointer = 0;
+            break;
+        case "Reaction":
+            param.pointer = 1;
+            break;
+        case "RoleOrUser":
+            param.pointer = 0;
+            param.pointerProperty = "guild";
+            break;
+    }
+    return normalizeParam(param);
 }
 function getParamObject(node) {
     if (!typescript_1.default.isObjectLiteralExpression(node))
@@ -104,14 +177,23 @@ function getParamObject(node) {
             param.required = getBoolean(prop.initializer);
         else if (key === "rest")
             param.rest = getBoolean(prop.initializer);
+        else if (key === "condition")
+            param.condition = getBoolean(prop.initializer);
         else if (key === "description")
             param.description = getString(prop.initializer);
+        else if (key === "enum")
+            param.enumName = getEnumName(prop.initializer);
     }
     return normalizeParam(param);
 }
 function getParam(el) {
     if (typescript_1.default.isStringLiteral(el))
         return normalizeParam({ name: el.text });
+    if (typescript_1.default.isCallExpression(el)) {
+        const arg = getArgCall(el);
+        if (arg)
+            return arg;
+    }
     return getParamObject(el);
 }
 function getParams(node) {
@@ -127,28 +209,23 @@ function getParams(node) {
     return args;
 }
 function getOutput(node) {
-    const checkLiteral = (expr) => typescript_1.default.isStringLiteral(expr) || typescript_1.default.isNoSubstitutionTemplateLiteral(expr) || typescript_1.default.isNumericLiteral(expr);
-    if (checkLiteral(node)) {
-        const type = parseArgType(node);
-        return type ? [type] : undefined;
-    }
+    const out = [];
+    const add = (expr) => {
+        const value = parseArgType(expr);
+        if (value)
+            out.push(value);
+    };
     if (typescript_1.default.isArrayLiteralExpression(node)) {
-        const out = [];
-        for (const el of node.elements) {
-            if (checkLiteral(el)) {
-                const type = parseArgType(el);
-                if (type)
-                    out.push(type);
-            }
-        }
-        return out.length ? out : undefined;
+        for (const el of node.elements)
+            add(el);
     }
-    return undefined;
+    else
+        add(node);
+    return out.length ? out : undefined;
 }
 function getPropertyKey(name) {
-    if (typescript_1.default.isIdentifier(name) || typescript_1.default.isStringLiteral(name) || typescript_1.default.isNoSubstitutionTemplateLiteral(name)) {
+    if (typescript_1.default.isIdentifier(name) || typescript_1.default.isStringLiteral(name) || typescript_1.default.isNoSubstitutionTemplateLiteral(name))
         return name.text;
-    }
     return undefined;
 }
 function readMetadata(obj) {
@@ -159,16 +236,25 @@ function readMetadata(obj) {
         const key = getPropertyKey(prop.name);
         if (!key)
             continue;
-        if (key === "name")
-            fn.name = "$" + getString(prop.initializer);
-        else if (key === "params")
+        if (key === "name") {
+            const name = getString(prop.initializer);
+            if (name)
+                fn.name = (name.startsWith("$") ? name : "$" + name);
+        }
+        else if (key === "params" || key === "args")
             fn.args = getParams(prop.initializer);
         else if (key === "brackets")
             fn.brackets = getBoolean(prop.initializer);
+        else if (key === "unwrap")
+            fn.unwrap = getBoolean(prop.initializer);
         else if (key === "output")
             fn.output = getOutput(prop.initializer);
         else if (key === "description")
             fn.description = getString(prop.initializer);
+        else if (key === "deprecated")
+            fn.deprecated = getBoolean(prop.initializer);
+        else if (key === "experimental")
+            fn.experimental = getBoolean(prop.initializer);
     }
     if (!fn.name)
         return null;
@@ -257,6 +343,19 @@ function resolveMetadataExpressions(node, bindings, seen = new Set()) {
     }
     return [];
 }
+function getPropertyChain(node) {
+    let current = node;
+    const parts = [];
+    while (typescript_1.default.isPropertyAccessExpression(current)) {
+        parts.unshift(current.name.text);
+        current = current.expression;
+    }
+    if (typescript_1.default.isIdentifier(current)) {
+        parts.unshift(current.text);
+        return parts;
+    }
+    return undefined;
+}
 /**
  * Returns the location of a custom function.
  * @param name The name of the function.
@@ -296,13 +395,13 @@ function extractCustomFunctions(text, fileName) {
             pushResolved(node.expression);
         // module.exports = ...
         if (typescript_1.default.isBinaryExpression(node) && node.operatorToken.kind === typescript_1.default.SyntaxKind.EqualsToken) {
-            const left = unwrapExpression(node.left);
-            const right = node.right;
-            const check = typescript_1.default.isPropertyAccessExpression(left) && typescript_1.default.isIdentifier(left.expression);
-            const isModuleExports = check && left.expression.text === "module" && left.name.text === "exports";
-            const isExportsDefault = check && left.expression.text === "exports" && left.name.text === "default";
+            const leftChain = getPropertyChain(node.left);
+            if (!leftChain)
+                return;
+            const isModuleExports = leftChain[0] === "module" && leftChain[1] === "exports";
+            const isExportsDefault = leftChain[0] === "exports" && leftChain[1] === "default";
             if (isModuleExports || isExportsDefault)
-                pushResolved(right);
+                pushResolved(node.right);
         }
         typescript_1.default.forEachChild(node, visit);
     }

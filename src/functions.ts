@@ -1,4 +1,4 @@
-import { ArgType, IForgeFunction, IForgeFunctionParam } from "./types"
+import { ArgType, IMetadataArg, IMetadataFunction } from "./types"
 import { getFunctions, toArray } from "."
 import * as vscode from "vscode"
 import ts from "typescript"
@@ -9,15 +9,9 @@ export type FunctionLocation = {
 }
 
 export type ArgTypeKey = keyof typeof ArgType
-export type CustomFunctionParamMetadata = Omit<IForgeFunctionParam, "type"> & {
-    type: ArgTypeKey
-    description: string
-}
-export type CustomFunctionMetadata = Omit<IForgeFunction, "code" | "params"> & {
-    args?: CustomFunctionParamMetadata[]
-    output?: Array<ArgTypeKey>
-    unwrap: boolean
-    description: string
+export type CustomFunctionParamMetadata = IMetadataArg
+export type CustomFunctionMetadata = Omit<IMetadataFunction, "category" | "examples" | "version"> & {
+    firstParamCondition?: boolean
     location?: FunctionLocation
 }
 
@@ -40,30 +34,108 @@ function getBoolean(node: ts.Expression) {
     return undefined
 }
 
-function parseArgType(node: ts.Expression) {
-    if (ts.isNumericLiteral(node)) {
-        const n = Number(node.text)
-        const key = ArgType[n] as unknown
-        return (typeof key === "string" && key in ArgType) ? (key as ArgTypeKey) : undefined
+function getEnumName(node: ts.Expression) {
+    node = unwrapExpression(node)
+    if (ts.isIdentifier(node)) return node.text
+    if (ts.isPropertyAccessExpression(node)) return node.name.text
+    return undefined
+}
+
+function resolveArgType(node: ts.Expression) {
+    if (ts.isPropertyAccessExpression(node)) {
+        if (ts.isIdentifier(node.expression) && node.expression.text === "ArgType") {
+            return node.name.text
+        }
+        return node.name.text
     }
 
-    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isIdentifier(node)) {
-        const key = node.text
-        return (key in ArgType) ? (key as ArgTypeKey) : undefined
-    }
+    if (ts.isIdentifier(node)) return node.text
+    if (ts.isStringLiteral(node)) return node.text
 
     return undefined
 }
 
+function parseArgType(node: ts.Expression) {
+    const key = resolveArgType(node)
+    if (!key) return undefined
+
+    return (key in ArgType) ? (key as ArgTypeKey) : undefined
+}
+
 function normalizeParam(partial: Partial<CustomFunctionParamMetadata>) {
     if (!partial.name) return undefined
-    return {
-        name: partial.name,
-        type: partial.type ?? DefaultParam.type,
-        required: partial.required ?? DefaultParam.required,
-        rest: partial.rest ?? DefaultParam.rest,
-        description: partial.description ?? DefaultParam.description,
+    let param = {} as CustomFunctionParamMetadata
+
+    param.name = partial.name
+    param.type = partial.type ?? DefaultParam.type
+    param.required = partial.required ?? DefaultParam.required
+    param.rest = partial.rest ?? DefaultParam.rest
+    param.description = partial.description ?? DefaultParam.description
+
+    if (partial.enum) param.enum = partial.enum
+    if (partial.enumName) param.enumName = partial.enumName
+    if (partial.pointer) param.pointer = partial.pointer
+    if (partial.pointerProperty) param.pointerProperty = partial.pointerProperty
+    if (partial.condition) param.condition = partial.condition
+    if (partial.delimiter) param.delimiter = partial.delimiter
+
+    return param
+}
+
+function getArgCall(node: ts.CallExpression) {
+    if (!ts.isPropertyAccessExpression(node.expression)) return undefined
+
+    const access = node.expression
+    if (!ts.isIdentifier(access.expression) || access.expression.text !== "Arg")
+        return undefined
+
+    const method = access.name.text
+    const match = method.match(/^(optional|required|rest)(.+)$/)
+    if (!match) return undefined
+
+    const [, mode, rawType] = match
+    let type = rawType as ArgTypeKey
+
+    const param: Partial<CustomFunctionParamMetadata> = {
+        required: mode === "required",
+        rest: mode === "rest",
+        type
     }
+
+    let offset = 0
+    if (type === "Enum") {
+        offset = 1
+        param.enumName = getEnumName(node.arguments[0])
+    }
+
+    const name = node.arguments[offset]
+    param.name = name && ts.isStringLiteral(name) ? name.text : undefined
+
+    const desc = node.arguments[offset + 1]
+    param.description = desc && ts.isStringLiteral(desc) ? desc.text : DefaultParam.description
+
+    if (mode === "rest") {
+        const req = node.arguments[offset + 2]
+        const required = req && getBoolean(req)
+        if (required !== undefined) param.required = required
+    }
+
+    switch (type) {
+        case "GuildEmoji":
+            param.pointer = 0
+            break
+
+        case "Reaction":
+            param.pointer = 1
+            break
+
+        case "RoleOrUser":
+            param.pointer = 0
+            param.pointerProperty = "guild"
+            break
+    }
+
+    return normalizeParam(param)
 }
 
 function getParamObject(node: ts.Expression) {
@@ -79,7 +151,9 @@ function getParamObject(node: ts.Expression) {
         else if (key === "type") param.type = parseArgType(prop.initializer) ?? "String"
         else if (key === "required") param.required = getBoolean(prop.initializer)
         else if (key === "rest") param.rest = getBoolean(prop.initializer)
+        else if (key === "condition") param.condition = getBoolean(prop.initializer)
         else if (key === "description") param.description = getString(prop.initializer)
+        else if (key === "enum") param.enumName = getEnumName(prop.initializer)
     }
 
     return normalizeParam(param)
@@ -87,6 +161,10 @@ function getParamObject(node: ts.Expression) {
 
 function getParam(el: ts.Expression) {
     if (ts.isStringLiteral(el)) return normalizeParam({ name: el.text })
+    if (ts.isCallExpression(el)) {
+        const arg = getArgCall(el)
+        if (arg) return arg
+    }
     return getParamObject(el)
 }
 
@@ -104,33 +182,22 @@ function getParams(node: ts.Expression) {
 }
 
 function getOutput(node: ts.Expression) {
-    const checkLiteral = (expr: ts.Expression) =>
-        ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr) || ts.isNumericLiteral(expr)
-
-    if (checkLiteral(node)) {
-        const type = parseArgType(node)
-        return type ? [type] : undefined
+    const out: ArgTypeKey[] = []
+    const add = (expr: ts.Expression) => {
+        const value = parseArgType(expr)
+        if (value) out.push(value)
     }
 
     if (ts.isArrayLiteralExpression(node)) {
-        const out: ArgTypeKey[] = []
-        for (const el of node.elements) {
-            if (checkLiteral(el)) {
-                const type = parseArgType(el)
-                if (type) out.push(type)
-            }
-        }
-        return out.length ? out : undefined
-    }
+        for (const el of node.elements) add(el)
+    } else add(node)
 
-    return undefined
+    return out.length ? out : undefined
 }
 
 function getPropertyKey(name: ts.PropertyName) {
-    if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNoSubstitutionTemplateLiteral(name)) {
+    if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNoSubstitutionTemplateLiteral(name))
         return name.text
-    }
-
     return undefined
 }
 
@@ -143,11 +210,17 @@ function readMetadata(obj: ts.ObjectLiteralExpression) {
         const key = getPropertyKey(prop.name)
         if (!key) continue
 
-        if (key === "name") fn.name = "$" + getString(prop.initializer)
-        else if (key === "params") fn.args = getParams(prop.initializer)
+        if (key === "name") {
+            const name = getString(prop.initializer)
+            if (name) fn.name = (name.startsWith("$") ? name : "$" + name) as `$${string}`
+        }
+        else if (key === "params" || key === "args") fn.args = getParams(prop.initializer)
         else if (key === "brackets") fn.brackets = getBoolean(prop.initializer)
+        else if (key === "unwrap") fn.unwrap = getBoolean(prop.initializer)
         else if (key === "output") fn.output = getOutput(prop.initializer)
         else if (key === "description") fn.description = getString(prop.initializer)
+        else if (key === "deprecated") fn.deprecated = getBoolean(prop.initializer)
+        else if (key === "experimental") fn.experimental = getBoolean(prop.initializer)
     }
 
     if (!fn.name) return null
@@ -257,6 +330,23 @@ function resolveMetadataExpressions(
     return []
 }
 
+function getPropertyChain(node: ts.Expression) {
+    let current = node
+    const parts = []
+
+    while (ts.isPropertyAccessExpression(current)) {
+        parts.unshift(current.name.text)
+        current = current.expression
+    }
+
+    if (ts.isIdentifier(current)) {
+        parts.unshift(current.text)
+        return parts
+    }
+
+    return undefined
+}
+
 /**
  * Returns the location of a custom function.
  * @param name The name of the function.
@@ -303,14 +393,13 @@ function extractCustomFunctions(text: string, fileName: string) {
 
         // module.exports = ...
         if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
-            const left = unwrapExpression(node.left)
-            const right = node.right
+            const leftChain = getPropertyChain(node.left)
+            if (!leftChain) return
 
-            const check = ts.isPropertyAccessExpression(left) && ts.isIdentifier(left.expression)
-            const isModuleExports = check && left.expression.text === "module" && left.name.text === "exports"
-            const isExportsDefault = check && left.expression.text === "exports" && left.name.text === "default"
+            const isModuleExports = leftChain[0] === "module" && leftChain[1] === "exports"
+            const isExportsDefault = leftChain[0] === "exports" && leftChain[1] === "default"
 
-            if (isModuleExports || isExportsDefault) pushResolved(right)
+            if (isModuleExports || isExportsDefault) pushResolved(node.right)
         }
 
         ts.forEachChild(node, visit)

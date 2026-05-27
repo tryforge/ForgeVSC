@@ -74,9 +74,9 @@ let lastDecoKey = "";
 function ensureDecorations() {
     const config = (0, _1.getExtensionConfig)();
     const colors = config.colors ?? {};
-    const fnColor = resolveColor(colors.function?.name, "#ac75ff");
-    const dollarColor = resolveColor(colors.function?.dollar, "#fe7ceb");
-    const semiColor = resolveColor(colors.function?.semicolon, "#c586c0");
+    const fnColor = resolveColor(colors.function?.name, "#AC75FF");
+    const dollarColor = resolveColor(colors.function?.dollar, "#FE7CEB");
+    const semiColor = resolveColor(colors.function?.semicolon, "#C586C0");
     const negColor = resolveColor(colors.operators?.negation, dollarColor);
     const silentColor = resolveColor(colors.operators?.silent, dollarColor);
     const countColor = resolveColor(colors.operators?.count, dollarColor);
