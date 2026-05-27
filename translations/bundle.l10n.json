@@ -1,4 +1,5 @@
 {
+  "*(Conditional)*": "*(Conditional)*",
   "Source": "Source",
   "Documentation": "Documentation",
   "Guide": "Guide",
@@ -54,5 +55,8 @@
   "Where do you want to create the config file?": "Where do you want to create the config file?",
   "Config file overwritten successfully!": "Config file overwritten successfully!",
   "Successfully created config file!": "Successfully created config file!",
-  "Successfully fetched function metadata!": "Successfully fetched function metadata!"
+  "Successfully fetched function metadata!": "Successfully fetched function metadata!",
+  "Deprecated": "Deprecated",
+  "Experimental": "Experimental",
+  "since": "since"
 }

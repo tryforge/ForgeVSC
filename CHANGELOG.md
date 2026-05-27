@@ -1,5 +1,11 @@
 # Change Log
 
+## v1.2.3 <sub>(May 27, 2026)</sub>
+
+### Added
+- Added support for NativeFunction class
+- Added regex validation pattern for hex inputs in config settings
+
 ## v1.2.2 <sub>(May 25, 2026)</sub>
 
 ### Added
