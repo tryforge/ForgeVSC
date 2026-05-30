@@ -1,11 +1,21 @@
 {
   "extension.description": "Offizielle Visual Studio Code-Erweiterung für ForgeScript.",
   "command.createConfig.title": "Konfigurationsdatei erstellen (.forgevsc.json)",
+  "command.reloadFunctionMetadata.title": "Funktions-Metadaten abrufen. Mit Vorsicht verwenden!",
+  "command.searchGuides.title": "Leitfäden suchen",
   "command.reloadGuideMetadata.title": "Leitfäden aktualisieren",
   "command.openGuide.title": "Leitfaden öffnen",
   "command.createGuide.title": "Leitfaden erstellen",
   "command.openGuideExternal.title": "Leitfaden öffnen (External)",
   "command.openExtensionSettings.title": "Erweiterungseinstellungen öffnen",
   "view.guides.title": "Leitfäden",
-  "view.guides.welcome": "Keine Leitfäden verfügbar.\n[$(refresh) Leitfäden aktualisieren](command:forgevsc.reloadGuideMetadata)\n[$(add) Leitfaden erstellen](command:forgevsc.createGuide)"
+  "view.guides.welcome": "Keine Leitfäden verfügbar.\n[$(refresh) Leitfäden aktualisieren](command:forgevsc.reloadGuideMetadata)\n[$(add) Leitfaden erstellen](command:forgevsc.createGuide)",
+  "config.workspace.colors.function.name.patternError": "Eingabe muss eine gültige Hex-Farbe sein, z. B. #AC75FF",
+  "config.workspace.colors.function.dollar.patternError": "Eingabe muss eine gültige Hex-Farbe sein, z. B. #FE7CEB",
+  "config.workspace.colors.function.semicolon.patternError": "Eingabe muss eine gültige Hex-Farbe sein, z. B. #C586C0",
+  "config.workspace.colors.arguments.condition.patternError": "Eingabe muss eine gültige Hex-Farbe sein, z. B. #4FC1FF",
+  "config.workspace.colors.operators.negation.patternError": "Eingabe muss eine gültige Hex-Farbe sein, z. B. #4FA3FF",
+  "config.workspace.colors.operators.silent.patternError": "Eingabe muss eine gültige Hex-Farbe sein, z. B. #FF9F43",
+  "config.workspace.colors.operators.count.patternError": "Eingabe muss eine gültige Hex-Farbe sein, z. B. #33D17A",
+  "config.workspace.colors.operators.countDelimiter.patternError": "Eingabe muss eine gültige Hex-Farbe sein, z. B. #76E3A0"
 }
