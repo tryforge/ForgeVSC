@@ -30,6 +30,12 @@ export type PackageSource = {
 	label?: string
 }
 
+export type ParsedArg = {
+	value: string
+	start: number
+	end: number
+}
+
 export type FunctionMetadata = IMetadataFunction & {
 	source?: PackageSource
 	location?: FunctionLocation
@@ -55,7 +61,9 @@ let guidesPromise: Promise<GuideMetadata[]> | null = null
 let paths = new Map<string, PathMetadata>()
 let pathsPromise = new Map<string, Promise<PathMetadata | null>>()
 
+let metadataCacheKey: string | null = null
 let isEnabled = true
+
 let Context: vscode.ExtensionContext
 export let Logger: vscode.LogOutputChannel
 
@@ -104,8 +112,13 @@ export const GuidesStorageKey = "forgevsc.guidesCache.v1"
 export async function activate(ctx: vscode.ExtensionContext) {
 	Context = ctx
 
-	await loadExtensionConfig()
+	const config = await loadExtensionConfig()
 	isEnabled = isWorkspaceEnabled()
+	metadataCacheKey = buildCacheKey(
+		await getForgePackages(),
+		config.additionalPackages,
+		config.customFunctionPaths
+	)
 
 	const name: string = ctx.extension.packageJSON.displayName ?? "ForgeVSC"
 	Logger = vscode.window.createOutputChannel(name, { log: true })
@@ -224,21 +237,33 @@ function initialize(ctx: vscode.ExtensionContext) {
  * @returns 
  */
 async function reload() {
-	await loadExtensionConfig()
+	const oldKey = metadataCacheKey
+	const config = await loadExtensionConfig()
 
+	const newKey = buildCacheKey(
+		await getForgePackages(),
+		config.additionalPackages,
+		config.customFunctionPaths
+	)
+
+	metadataCacheKey = newKey
+	const packagesChanged = oldKey !== null && oldKey !== newKey
 	const newState = isWorkspaceEnabled()
-	if (newState === isEnabled) return
 
-	const showInformationMessage = async (message: string) => {
+	const showInformationMessage = async (message: string, openSettings = true) => {
 		const btnReload = vscode.l10n.t("Reload")
+		const btnLater = vscode.l10n.t("Later")
 		const btnOpenSettings = vscode.l10n.t("Open Settings")
+
 		const action = await vscode.window.showInformationMessage(
 			message,
-			btnReload,
-			btnOpenSettings
+			...(openSettings ? [btnReload, btnOpenSettings] : [btnReload, btnLater])
 		)
-		if (action === btnReload) await vscode.commands.executeCommand("workbench.action.reloadWindow")
-		else if (action === btnOpenSettings) {
+
+		if (action === btnReload) {
+			if (openSettings) await vscode.commands.executeCommand("workbench.action.reloadWindow")
+			else await vscode.commands.executeCommand("forgevsc.reloadFunctionMetadata")
+		} else if (action === btnOpenSettings) {
 			await vscode.commands.executeCommand(
 				"forgevsc.openSettings",
 				"forgevsc.global.enabledWorkspaces"
@@ -246,15 +271,26 @@ async function reload() {
 		}
 	}
 
-	isEnabled = newState
-	if (!isEnabled) {
-		Logger.info("Extension disabled after configuration change.")
-		await showInformationMessage(vscode.l10n.t("Extension is disabled for this workspace. Reload recommended."))
+	if (newState !== isEnabled) {
+		isEnabled = newState
+
+		if (!isEnabled) {
+			Logger.info("Extension disabled after configuration change.")
+			await showInformationMessage(vscode.l10n.t("Extension is disabled for this workspace. Reload recommended."))
+			return
+		}
+
+		Logger.info("Extension enabled after configuration change.")
+		await showInformationMessage(vscode.l10n.t("Extension has been enabled. Reload to fully activate."))
 		return
 	}
 
-	Logger.info("Extension enabled after configuration change.")
-	await showInformationMessage(vscode.l10n.t("Extension has been enabled. Reload to fully activate."))
+	if (packagesChanged) {
+		await showInformationMessage(
+			vscode.l10n.t("Package sources or custom function paths have changed. Reload to refresh function metadata."),
+			false
+		)
+	}
 }
 
 /**
@@ -1047,6 +1083,34 @@ export function findMatchingBracket(input: string, openIndex: number) {
 }
 
 /**
+ * Finds the first matching condition operator from the input text.
+ * @param input The input text.
+ * @returns 
+ */
+export function findConditionOperator(input: string) {
+	for (let i = 0; i < input.length; i++) {
+		const op = [input[i] + (input[i + 1] ?? ""), input[i]]
+			.find((x) =>
+				x === "==" ||
+				x === "!=" ||
+				x === "<=" ||
+				x === ">=" ||
+				x === "<" ||
+				x === ">"
+			)
+
+		if (op) {
+			return {
+				index: i,
+				operator: op
+			}
+		}
+	}
+
+	return null
+}
+
+/**
  * Splits an argument string into an array of arguments.
  * @param argString The argument string.
  * @returns 
@@ -1054,9 +1118,10 @@ export function findMatchingBracket(input: string, openIndex: number) {
 export function splitArgs(argString?: string) {
 	if (argString === undefined) return []
 
-	const args: string[] = []
+	const args: ParsedArg[] = []
 	let current = ""
 	let depth = 0
+	let argStart = 0
 
 	for (let i = 0; i < argString.length; i++) {
 		const escaped = isEscaped(argString, i)
@@ -1066,12 +1131,23 @@ export function splitArgs(argString?: string) {
 		else if (char === "]" && depth > 0 && !escaped) depth--
 
 		if (char === ";" && depth === 0 && !escaped) {
-			args.push(current)
+			args.push({
+				value: current,
+				start: argStart,
+				end: i
+			})
+
 			current = ""
+			argStart = i + 1
 		} else current += char
 	}
 
-	args.push(current)
+	args.push({
+		value: current,
+		start: argStart,
+		end: argString.length
+	})
+
 	return args
 }
 

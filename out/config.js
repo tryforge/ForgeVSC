@@ -48,8 +48,10 @@ exports.Defaults = {
         function: {
             name: "#AC75FF",
             dollar: "#FE7CEB",
-            semicolon: "#C586C0",
-            // condition: "#569CD6"
+            semicolon: "#C586C0"
+        },
+        arguments: {
+            condition: "#4FC1FF"
         },
         operators: {
             negation: "#4FA3FF",
@@ -86,7 +88,9 @@ function getSettingsConfig() {
                     name: vs.get("workspace.colors.function.name"),
                     dollar: vs.get("workspace.colors.function.dollar"),
                     semicolon: vs.get("workspace.colors.function.semicolon"),
-                    condition: vs.get("workspace.colors.function.condition"),
+                },
+                arguments: {
+                    condition: vs.get("workspace.colors.arguments.condition"),
                 },
                 operators: {
                     negation: vs.get("workspace.colors.operators.negation"),
@@ -165,6 +169,11 @@ async function loadExtensionConfig() {
                 ...exports.Defaults.colors.function,
                 ...(vs.workspace.colors?.function ?? {}),
                 ...(file.colors?.function ?? {})
+            },
+            arguments: {
+                ...exports.Defaults.colors.arguments,
+                ...(vs.workspace.colors?.arguments ?? {}),
+                ...(file.colors?.arguments ?? {})
             },
             operators: {
                 ...exports.Defaults.colors.operators,

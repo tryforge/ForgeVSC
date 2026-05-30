@@ -1,5 +1,11 @@
 # Change Log
 
+## v1.2.4 <sub>(May 30, 2026)</sub>
+
+### Added
+- Added support for condition operator highlighting
+- Added information message for refreshing function metadata
+
 ## v1.2.3 <sub>(May 27, 2026)</sub>
 
 ### Added

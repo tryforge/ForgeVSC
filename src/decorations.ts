@@ -1,5 +1,6 @@
 import {
     cloneRegex,
+    findConditionOperator,
     findFunction,
     findMatchingBracket,
     FunctionPrefixRegex,
@@ -9,13 +10,15 @@ import {
     isEscaped,
     isOpeningBracket,
     Languages,
-    locateCodeBlock
+    locateCodeBlock,
+    splitArgs
 } from "."
 import * as vscode from "vscode"
 
 let decoFn: vscode.TextEditorDecorationType | null = null
 let decoDollar: vscode.TextEditorDecorationType | null = null
 let decoSemi: vscode.TextEditorDecorationType | null = null
+let decoCond: vscode.TextEditorDecorationType | null = null
 let decoOpNeg: vscode.TextEditorDecorationType | null = null
 let decoOpSilent: vscode.TextEditorDecorationType | null = null
 let decoOpCount: vscode.TextEditorDecorationType | null = null
@@ -58,6 +61,8 @@ function ensureDecorations() {
     const dollarColor = resolveColor(colors.function?.dollar, "#FE7CEB")
     const semiColor = resolveColor(colors.function?.semicolon, "#C586C0")
 
+    const condColor = resolveColor(colors.arguments?.condition, "#4FC1FF")
+
     const negColor = resolveColor(colors.operators?.negation, dollarColor)
     const silentColor = resolveColor(colors.operators?.silent, dollarColor)
     const countColor = resolveColor(colors.operators?.count, dollarColor)
@@ -67,6 +72,7 @@ function ensureDecorations() {
         fnColor,
         dollarColor,
         semiColor,
+        condColor,
         negColor,
         silentColor,
         countColor,
@@ -76,13 +82,14 @@ function ensureDecorations() {
     if (key === lastDecoKey && decoFn) return
     lastDecoKey = key
 
-    for (const d of [decoFn, decoDollar, decoSemi, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
+    for (const d of [decoFn, decoDollar, decoSemi, decoCond, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
         d?.dispose()
     }
 
     decoFn = vscode.window.createTextEditorDecorationType({ color: fnColor })
     decoDollar = vscode.window.createTextEditorDecorationType({ color: dollarColor })
     decoSemi = vscode.window.createTextEditorDecorationType({ color: semiColor })
+    decoCond = vscode.window.createTextEditorDecorationType({ color: condColor })
 
     decoOpNeg = vscode.window.createTextEditorDecorationType({ color: negColor })
     decoOpSilent = vscode.window.createTextEditorDecorationType({ color: silentColor })
@@ -92,7 +99,7 @@ function ensureDecorations() {
 
 async function applyDecorations(editor: vscode.TextEditor) {
     ensureDecorations()
-    if (!decoFn || !decoDollar || !decoSemi || !decoOpNeg || !decoOpSilent || !decoOpCount || !decoOpCountDelim) {
+    if (!decoFn || !decoDollar || !decoSemi || !decoCond || !decoOpNeg || !decoOpSilent || !decoOpCount || !decoOpCountDelim) {
         return
     }
 
@@ -102,6 +109,7 @@ async function applyDecorations(editor: vscode.TextEditor) {
     const fnRanges: vscode.Range[] = []
     const dollarRanges: vscode.Range[] = []
     const semiRanges: vscode.Range[] = []
+    const condRanges: vscode.Range[] = []
     const opNegRanges: vscode.Range[] = []
     const opSilentRanges: vscode.Range[] = []
     const opCountRanges: vscode.Range[] = []
@@ -171,6 +179,22 @@ async function applyDecorations(editor: vscode.TextEditor) {
         const closeIndex = findMatchingBracket(text, openIndex)
         if (closeIndex === -1) continue
 
+        const argText = text.slice(openIndex + 1, closeIndex)
+        const args = splitArgs(argText)
+
+        for (let i = 0; i < args.length; i++) {
+            const arg = args[i]
+            const meta = fn.args?.[Math.min(i, fn.args.at(-1)?.rest ? fn.args.length - 1 : i)]
+            if (!meta?.condition) continue
+
+            const op = findConditionOperator(arg.value)
+            if (op) {
+                const start = openIndex + 1 + arg.start + op.index
+                const end = start + op.operator.length
+                condRanges.push(new vscode.Range(doc.positionAt(start), doc.positionAt(end)))
+            }
+        }
+
         let depth = 0
         for (let i = openIndex + 1; i < closeIndex; i++) {
             const escaped = isEscaped(text, i)
@@ -187,6 +211,7 @@ async function applyDecorations(editor: vscode.TextEditor) {
     editor.setDecorations(decoFn, fnRanges)
     editor.setDecorations(decoDollar, dollarRanges)
     editor.setDecorations(decoSemi, semiRanges)
+    editor.setDecorations(decoCond, condRanges)
     editor.setDecorations(decoOpNeg, opNegRanges)
     editor.setDecorations(decoOpSilent, opSilentRanges)
     editor.setDecorations(decoOpCount, opCountRanges)
@@ -210,7 +235,7 @@ export function registerDecorations(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
         {
             dispose: () => {
-                for (const d of [decoFn, decoDollar, decoSemi, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
+                for (const d of [decoFn, decoDollar, decoSemi, decoCond, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
                     d?.dispose()
                 }
             }

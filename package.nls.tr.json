@@ -1,0 +1,5 @@
+{
+  "command.createConfig.title": "Yapılandırma dosyası oluştur (.forgevsc.json)",
+  "command.favoriteGuide.title": "Favorilere Ekle",
+  "command.unfavoriteGuide.title": "Favorilerden Kaldır"
+}

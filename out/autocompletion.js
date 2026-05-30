@@ -100,7 +100,7 @@ function registerAutocompletion(ctx) {
                         const activeArg = args[activeIndex];
                         const enumValues = activeArg?.enum || (activeArg.type === "Boolean" ? ["true", "false"] : undefined);
                         if (enumValues) {
-                            const currentValue = parts[activeIndex] ?? "";
+                            const currentValue = parts[activeIndex]?.value ?? "";
                             return enumValues.map((val) => {
                                 const item = new vscode.CompletionItem(val, vscode.CompletionItemKind.EnumMember);
                                 const start = position.translate(0, -currentValue.length);

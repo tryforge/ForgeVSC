@@ -40,6 +40,7 @@ const vscode = __importStar(require("vscode"));
 let decoFn = null;
 let decoDollar = null;
 let decoSemi = null;
+let decoCond = null;
 let decoOpNeg = null;
 let decoOpSilent = null;
 let decoOpCount = null;
@@ -77,6 +78,7 @@ function ensureDecorations() {
     const fnColor = resolveColor(colors.function?.name, "#AC75FF");
     const dollarColor = resolveColor(colors.function?.dollar, "#FE7CEB");
     const semiColor = resolveColor(colors.function?.semicolon, "#C586C0");
+    const condColor = resolveColor(colors.arguments?.condition, "#4FC1FF");
     const negColor = resolveColor(colors.operators?.negation, dollarColor);
     const silentColor = resolveColor(colors.operators?.silent, dollarColor);
     const countColor = resolveColor(colors.operators?.count, dollarColor);
@@ -85,6 +87,7 @@ function ensureDecorations() {
         fnColor,
         dollarColor,
         semiColor,
+        condColor,
         negColor,
         silentColor,
         countColor,
@@ -93,12 +96,13 @@ function ensureDecorations() {
     if (key === lastDecoKey && decoFn)
         return;
     lastDecoKey = key;
-    for (const d of [decoFn, decoDollar, decoSemi, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
+    for (const d of [decoFn, decoDollar, decoSemi, decoCond, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
         d?.dispose();
     }
     decoFn = vscode.window.createTextEditorDecorationType({ color: fnColor });
     decoDollar = vscode.window.createTextEditorDecorationType({ color: dollarColor });
     decoSemi = vscode.window.createTextEditorDecorationType({ color: semiColor });
+    decoCond = vscode.window.createTextEditorDecorationType({ color: condColor });
     decoOpNeg = vscode.window.createTextEditorDecorationType({ color: negColor });
     decoOpSilent = vscode.window.createTextEditorDecorationType({ color: silentColor });
     decoOpCount = vscode.window.createTextEditorDecorationType({ color: countColor });
@@ -106,7 +110,7 @@ function ensureDecorations() {
 }
 async function applyDecorations(editor) {
     ensureDecorations();
-    if (!decoFn || !decoDollar || !decoSemi || !decoOpNeg || !decoOpSilent || !decoOpCount || !decoOpCountDelim) {
+    if (!decoFn || !decoDollar || !decoSemi || !decoCond || !decoOpNeg || !decoOpSilent || !decoOpCount || !decoOpCountDelim) {
         return;
     }
     const doc = editor.document;
@@ -114,6 +118,7 @@ async function applyDecorations(editor) {
     const fnRanges = [];
     const dollarRanges = [];
     const semiRanges = [];
+    const condRanges = [];
     const opNegRanges = [];
     const opSilentRanges = [];
     const opCountRanges = [];
@@ -180,6 +185,20 @@ async function applyDecorations(editor) {
         const closeIndex = (0, _1.findMatchingBracket)(text, openIndex);
         if (closeIndex === -1)
             continue;
+        const argText = text.slice(openIndex + 1, closeIndex);
+        const args = (0, _1.splitArgs)(argText);
+        for (let i = 0; i < args.length; i++) {
+            const arg = args[i];
+            const meta = fn.args?.[Math.min(i, fn.args.at(-1)?.rest ? fn.args.length - 1 : i)];
+            if (!meta?.condition)
+                continue;
+            const op = (0, _1.findConditionOperator)(arg.value);
+            if (op) {
+                const start = openIndex + 1 + arg.start + op.index;
+                const end = start + op.operator.length;
+                condRanges.push(new vscode.Range(doc.positionAt(start), doc.positionAt(end)));
+            }
+        }
         let depth = 0;
         for (let i = openIndex + 1; i < closeIndex; i++) {
             const escaped = (0, _1.isEscaped)(text, i);
@@ -196,6 +215,7 @@ async function applyDecorations(editor) {
     editor.setDecorations(decoFn, fnRanges);
     editor.setDecorations(decoDollar, dollarRanges);
     editor.setDecorations(decoSemi, semiRanges);
+    editor.setDecorations(decoCond, condRanges);
     editor.setDecorations(decoOpNeg, opNegRanges);
     editor.setDecorations(decoOpSilent, opSilentRanges);
     editor.setDecorations(decoOpCount, opCountRanges);
@@ -216,7 +236,7 @@ function registerDecorations(ctx) {
     };
     ctx.subscriptions.push({
         dispose: () => {
-            for (const d of [decoFn, decoDollar, decoSemi, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
+            for (const d of [decoFn, decoDollar, decoSemi, decoCond, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
                 d?.dispose();
             }
         }

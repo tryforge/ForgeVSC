@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "%extension.description%",
   "publisher": "tryforge",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "browser": "./out/web/extension.js",
@@ -287,8 +287,16 @@
           "pattern": "^(?:#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?))?$",
           "patternErrorMessage": "%config.workspace.colors.function.semicolon.patternError%"
         },
-        "forgevsc.workspace.colors.operators.negation": {
+        "forgevsc.workspace.colors.arguments.condition": {
           "order": 13,
+          "type": "string",
+          "default": "#4FC1FF",
+          "description": "%config.workspace.colors.arguments.condition.description%",
+          "pattern": "^(?:#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?))?$",
+          "patternErrorMessage": "%config.workspace.colors.arguments.condition.patternError%"
+        },
+        "forgevsc.workspace.colors.operators.negation": {
+          "order": 14,
           "type": "string",
           "default": "#4FA3FF",
           "description": "%config.workspace.colors.operators.negation.description%",
@@ -296,7 +304,7 @@
           "patternErrorMessage": "%config.workspace.colors.operators.negation.patternError%"
         },
         "forgevsc.workspace.colors.operators.silent": {
-          "order": 14,
+          "order": 15,
           "type": "string",
           "default": "#FF9F43",
           "description": "%config.workspace.colors.operators.silent.description%",
@@ -304,7 +312,7 @@
           "patternErrorMessage": "%config.workspace.colors.operators.silent.patternError%"
         },
         "forgevsc.workspace.colors.operators.count": {
-          "order": 15,
+          "order": 16,
           "type": "string",
           "default": "#33D17A",
           "description": "%config.workspace.colors.operators.count.description%",
@@ -312,7 +320,7 @@
           "patternErrorMessage": "%config.workspace.colors.operators.count.patternError%"
         },
         "forgevsc.workspace.colors.operators.countDelimiter": {
-          "order": 16,
+          "order": 17,
           "type": "string",
           "default": "#76E3A0",
           "description": "%config.workspace.colors.operators.countDelimiter.description%",
@@ -383,7 +391,7 @@
     "dotenv-cli": "^11.0.0",
     "esbuild": "^0.28.0",
     "eslint": "^10.2.1",
-    "ovsx": "^0.10.11"
+    "ovsx": "^1.0.0"
   },
   "dependencies": {
     "typescript": "^6.0.3"

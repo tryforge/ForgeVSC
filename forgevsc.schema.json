@@ -54,6 +54,20 @@
             }
           }
         },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The highlight colors used for function argument parts.",
+          "properties": {
+            "condition": {
+              "type": "string",
+              "default": "#4FC1FF",
+              "description": "The highlight color used for argument condition operators.",
+              "pattern": "^(?:#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?))?$",
+              "errorMessage": "Input must be a valid hex color, e.g. #4FC1FF"
+            }
+          }
+        },
         "operators": {
           "type": "object",
           "additionalProperties": false,

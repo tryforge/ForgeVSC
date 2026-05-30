@@ -58,6 +58,7 @@ exports.isInsideComment = isInsideComment;
 exports.isOpeningBracket = isOpeningBracket;
 exports.findOpeningBracket = findOpeningBracket;
 exports.findMatchingBracket = findMatchingBracket;
+exports.findConditionOperator = findConditionOperator;
 exports.splitArgs = splitArgs;
 exports.bracketDepth = bracketDepth;
 exports.deactivate = deactivate;
@@ -69,6 +70,7 @@ let guides = null;
 let guidesPromise = null;
 let paths = new Map();
 let pathsPromise = new Map();
+let metadataCacheKey = null;
 let isEnabled = true;
 let Context;
 exports.OperatorChain = String.raw `(?:!?#?(?:@\[[^\]]?\])?)?`;
@@ -109,8 +111,9 @@ exports.GuidesStorageKey = "forgevsc.guidesCache.v1";
  */
 async function activate(ctx) {
     Context = ctx;
-    await (0, _1.loadExtensionConfig)();
+    const config = await (0, _1.loadExtensionConfig)();
     isEnabled = isWorkspaceEnabled();
+    metadataCacheKey = buildCacheKey(await getForgePackages(), config.additionalPackages, config.customFunctionPaths);
     const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC";
     exports.Logger = vscode.window.createOutputChannel(name, { log: true });
     ctx.subscriptions.push(exports.Logger);
@@ -203,28 +206,41 @@ function initialize(ctx) {
  * @returns
  */
 async function reload() {
-    await (0, _1.loadExtensionConfig)();
+    const oldKey = metadataCacheKey;
+    const config = await (0, _1.loadExtensionConfig)();
+    const newKey = buildCacheKey(await getForgePackages(), config.additionalPackages, config.customFunctionPaths);
+    metadataCacheKey = newKey;
+    const packagesChanged = oldKey !== null && oldKey !== newKey;
     const newState = isWorkspaceEnabled();
-    if (newState === isEnabled)
-        return;
-    const showInformationMessage = async (message) => {
+    const showInformationMessage = async (message, openSettings = true) => {
         const btnReload = vscode.l10n.t("Reload");
+        const btnLater = vscode.l10n.t("Later");
         const btnOpenSettings = vscode.l10n.t("Open Settings");
-        const action = await vscode.window.showInformationMessage(message, btnReload, btnOpenSettings);
-        if (action === btnReload)
-            await vscode.commands.executeCommand("workbench.action.reloadWindow");
+        const action = await vscode.window.showInformationMessage(message, ...(openSettings ? [btnReload, btnOpenSettings] : [btnReload, btnLater]));
+        if (action === btnReload) {
+            if (openSettings)
+                await vscode.commands.executeCommand("workbench.action.reloadWindow");
+            else
+                await vscode.commands.executeCommand("forgevsc.reloadFunctionMetadata");
+        }
         else if (action === btnOpenSettings) {
             await vscode.commands.executeCommand("forgevsc.openSettings", "forgevsc.global.enabledWorkspaces");
         }
     };
-    isEnabled = newState;
-    if (!isEnabled) {
-        exports.Logger.info("Extension disabled after configuration change.");
-        await showInformationMessage(vscode.l10n.t("Extension is disabled for this workspace. Reload recommended."));
+    if (newState !== isEnabled) {
+        isEnabled = newState;
+        if (!isEnabled) {
+            exports.Logger.info("Extension disabled after configuration change.");
+            await showInformationMessage(vscode.l10n.t("Extension is disabled for this workspace. Reload recommended."));
+            return;
+        }
+        exports.Logger.info("Extension enabled after configuration change.");
+        await showInformationMessage(vscode.l10n.t("Extension has been enabled. Reload to fully activate."));
         return;
     }
-    exports.Logger.info("Extension enabled after configuration change.");
-    await showInformationMessage(vscode.l10n.t("Extension has been enabled. Reload to fully activate."));
+    if (packagesChanged) {
+        await showInformationMessage(vscode.l10n.t("Package sources or custom function paths have changed. Reload to refresh function metadata."), false);
+    }
 }
 /**
  * Converts the given value to an array.
@@ -940,6 +956,29 @@ function findMatchingBracket(input, openIndex) {
     return -1;
 }
 /**
+ * Finds the first matching condition operator from the input text.
+ * @param input The input text.
+ * @returns
+ */
+function findConditionOperator(input) {
+    for (let i = 0; i < input.length; i++) {
+        const op = [input[i] + (input[i + 1] ?? ""), input[i]]
+            .find((x) => x === "==" ||
+            x === "!=" ||
+            x === "<=" ||
+            x === ">=" ||
+            x === "<" ||
+            x === ">");
+        if (op) {
+            return {
+                index: i,
+                operator: op
+            };
+        }
+    }
+    return null;
+}
+/**
  * Splits an argument string into an array of arguments.
  * @param argString The argument string.
  * @returns
@@ -950,6 +989,7 @@ function splitArgs(argString) {
     const args = [];
     let current = "";
     let depth = 0;
+    let argStart = 0;
     for (let i = 0; i < argString.length; i++) {
         const escaped = isEscaped(argString, i);
         const char = argString[i];
@@ -958,13 +998,22 @@ function splitArgs(argString) {
         else if (char === "]" && depth > 0 && !escaped)
             depth--;
         if (char === ";" && depth === 0 && !escaped) {
-            args.push(current);
+            args.push({
+                value: current,
+                start: argStart,
+                end: i
+            });
             current = "";
+            argStart = i + 1;
         }
         else
             current += char;
     }
-    args.push(current);
+    args.push({
+        value: current,
+        start: argStart,
+        end: argString.length
+    });
     return args;
 }
 /**

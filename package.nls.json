@@ -22,6 +22,8 @@
   "config.workspace.colors.function.dollar.patternError": "Input must be a valid hex color, e.g. #FE7CEB",
   "config.workspace.colors.function.semicolon.description": "The highlight color used for function semicolons (;).",
   "config.workspace.colors.function.semicolon.patternError": "Input must be a valid hex color, e.g. #C586C0",
+  "config.workspace.colors.arguments.condition.description": "The highlight color used for argument condition operators.",
+  "config.workspace.colors.arguments.condition.patternError": "Input must be a valid hex color, e.g. #4FC1FF",
   "config.workspace.colors.operators.negation.description": "The highlight color used for the negation operator (!).",
   "config.workspace.colors.operators.negation.patternError": "Input must be a valid hex color, e.g. #4FA3FF",
   "config.workspace.colors.operators.silent.description": "The highlight color used for the silent operator (#).",

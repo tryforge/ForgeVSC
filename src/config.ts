@@ -10,7 +10,9 @@ export interface IExtensionConfig {
             name?: string
             dollar?: string
             semicolon?: string
-            // condition?: string
+        }
+        arguments?: {
+            condition?: string
         }
         operators?: {
             negation?: string
@@ -37,8 +39,10 @@ export const Defaults: Required<IExtensionConfig> = {
         function: {
             name: "#AC75FF",
             dollar: "#FE7CEB",
-            semicolon: "#C586C0",
-            // condition: "#569CD6"
+            semicolon: "#C586C0"
+        },
+        arguments: {
+            condition: "#4FC1FF"
         },
         operators: {
             negation: "#4FA3FF",
@@ -78,7 +82,9 @@ export function getSettingsConfig() {
                     name: vs.get<string>("workspace.colors.function.name"),
                     dollar: vs.get<string>("workspace.colors.function.dollar"),
                     semicolon: vs.get<string>("workspace.colors.function.semicolon"),
-                    condition: vs.get<string>("workspace.colors.function.condition"),
+                },
+                arguments: {
+                    condition: vs.get<string>("workspace.colors.arguments.condition"),
                 },
                 operators: {
                     negation: vs.get<string>("workspace.colors.operators.negation"),
@@ -165,6 +171,11 @@ export async function loadExtensionConfig() {
                 ...Defaults.colors.function,
                 ...(vs.workspace.colors?.function ?? {}),
                 ...(file.colors?.function ?? {})
+            },
+            arguments: {
+                ...Defaults.colors.arguments,
+                ...(vs.workspace.colors?.arguments ?? {}),
+                ...(file.colors?.arguments ?? {})
             },
             operators: {
                 ...Defaults.colors.operators,

@@ -90,7 +90,7 @@ export function registerAutocompletion(ctx: vscode.ExtensionContext) {
                             const enumValues = activeArg?.enum || (activeArg.type === "Boolean" ? ["true", "false"] : undefined)
 
                             if (enumValues) {
-                                const currentValue = parts[activeIndex] ?? ""
+                                const currentValue = parts[activeIndex]?.value ?? ""
 
                                 return enumValues.map((val: string) => {
                                     const item = new vscode.CompletionItem(val, vscode.CompletionItemKind.EnumMember)
