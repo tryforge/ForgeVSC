@@ -1,1 +1,17 @@
-{}
+{
+  "Source": "Sumber",
+  "Documentation": "Dokumentasi",
+  "Favorites": "Favorit",
+  "Open Extension Settings": "Buka Pengaturan Ekstensi",
+  "{0} Extension Details": "{0} Detail Ekstensi",
+  "Reload": "Muat Ulang",
+  "Later": "Nanti",
+  "Open Settings": "Buka Pengaturan",
+  "$(folder) Workspace Settings": "$(folder) Pengaturan Ruang Kerja",
+  "Workspace": "Ruang Kerja",
+  "$(account) User Settings": "$(account) Pengaturan Pengguna",
+  "Global": "Global",
+  "Overwrite": "Timpa",
+  "Default": "Bawaan",
+  "since": "sejak"
+}
