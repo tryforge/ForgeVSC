@@ -1,5 +1,11 @@
 {
   "*(Conditional)*": "*(Conditional)*",
+  "$(plug) RPC Connected": "$(plug) RPC Connected",
+  "Discord RPC Connected": "Discord RPC Connected",
+  "$(debug-disconnect) Reconnect RPC": "$(debug-disconnect) Reconnect RPC",
+  "Reconnect Discord RPC": "Reconnect Discord RPC",
+  "$(sync~spin) Connecting RPC": "$(sync~spin) Connecting RPC",
+  "Connecting to Discord RPC...": "Connecting to Discord RPC...",
   "Source": "Source",
   "Documentation": "Documentation",
   "Guide": "Guide",
