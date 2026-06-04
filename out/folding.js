@@ -52,7 +52,7 @@ function registerFolding(ctx) {
             while ((match = _1.FunctionOpenScanRegex.exec(text))) {
                 const index = match.index;
                 const startPos = document.positionAt(index);
-                if (!(0, _1.locateCodeBlock)(document, startPos) || (0, _1.isEscaped)(text, index) || (0, _1.isComment)(text, index))
+                if (!(0, _1.locateCodeBlock)(document, startPos) || (0, _1.isEscaped)(text, index) || (0, _1.isIgnored)(text, index))
                     continue;
                 const openIndex = index + match[0].length - 1;
                 const closeIndex = (0, _1.findMatchingBracket)(text, openIndex);

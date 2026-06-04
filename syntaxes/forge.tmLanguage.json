@@ -32,9 +32,15 @@
       },
       "patterns": [
         { "include": "#forge-comment" },
-        { "include": "#forge-brackets" },
-        { "include": "#djs-eval" }
+        { "include": "#comment-brackets" }
       ]
+    },
+
+    "comment-brackets": {
+      "name": "comment.block.forge",
+      "begin": "(?<!\\\\)\\$(?:!?#?(?:@\\[[^\\]\\n]?\\])?)?[a-zA-Z0-9]+\\[",
+      "end": "(?<!\\\\)\\]",
+      "patterns": [{ "include": "#comment-brackets" }]
     },
 
     "djs-eval": {
@@ -60,7 +66,7 @@
       "patterns": [
         {
           "name": "meta.function-call.forge",
-          "begin": "(?<!\\\\)(?:\\$!?#?(?:@\\[[^\\]\\n]?\\])?)?[a-zA-Z0-9]+(\\[)",
+          "begin": "(?<!\\\\)\\$(?:\\$!?#?(?:@\\[[^\\]\\n]?\\])?)?[a-zA-Z0-9]+(\\[)",
           "beginCaptures": {
             "1": { "name": "punctuation.section.brackets.begin.forge" }
           },

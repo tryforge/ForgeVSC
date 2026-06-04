@@ -7,8 +7,8 @@ import {
     getExtensionConfig,
     getFunctions,
     getPackageName,
-    isComment,
     isEscaped,
+    isIgnored,
     Languages,
     locateCodeBlock,
     splitArgs,
@@ -26,7 +26,7 @@ export function registerAutocompletion(ctx: vscode.ExtensionContext) {
             async provideCompletionItems(document, position) {
                 const config = getExtensionConfig()
                 if (!locateCodeBlock(document, position) || !config.features.autocompletion) return
-                if (isComment(document.getText(), document.offsetAt(position))) return
+                if (isIgnored(document.getText(), document.offsetAt(position))) return
 
                 const line = document.lineAt(position).text
                 const before = line.substring(0, position.character)

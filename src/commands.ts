@@ -1,4 +1,4 @@
-import { Defaults, DocsUrl, findExtensionConfig, getFunctions, Logger } from "."
+import { connectRPC, Defaults, disconnectRPC, DocsUrl, findExtensionConfig, getFunctions, Logger, updateEditorRPC } from "."
 import * as vscode from "vscode"
 
 /**
@@ -126,7 +126,7 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
                 }
             }
 
-            const { enabledWorkspaces, ...Config } = Defaults
+            const { enabledWorkspaces, rpc, ...Config } = Defaults
             const content = JSON.stringify(Config, null, 2) + "\n"
             const text = new TextEncoder().encode(content)
             await vscode.workspace.fs.writeFile(uri, text)
@@ -149,6 +149,13 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
         // Create Guide
         vscode.commands.registerCommand("forgevsc.createGuide", async () => {
             await vscode.env.openExternal(vscode.Uri.parse(DocsUrl))
+        }),
+
+        // Reconnect RPC
+        vscode.commands.registerCommand("forgevsc.reconnectRPC", async () => {
+            await disconnectRPC()
+            const connected = await connectRPC()
+            if (connected) await updateEditorRPC(vscode.window.activeTextEditor)
         })
     )
 }

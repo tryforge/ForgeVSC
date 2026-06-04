@@ -50,7 +50,7 @@ class ForgeInlineCompletionItemProvider {
         if (!code || !config.features.suggestions)
             return;
         const text = document.getText();
-        if ((0, _1.isComment)(text, document.offsetAt(position)))
+        if ((0, _1.isIgnored)(text, document.offsetAt(position)))
             return;
         const slice = code.slice.replace(/[ \t\r]+$/g, "");
         const nextChar = document.getText(new vscode.Range(position, position.translate(0, 1)));

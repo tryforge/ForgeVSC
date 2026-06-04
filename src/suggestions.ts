@@ -5,8 +5,8 @@ import {
 	findOpeningBracket,
 	FunctionHeadRegex,
 	getExtensionConfig,
-	isComment,
 	isEscaped,
+	isIgnored,
 	Languages,
 	locateCodeBlock
 } from "."
@@ -32,7 +32,7 @@ class ForgeInlineCompletionItemProvider implements vscode.InlineCompletionItemPr
 		if (!code || !config.features.suggestions) return 
 		
 		const text = document.getText()
-		if (isComment(text, document.offsetAt(position))) return
+		if (isIgnored(text, document.offsetAt(position))) return
 
 		const slice = code.slice.replace(/[ \t\r]+$/g, "")
 		const nextChar = document.getText(new vscode.Range(position, position.translate(0, 1)))

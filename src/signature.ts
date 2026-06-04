@@ -4,8 +4,8 @@ import {
 	FunctionRegex,
 	generateUsage,
 	getExtensionConfig,
-	isComment,
 	isEscaped,
+	isIgnored,
 	Languages,
 	locateCodeBlock,
 	splitArgs
@@ -34,7 +34,7 @@ class ForgeSignatureHelpProvider implements vscode.SignatureHelpProvider {
 	async provideSignatureHelp(document: vscode.TextDocument, position: vscode.Position) {
 		const code = locateCodeBlock(document, position)
 		const config = getExtensionConfig()
-		if (!code || !config.features.signatureHelp || isComment(document.getText(), document.offsetAt(position)))
+		if (!code || !config.features.signatureHelp || isIgnored(document.getText(), document.offsetAt(position)))
 			return null
 
 		const text = code.slice

@@ -6,8 +6,8 @@ import {
     FunctionPrefixRegex,
     FunctionScanRegex,
     getExtensionConfig,
-    isComment,
     isEscaped,
+    isIgnored,
     isOpeningBracket,
     Languages,
     locateCodeBlock,
@@ -122,7 +122,7 @@ async function applyDecorations(editor: vscode.TextEditor) {
     while ((match = ScanRegex.exec(text))) {
         const matchIndex = match.index
         const startPos = doc.positionAt(matchIndex)
-        if (!locateCodeBlock(doc, startPos) || isEscaped(text, matchIndex) || isComment(text, matchIndex)) continue
+        if (!locateCodeBlock(doc, startPos) || isEscaped(text, matchIndex) || isIgnored(text, matchIndex)) continue
 
         const full = match[0]
         const hasOpening = full.endsWith("[")

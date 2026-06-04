@@ -28,6 +28,9 @@ export interface IExtensionConfig {
         signatureHelp?: boolean
         diagnostics?: boolean
         autocompletion?: boolean
+    },
+    rpc?: {
+        enabled?: boolean
     }
 }
 
@@ -58,6 +61,9 @@ export const Defaults: Required<IExtensionConfig> = {
         signatureHelp: true,
         diagnostics: true,
         autocompletion: true,
+    },
+    rpc: {
+        enabled: true
     },
 }
 
@@ -100,6 +106,9 @@ export function getSettingsConfig() {
                 signatureHelp: vs.get<boolean>("workspace.features.signatureHelp"),
                 diagnostics: vs.get<boolean>("workspace.features.diagnostics"),
                 autocompletion: vs.get<boolean>("workspace.features.autocompletion"),
+            },
+            rpc: {
+                enabled: vs.get<boolean>("workspace.rpc.enabled"),
             }
         }
     }
@@ -190,6 +199,9 @@ export async function loadExtensionConfig() {
             signatureHelp: file.features?.signatureHelp ?? vs.workspace.features?.signatureHelp ?? Defaults.features.signatureHelp,
             diagnostics: file.features?.diagnostics ?? vs.workspace.features?.diagnostics ?? Defaults.features.diagnostics,
             autocompletion: file.features?.autocompletion ?? vs.workspace.features?.autocompletion ?? Defaults.features.autocompletion,
+        },
+        rpc: {
+            enabled: vs.workspace.rpc.enabled ?? Defaults.rpc.enabled,
         }
     }
 

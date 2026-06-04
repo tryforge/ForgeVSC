@@ -53,7 +53,7 @@ function registerHover(ctx) {
                 const line = document.lineAt(position.line).text;
                 const opStart = operatorRange.start.character;
                 const offset = document.offsetAt(new vscode.Position(position.line, opStart));
-                if ((0, _1.isComment)(text, offset))
+                if ((0, _1.isIgnored)(text, offset))
                     return;
                 const dollar = line.lastIndexOf("$", opStart);
                 if (dollar === -1 || (0, _1.isEscaped)(line, dollar))
@@ -84,7 +84,7 @@ function registerHover(ctx) {
             while ((match = Regex.exec(line))) {
                 const start = match.index;
                 const offset = document.offsetAt(new vscode.Position(position.line, start));
-                if ((0, _1.isEscaped)(line, start) || (0, _1.isComment)(text, offset))
+                if ((0, _1.isEscaped)(line, start) || (0, _1.isIgnored)(text, offset))
                     continue;
                 const hasOpening = match[1] === "[";
                 let end = start + match[0].length;
