@@ -68,6 +68,9 @@ exports.Defaults = {
         diagnostics: true,
         autocompletion: true,
     },
+    rpc: {
+        enabled: true
+    },
 };
 let cached = exports.Defaults;
 /**
@@ -106,6 +109,9 @@ function getSettingsConfig() {
                 signatureHelp: vs.get("workspace.features.signatureHelp"),
                 diagnostics: vs.get("workspace.features.diagnostics"),
                 autocompletion: vs.get("workspace.features.autocompletion"),
+            },
+            rpc: {
+                enabled: vs.get("workspace.rpc.enabled"),
             }
         }
     };
@@ -188,6 +194,9 @@ async function loadExtensionConfig() {
             signatureHelp: file.features?.signatureHelp ?? vs.workspace.features?.signatureHelp ?? exports.Defaults.features.signatureHelp,
             diagnostics: file.features?.diagnostics ?? vs.workspace.features?.diagnostics ?? exports.Defaults.features.diagnostics,
             autocompletion: file.features?.autocompletion ?? vs.workspace.features?.autocompletion ?? exports.Defaults.features.autocompletion,
+        },
+        rpc: {
+            enabled: vs.workspace.rpc.enabled ?? exports.Defaults.rpc.enabled,
         }
     };
     return cached;

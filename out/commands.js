@@ -138,7 +138,7 @@ function registerCommands(ctx) {
                 catch { }
             }
         }
-        const { enabledWorkspaces, ...Config } = _1.Defaults;
+        const { enabledWorkspaces, rpc, ...Config } = _1.Defaults;
         const content = JSON.stringify(Config, null, 2) + "\n";
         const text = new TextEncoder().encode(content);
         await vscode.workspace.fs.writeFile(uri, text);
@@ -156,6 +156,13 @@ function registerCommands(ctx) {
     // Create Guide
     vscode.commands.registerCommand("forgevsc.createGuide", async () => {
         await vscode.env.openExternal(vscode.Uri.parse(_1.DocsUrl));
+    }), 
+    // Reconnect RPC
+    vscode.commands.registerCommand("forgevsc.reconnectRPC", async () => {
+        await (0, _1.disconnectRPC)();
+        const connected = await (0, _1.connectRPC)();
+        if (connected)
+            await (0, _1.updateEditorRPC)(vscode.window.activeTextEditor);
     }));
 }
 //# sourceMappingURL=commands.js.map

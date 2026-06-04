@@ -53,7 +53,7 @@ exports.findFunction = findFunction;
 exports.validateOperatorPrefix = validateOperatorPrefix;
 exports.cloneRegex = cloneRegex;
 exports.isEscaped = isEscaped;
-exports.isComment = isComment;
+exports.isIgnored = isIgnored;
 exports.isInsideComment = isInsideComment;
 exports.isOpeningBracket = isOpeningBracket;
 exports.findOpeningBracket = findOpeningBracket;
@@ -132,7 +132,7 @@ async function activate(ctx) {
         ctx.subscriptions.push(status);
     }
     else {
-        initialize(ctx);
+        await initialize(ctx);
     }
     const watcher = vscode.workspace.createFileSystemWatcher("**/{.forgevsc.json,.vscode/.forgevsc.json}");
     ctx.subscriptions.push(watcher, watcher.onDidCreate(reload), watcher.onDidChange(reload), watcher.onDidDelete(reload), vscode.workspace.onDidChangeConfiguration(async (e) => {
@@ -144,9 +144,14 @@ async function activate(ctx) {
  * Initializes the extension.
  * @param ctx The extension context.
  */
-function initialize(ctx) {
+async function initialize(ctx) {
     exports.Logger.show(true);
     exports.Logger.info("Starting extension...");
+    const config = (0, _1.getExtensionConfig)();
+    if (vscode.env.uiKind === vscode.UIKind.Desktop && config.rpc.enabled) {
+        (0, _1.createRPCStatusBar)(ctx);
+        await (0, _1.registerRPC)(ctx);
+    }
     (0, _1.registerCommands)(ctx);
     (0, _1.registerGuidePreview)(ctx);
     (0, _1.registerGuidesView)(ctx);
@@ -320,7 +325,7 @@ function isWorkspaceEnabled() {
  */
 async function getForgePackages() {
     const folders = vscode.workspace.workspaceFolders;
-    if (!folders)
+    if (!folders?.length)
         return [];
     const pkgUri = vscode.Uri.joinPath(folders[0].uri, "package.json");
     let data;
@@ -522,7 +527,7 @@ function overwriteNative(native, custom) {
  */
 async function fetchFunctions(force = false) {
     const folders = vscode.workspace.workspaceFolders;
-    if (!folders)
+    if (!folders?.length)
         return [];
     const { additionalPackages, customFunctionPaths } = (0, _1.getExtensionConfig)();
     const root = folders[0].uri;
@@ -853,13 +858,13 @@ function isEscaped(input, i, single = false, minIndex = 0) {
     return single ? (slashes % 2 === 1) : (slashes >= 2 && slashes % 2 === 0);
 }
 /**
- * Checks whether the input is inside a ForgeScript comment.
+ * Checks whether the input is inside an ignored instance.
  * @param input The input text.
  * @param index The index number.
  * @returns
  */
-function isComment(text, index) {
-    const regex = new RegExp(String.raw `\$${exports.OperatorChain}[cC]\[`, "g");
+function isIgnored(text, index) {
+    const regex = new RegExp(String.raw `\$${exports.OperatorChain}(?:c|escapeCode|esc)\[`, "gi");
     let match;
     while ((match = regex.exec(text))) {
         const start = match.index;
@@ -1036,7 +1041,8 @@ function bracketDepth(input) {
  * Deactivates the extension.
  * @param ctx The extension context.
  */
-function deactivate() {
+async function deactivate() {
+    await (0, _1.disconnectRPC)();
     exports.Logger.info("Deactivated extension.");
 }
 //# sourceMappingURL=extension.js.map

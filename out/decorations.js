@@ -129,7 +129,7 @@ async function applyDecorations(editor) {
     while ((match = ScanRegex.exec(text))) {
         const matchIndex = match.index;
         const startPos = doc.positionAt(matchIndex);
-        if (!(0, _1.locateCodeBlock)(doc, startPos) || (0, _1.isEscaped)(text, matchIndex) || (0, _1.isComment)(text, matchIndex))
+        if (!(0, _1.locateCodeBlock)(doc, startPos) || (0, _1.isEscaped)(text, matchIndex) || (0, _1.isIgnored)(text, matchIndex))
             continue;
         const full = match[0];
         const hasOpening = full.endsWith("[");

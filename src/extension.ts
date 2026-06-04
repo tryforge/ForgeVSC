@@ -1,4 +1,6 @@
 import {
+	createRPCStatusBar,
+	disconnectRPC,
 	FunctionLocation,
 	getCustomFunctionLocation,
 	getExtensionConfig,
@@ -13,6 +15,7 @@ import {
 	registerGuidePreview,
 	registerGuidesView,
 	registerHover,
+	registerRPC,
 	registerSignatureHelp,
 	registerSuggestions,
 	validateDocument
@@ -139,7 +142,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
 		status.show()
 		ctx.subscriptions.push(status)
 	} else {
-		initialize(ctx)
+		await initialize(ctx)
 	}
 
 	const watcher = vscode.workspace.createFileSystemWatcher("**/{.forgevsc.json,.vscode/.forgevsc.json}")
@@ -158,9 +161,15 @@ export async function activate(ctx: vscode.ExtensionContext) {
  * Initializes the extension.
  * @param ctx The extension context.
  */
-function initialize(ctx: vscode.ExtensionContext) {
+async function initialize(ctx: vscode.ExtensionContext) {
 	Logger.show(true)
 	Logger.info("Starting extension...")
+
+	const config = getExtensionConfig()
+	if (vscode.env.uiKind === vscode.UIKind.Desktop && config.rpc.enabled) {
+		createRPCStatusBar(ctx)
+		await registerRPC(ctx)
+	}
 
 	registerCommands(ctx)
 	registerGuidePreview(ctx)
@@ -376,7 +385,7 @@ export function isWorkspaceEnabled() {
  */
 export async function getForgePackages(): Promise<WorkspacePackage[]> {
 	const folders = vscode.workspace.workspaceFolders
-	if (!folders) return []
+	if (!folders?.length) return []
 
 	const pkgUri = vscode.Uri.joinPath(folders[0].uri, "package.json")
 	let data
@@ -596,7 +605,7 @@ function overwriteNative(native: FunctionMetadata[], custom: FunctionMetadata[])
  */
 export async function fetchFunctions(force: boolean = false) {
 	const folders = vscode.workspace.workspaceFolders
-	if (!folders) return []
+	if (!folders?.length) return []
 
 	const { additionalPackages, customFunctionPaths } = getExtensionConfig()
 	const root = folders[0].uri
@@ -968,13 +977,13 @@ export function isEscaped(input: string, i: number, single: boolean = false, min
 }
 
 /**
- * Checks whether the input is inside a ForgeScript comment.
+ * Checks whether the input is inside an ignored instance.
  * @param input The input text.
  * @param index The index number.
  * @returns 
  */
-export function isComment(text: string, index: number) {
-	const regex = new RegExp(String.raw`\$${OperatorChain}[cC]\[`, "g")
+export function isIgnored(text: string, index: number) {
+	const regex = new RegExp(String.raw`\$${OperatorChain}(?:c|escapeCode|esc)\[`, "gi")
 	let match: RegExpExecArray | null
 
 	while ((match = regex.exec(text))) {
@@ -1172,6 +1181,7 @@ export function bracketDepth(input: string) {
  * Deactivates the extension.
  * @param ctx The extension context.
  */
-export function deactivate() {
+export async function deactivate() {
+	await disconnectRPC()
 	Logger.info("Deactivated extension.")
 }

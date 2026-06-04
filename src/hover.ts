@@ -5,8 +5,8 @@ import {
     generateUsage,
     getExtensionConfig,
     getPackageName,
-    isComment,
     isEscaped,
+    isIgnored,
     Languages,
     locateCodeBlock,
     OperatorChain,
@@ -34,7 +34,7 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                     const opStart = operatorRange.start.character
 
                     const offset = document.offsetAt(new vscode.Position(position.line, opStart))
-                    if (isComment(text, offset)) return
+                    if (isIgnored(text, offset)) return
 
                     const dollar = line.lastIndexOf("$", opStart)
                     if (dollar === -1 || isEscaped(line, dollar)) return
@@ -67,7 +67,7 @@ export function registerHover(ctx: vscode.ExtensionContext) {
                 while ((match = Regex.exec(line))) {
                     const start = match.index
                     const offset = document.offsetAt(new vscode.Position(position.line, start))
-                    if (isEscaped(line, start) || isComment(text, offset)) continue
+                    if (isEscaped(line, start) || isIgnored(text, offset)) continue
 
                     const hasOpening = match[1] === "["
                     let end = start + match[0].length

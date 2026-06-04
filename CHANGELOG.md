@@ -1,9 +1,20 @@
 # Change Log
 
+## v1.2.5 <sub>(June 04, 2026)</sub>
+
+### Added
+- Added Discord RPC, manageable in extension settings
+
+### Changed
+- Disabled most features for code inside `$escapeCode[]`
+
+### Fixed
+- Fixed guides tab causing error in web when no workspace folder is open
+
 ## v1.2.4 <sub>(May 30, 2026)</sub>
 
 ### Added
-- Added support for condition operator highlighting
+- Added highlighting to condition operators
 - Added information message for refreshing function metadata
 
 ## v1.2.3 <sub>(May 27, 2026)</sub>

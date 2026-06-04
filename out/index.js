@@ -26,4 +26,5 @@ __exportStar(require("./folding"), exports);
 __exportStar(require("./guides"), exports);
 __exportStar(require("./hover"), exports);
 __exportStar(require("./config"), exports);
+__exportStar(require("./rpc"), exports);
 //# sourceMappingURL=index.js.map
