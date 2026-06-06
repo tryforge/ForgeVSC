@@ -1,4 +1,7 @@
 {
+  "$(plug) RPC Connected": "$(plug) RPC Terhubung",
+  "Discord RPC Connected": "Discord RPC Terhubung",
+  "$(sync~spin) Connecting RPC": "$(sync~spin) Menghubungkan RPC",
   "Source": "Sumber",
   "Documentation": "Dokumentasi",
   "Favorites": "Favorit",
