@@ -1,5 +1,10 @@
 # Change Log
 
+## v1.2.6 <sub>(June 19, 2026)</sub>
+
+### Added
+- Added hover info for condition operators
+
 ## v1.2.5 <sub>(June 04, 2026)</sub>
 
 ### Added

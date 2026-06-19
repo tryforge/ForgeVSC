@@ -38,5 +38,5 @@
   "config.workspace.features.signatureHelp.description": "Whether signature help for function arguments should be enabled.",
   "config.workspace.features.diagnostics.description": "Whether diagnostics for function validation should be enabled.",
   "config.workspace.features.autocompletion.description": "Whether autocompletion for functions and arguments should be enabled.",
-  "config.workspace.rpc.enabled.description": "Whether the custom Discord RPC (Rich Presence) for this extension should be enabled."
+  "config.workspace.rpc.enabled.description": "Whether to enable the custom Discord RPC (Rich Presence) for this extension."
 }

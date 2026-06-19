@@ -87,6 +87,12 @@ export const LooseFunctionPrefixRegex = new RegExp(String.raw`^\$${LooseOperator
 export const ConditionOperatorRegex = /==|!=|<=|>=|<|>/g
 export const InvalidOperatorRegex = /#.*!|@\[\].*!|@\[\].*#/
 
+export const DocsUrl = "https://docs.botforge.org/"
+export const Languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+
+export const FunctionsStorageKey = "forgevsc.functionsCache.v1"
+export const GuidesStorageKey = "forgevsc.guidesCache.v1"
+
 export const OperatorInfo = {
 	"!": {
 		name: vscode.l10n.t("Negation Operator"),
@@ -100,13 +106,36 @@ export const OperatorInfo = {
 		name: vscode.l10n.t("Count Operator"),
 		description: vscode.l10n.t("The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**."),
 	}
-}
+} as const
 
-export const DocsUrl = "https://docs.botforge.org/"
-export const Languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+export const ConditionOperatorInfo = {
+	"==": {
+		name: vscode.l10n.t("Equal Operator"),
+		description: vscode.l10n.t("Checks whether the left value is **exactly equal** to the right value.")
+	},
+	"!=": {
+		name: vscode.l10n.t("Not Equal Operator"),
+		description: vscode.l10n.t("Checks whether the left value is **different** from the right value.")
+	},
+	"<": {
+		name: vscode.l10n.t("Less Than Operator"),
+		description: vscode.l10n.t("Checks whether the left value is **less than** the right value.")
+	},
+	"<=": {
+		name: vscode.l10n.t("Less Than or Equal Operator"),
+		description: vscode.l10n.t("Checks whether the left value is **less than or equal** to the right value.")
+	},
+	">": {
+		name: vscode.l10n.t("Greater Than Operator"),
+		description: vscode.l10n.t("Checks whether the left value is **greater than** the right value.")
+	},
+	">=": {
+		name: vscode.l10n.t("Greater Than or Equal Operator"),
+		description: vscode.l10n.t("Checks whether the left value is **greater than or equal** to the right value.")
+	}
+} as const
 
-export const FunctionsStorageKey = "forgevsc.functionsCache.v1"
-export const GuidesStorageKey = "forgevsc.guidesCache.v1"
+export type OperatorType = keyof typeof ConditionOperatorInfo
 
 /**
  * Activates the extension.
@@ -1097,21 +1126,39 @@ export function findMatchingBracket(input: string, openIndex: number) {
  * @returns 
  */
 export function findConditionOperator(input: string) {
-	for (let i = 0; i < input.length; i++) {
-		const op = [input[i] + (input[i + 1] ?? ""), input[i]]
-			.find((x) =>
-				x === "==" ||
-				x === "!=" ||
-				x === "<=" ||
-				x === ">=" ||
-				x === "<" ||
-				x === ">"
-			)
+	let depth = 0
 
-		if (op) {
+	for (let i = 0; i < input.length; i++) {
+		const ch = input[i]
+
+		if (ch === "[" && isOpeningBracket(input, i)) {
+			depth++
+			continue
+		}
+
+		if (ch === "]" && depth > 0 && !isEscaped(input, i)) {
+			depth--
+			continue
+		}
+
+		if (depth > 0) continue
+
+		const one = ch
+		const two = one + (input[i + 1] ?? "")
+
+		if (["==", "!=", "<=", ">="].includes(two)) {
 			return {
-				index: i,
-				operator: op
+				operator: two as OperatorType,
+				start: i,
+				end: i + 2
+			}
+		}
+
+		if (one === "<" || one === ">") {
+			return {
+				operator: one as OperatorType,
+				start: i,
+				end: i + 1
 			}
 		}
 	}

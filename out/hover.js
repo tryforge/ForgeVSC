@@ -47,6 +47,40 @@ function registerHover(ctx) {
             if (!(0, _1.locateCodeBlock)(document, position) || !config.features.hoverInfo)
                 return;
             const text = document.getText();
+            const offset = document.offsetAt(position);
+            const RegexOpen = /\$!?#?(?:@\[[^\]]?\])?[a-zA-Z0-9]+\[/g;
+            let fnMatch;
+            // Condition Operator hover
+            while ((fnMatch = RegexOpen.exec(text))) {
+                const found = await (0, _1.findFunction)(fnMatch[0].slice(0, -1));
+                if (!found)
+                    continue;
+                const { fn } = found;
+                const openIndex = fnMatch.index + fnMatch[0].length - 1;
+                const closeIndex = (0, _1.findMatchingBracket)(text, openIndex);
+                if (closeIndex === -1)
+                    continue;
+                const argText = text.slice(openIndex + 1, closeIndex);
+                const args = (0, _1.splitArgs)(argText);
+                for (let i = 0; i < args.length; i++) {
+                    const meta = fn.args?.[Math.min(i, fn.args.at(-1)?.rest ? fn.args.length - 1 : i)];
+                    if (!meta?.condition)
+                        continue;
+                    const op = (0, _1.findConditionOperator)(args[i].value);
+                    if (!op)
+                        continue;
+                    const start = openIndex + 1 + args[i].start + op.start;
+                    const end = openIndex + 1 + args[i].start + op.end;
+                    if (offset < start || offset > end)
+                        continue;
+                    const info = _1.ConditionOperatorInfo[op.operator];
+                    if (!info)
+                        return;
+                    const md = new vscode.MarkdownString();
+                    md.appendMarkdown(`**${info.name} (\`${op.operator}\`)**\n\n${info.description}`);
+                    return new vscode.Hover(md, new vscode.Range(document.positionAt(start), document.positionAt(end)));
+                }
+            }
             // Operator hover
             const operatorRange = document.getWordRangeAtPosition(position, /@\[[^\]]?\]|[!#]/);
             if (operatorRange && operatorRange.contains(position)) {

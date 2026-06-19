@@ -1,5 +1,5 @@
-import { Logger } from "."
-import type { Client } from "@xhayper/discord-rpc"
+import { DocsUrl, Logger } from "."
+import type { Client, SetActivity } from "@xhayper/discord-rpc"
 import * as vscode from "vscode"
 
 const CLIENT_ID = "1511962883993374791"
@@ -173,34 +173,25 @@ export async function disconnectRPC() {
  * Updates the RPC activity.
  * @returns
  */
-export async function updateRPC(
-    details: string,
-    state?: string,
-    smallImageKey?: string,
-    smallImageText?: string,
-    largeImageKey: string = "forge"
-) {
+export async function updateRPC(options: SetActivity) {
     if (!rpc?.user) return
 
-    let buttons = []
+    options.largeImageKey ||= "forge"
+    options.largeImageText ||= "BotForge"
+    options.largeImageUrl ||= DocsUrl
+
     const repoUrl = await getRepoUrl()
     if (repoUrl) {
-        buttons.push({
+        options.buttons = [{
             label: "View Repository",
             url: repoUrl
-        })
+        }]
     }
 
     try {
         await rpc.user.setActivity({
-            details,
-            state,
-            startTimestamp,
-            largeImageKey,
-            largeImageText: "BotForge",
-            smallImageKey,
-            smallImageText,
-            buttons
+            ...options,
+            startTimestamp
         })
     } catch (error) {
         Logger.error("[RPC] Failed to update activity:", error)
@@ -260,7 +251,10 @@ function getLanguageAsset(languageId: string) {
  */
 export async function updateEditorRPC(editor?: vscode.TextEditor) {
     if (!editor) {
-        await updateRPC("Idling...", undefined, undefined, undefined, "idle")
+        await updateRPC({
+            details: "Idling...",
+            largeImageKey: "idle"
+        })
         return
     }
 
@@ -271,12 +265,12 @@ export async function updateEditorRPC(editor?: vscode.TextEditor) {
         text: "ForgeVSC Config"
     } : getLanguageAsset(document.languageId)
 
-    await updateRPC(
-        `Editing ${fileName}`,
-        `Workspace: ${vscode.workspace.name}`,
-        asset?.key,
-        asset?.text
-    )
+    await updateRPC({
+        details: `Editing ${fileName}`,
+        state: `Workspace: ${vscode.workspace.name}`,
+        smallImageKey: asset?.key,
+        smallImageText: asset?.text
+    })
 }
 
 /**

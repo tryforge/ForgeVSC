@@ -1,1 +1,6 @@
-{}
+{
+  "extension.description": "Ekstensi Visual Studio Code Resmi untuk ForgeScript.",
+  "command.favoriteGuide.title": "Tambahkan ke Favorit",
+  "command.unfavoriteGuide.title": "Hapus dari Favorit",
+  "command.openExtensionSettings.title": "Buka Pengaturan Ekstensi"
+}

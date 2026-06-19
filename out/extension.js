@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.Languages = exports.DocsUrl = exports.OperatorInfo = exports.InvalidOperatorRegex = exports.ConditionOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionPrefixRegex = exports.FunctionRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
+exports.ConditionOperatorInfo = exports.OperatorInfo = exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.Languages = exports.DocsUrl = exports.InvalidOperatorRegex = exports.ConditionOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionPrefixRegex = exports.FunctionRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
 exports.activate = activate;
 exports.toArray = toArray;
 exports.clearMetadataCache = clearMetadataCache;
@@ -87,6 +87,10 @@ exports.LooseFunctionNameRegex = new RegExp(String.raw `^\$${exports.LooseOperat
 exports.LooseFunctionPrefixRegex = new RegExp(String.raw `^\$${exports.LooseOperatorChain}`);
 exports.ConditionOperatorRegex = /==|!=|<=|>=|<|>/g;
 exports.InvalidOperatorRegex = /#.*!|@\[\].*!|@\[\].*#/;
+exports.DocsUrl = "https://docs.botforge.org/";
+exports.Languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"];
+exports.FunctionsStorageKey = "forgevsc.functionsCache.v1";
+exports.GuidesStorageKey = "forgevsc.guidesCache.v1";
 exports.OperatorInfo = {
     "!": {
         name: vscode.l10n.t("Negation Operator"),
@@ -101,10 +105,32 @@ exports.OperatorInfo = {
         description: vscode.l10n.t("The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**."),
     }
 };
-exports.DocsUrl = "https://docs.botforge.org/";
-exports.Languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"];
-exports.FunctionsStorageKey = "forgevsc.functionsCache.v1";
-exports.GuidesStorageKey = "forgevsc.guidesCache.v1";
+exports.ConditionOperatorInfo = {
+    "==": {
+        name: vscode.l10n.t("Equal Operator"),
+        description: vscode.l10n.t("Checks whether the left value is **exactly equal** to the right value.")
+    },
+    "!=": {
+        name: vscode.l10n.t("Not Equal Operator"),
+        description: vscode.l10n.t("Checks whether the left value is **different** from the right value.")
+    },
+    "<": {
+        name: vscode.l10n.t("Less Than Operator"),
+        description: vscode.l10n.t("Checks whether the left value is **less than** the right value.")
+    },
+    "<=": {
+        name: vscode.l10n.t("Less Than or Equal Operator"),
+        description: vscode.l10n.t("Checks whether the left value is **less than or equal** to the right value.")
+    },
+    ">": {
+        name: vscode.l10n.t("Greater Than Operator"),
+        description: vscode.l10n.t("Checks whether the left value is **greater than** the right value.")
+    },
+    ">=": {
+        name: vscode.l10n.t("Greater Than or Equal Operator"),
+        description: vscode.l10n.t("Checks whether the left value is **greater than or equal** to the right value.")
+    }
+};
 /**
  * Activates the extension.
  * @param ctx The extension context.
@@ -966,18 +992,33 @@ function findMatchingBracket(input, openIndex) {
  * @returns
  */
 function findConditionOperator(input) {
+    let depth = 0;
     for (let i = 0; i < input.length; i++) {
-        const op = [input[i] + (input[i + 1] ?? ""), input[i]]
-            .find((x) => x === "==" ||
-            x === "!=" ||
-            x === "<=" ||
-            x === ">=" ||
-            x === "<" ||
-            x === ">");
-        if (op) {
+        const ch = input[i];
+        if (ch === "[" && isOpeningBracket(input, i)) {
+            depth++;
+            continue;
+        }
+        if (ch === "]" && depth > 0 && !isEscaped(input, i)) {
+            depth--;
+            continue;
+        }
+        if (depth > 0)
+            continue;
+        const one = ch;
+        const two = one + (input[i + 1] ?? "");
+        if (["==", "!=", "<=", ">="].includes(two)) {
             return {
-                index: i,
-                operator: op
+                operator: two,
+                start: i,
+                end: i + 2
+            };
+        }
+        if (one === "<" || one === ">") {
+            return {
+                operator: one,
+                start: i,
+                end: i + 1
             };
         }
     }

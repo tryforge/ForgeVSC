@@ -195,27 +195,23 @@ async function disconnectRPC() {
  * Updates the RPC activity.
  * @returns
  */
-async function updateRPC(details, state, smallImageKey, smallImageText, largeImageKey = "forge") {
+async function updateRPC(options) {
     if (!rpc?.user)
         return;
-    let buttons = [];
+    options.largeImageKey ||= "forge";
+    options.largeImageText ||= "BotForge";
+    options.largeImageUrl ||= _1.DocsUrl;
     const repoUrl = await getRepoUrl();
     if (repoUrl) {
-        buttons.push({
-            label: "View Repository",
-            url: repoUrl
-        });
+        options.buttons = [{
+                label: "View Repository",
+                url: repoUrl
+            }];
     }
     try {
         await rpc.user.setActivity({
-            details,
-            state,
-            startTimestamp,
-            largeImageKey,
-            largeImageText: "BotForge",
-            smallImageKey,
-            smallImageText,
-            buttons
+            ...options,
+            startTimestamp
         });
     }
     catch (error) {
@@ -268,7 +264,10 @@ function getLanguageAsset(languageId) {
  */
 async function updateEditorRPC(editor) {
     if (!editor) {
-        await updateRPC("Idling...", undefined, undefined, undefined, "idle");
+        await updateRPC({
+            details: "Idling...",
+            largeImageKey: "idle"
+        });
         return;
     }
     const document = editor.document;
@@ -277,7 +276,12 @@ async function updateEditorRPC(editor) {
         key: "fvsc-config",
         text: "ForgeVSC Config"
     } : getLanguageAsset(document.languageId);
-    await updateRPC(`Editing ${fileName}`, `Workspace: ${vscode.workspace.name}`, asset?.key, asset?.text);
+    await updateRPC({
+        details: `Editing ${fileName}`,
+        state: `Workspace: ${vscode.workspace.name}`,
+        smallImageKey: asset?.key,
+        smallImageText: asset?.text
+    });
 }
 /**
  * Registers automatic RPC tracking.

@@ -194,7 +194,7 @@ async function applyDecorations(editor) {
                 continue;
             const op = (0, _1.findConditionOperator)(arg.value);
             if (op) {
-                const start = openIndex + 1 + arg.start + op.index;
+                const start = openIndex + 1 + arg.start + op.start;
                 const end = start + op.operator.length;
                 condRanges.push(new vscode.Range(doc.positionAt(start), doc.positionAt(end)));
             }

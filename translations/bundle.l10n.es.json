@@ -1,6 +1,16 @@
 {
   "*(Conditional)*": "*(Condicional)*",
   "Documentation": "Documentación",
+  "Search guides... (e.g. author:Nicky package:ForgeScript)": "Buscar guías... (p. ej., author:Nicky package:ForgeScript)",
   "Filter": "Filtro",
-  "Folder": "Carpeta"
+  "Favorited Guides": "Guías Favoritas",
+  "Favorites": "Favoritos",
+  "$(circle-slash) {0} Disabled": "$(circle-slash) {0} Desactivado",
+  "Open Extension Settings": "Abrir Configuración de Extensión",
+  "Folder": "Carpeta",
+  "Global": "Global",
+  "Open": "Abrir",
+  "Where do you want to create the config file?": "¿Dónde quieres crear el archivo de configuración?",
+  "Successfully created config file!": "¡Archivo de configuración creado con éxito!",
+  "Deprecated": "Obsoleto"
 }

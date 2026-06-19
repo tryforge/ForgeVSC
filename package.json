@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "%extension.description%",
   "publisher": "tryforge",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "browser": "./out/web/extension.js",
@@ -12,7 +12,7 @@
     "name": "xNickyDev"
   },
   "engines": {
-    "vscode": ">=1.116.0"
+    "vscode": "^1.125.0"
   },
   "categories": [
     "Programming Languages",
@@ -387,17 +387,17 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^25.6.0",
-    "@types/vscode": "^1.116.0",
-    "@typescript-eslint/eslint-plugin": "^8.59.0",
-    "@typescript-eslint/parser": "^8.59.0",
+    "@types/node": "^26.0.0",
+    "@types/vscode": "^1.125.0",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
     "@vscode/l10n-dev": "^0.0.35",
     "@vscode/test-web": "^0.0.80",
-    "@vscode/vsce": "^3.9.1",
+    "@vscode/vsce": "^3.9.2",
     "dotenv-cli": "^11.0.0",
-    "esbuild": "^0.28.0",
-    "eslint": "^10.2.1",
-    "ovsx": "^1.0.0"
+    "esbuild": "^0.28.1",
+    "eslint": "^10.5.0",
+    "ovsx": "^1.0.1"
   },
   "dependencies": {
     "@xhayper/discord-rpc": "^1.3.4",

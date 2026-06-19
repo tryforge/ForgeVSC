@@ -1,9 +1,21 @@
 {
   "*(Conditional)*": "*(Условный)*",
+  "$(plug) RPC Connected": "$(plug) RPC подключен",
+  "Discord RPC Connected": "Discord RPC подключен",
+  "$(debug-disconnect) Reconnect RPC": "$(debug-disconnect) Переподключить RPC",
+  "Reconnect Discord RPC": "Переподключить Discord RPC",
+  "Connecting to Discord RPC...": "Подключение к Discord RPC...",
   "Source": "Источник",
   "Documentation": "Документация",
   "Filter": "Фильтр",
   "Favorites": "Избранное",
+  "Open Extension Settings": "Открыть настройки расширения",
   "Later": "Позже",
-  "Folder": "Папка"
+  "Open Settings": "Открыть настройки",
+  "Folder": "Папка",
+  "$(account) User Settings": "$(account) Настройки пользователя",
+  "Open": "Открыть",
+  "Overwrite": "Перезаписать",
+  "Default": "По умолчанию",
+  "$(folder) VSCode Folder": "$(folder) Папка VSCode"
 }
