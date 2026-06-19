@@ -1,1 +1,10 @@
-{}
+{
+  "command.searchGuides.title": "Αναζήτηση Οδηγών",
+  "command.reloadGuideMetadata.title": "Ανανέωση Οδηγών",
+  "command.openGuide.title": "Άνοιγμα Οδηγού",
+  "command.favoriteGuide.title": "Προσθήκη στα Αγαπημένα",
+  "command.unfavoriteGuide.title": "Αφαίρεση από τα Αγαπημένα",
+  "command.createGuide.title": "Δημιουργία Οδηγού",
+  "command.openGuideExternal.title": "Άνοιγμα Οδηγού (Εξωτερικά)",
+  "view.guides.title": "Οδηγοί"
+}

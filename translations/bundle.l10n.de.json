@@ -1,5 +1,9 @@
 {
   "*(Conditional)*": "*(Konditional)*",
+  "$(plug) RPC Connected": "$(plug) RPC Verbunden",
+  "Discord RPC Connected": "Discord-RPC Verbunden",
+  "$(sync~spin) Connecting RPC": "$(sync~spin) Verbinde RPC",
+  "Connecting to Discord RPC...": "Verbinde mit Discord-RPC...",
   "Source": "Quelle",
   "Documentation": "Dokumentation",
   "Guide": "Leitfaden",

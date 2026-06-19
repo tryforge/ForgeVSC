@@ -1,1 +1,23 @@
-{}
+{
+  "$(plug) RPC Connected": "$(plug) RPC Terhubung",
+  "Discord RPC Connected": "Discord RPC Terhubung",
+  "$(sync~spin) Connecting RPC": "$(sync~spin) Menghubungkan RPC",
+  "Connecting to Discord RPC...": "Menghubungkan ke Discord RPC...",
+  "Source": "Sumber",
+  "Documentation": "Dokumentasi",
+  "Favorites": "Favorit",
+  "Open Extension Settings": "Buka Pengaturan Ekstensi",
+  "{0} Extension Details": "{0} Detail Ekstensi",
+  "Reload": "Muat Ulang",
+  "Later": "Nanti",
+  "Open Settings": "Buka Pengaturan",
+  "Function `{0}` requires brackets": "Fungsi `{0}` memerlukan tanda kurung",
+  "$(folder) Workspace Settings": "$(folder) Pengaturan Ruang Kerja",
+  "Workspace": "Ruang Kerja",
+  "$(account) User Settings": "$(account) Pengaturan Pengguna",
+  "Global": "Global",
+  "Overwrite": "Timpa",
+  "Extension config file already exists.": "File konfigurasi ekstensi sudah ada.",
+  "Default": "Bawaan",
+  "since": "sejak"
+}

@@ -1,1 +1,11 @@
-{}
+{
+  "command.createConfig.title": "Crear archivo de configuración (.forgevsc.json)",
+  "command.searchGuides.title": "Buscar Guías",
+  "command.reloadGuideMetadata.title": "Actualizar Guías",
+  "command.openGuide.title": "Abrir Guía",
+  "command.previewGuide.title": "Previsualizar Guía",
+  "command.unfavoriteGuide.title": "Eliminar de Favoritos",
+  "command.createGuide.title": "Crear Guía",
+  "command.openExtensionSettings.title": "Abrir Configuración de Extensión",
+  "view.guides.title": "Guías"
+}
