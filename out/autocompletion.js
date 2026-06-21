@@ -94,10 +94,9 @@ function registerAutocompletion(ctx) {
                         const args = fn.args;
                         const lastIndex = args.length - 1;
                         const parts = (0, _1.splitArgs)(argsTyped);
-                        let activeIndex = parts.length - 1;
-                        if (args[lastIndex]?.rest)
-                            activeIndex = Math.min(activeIndex, lastIndex);
-                        const activeArg = args[activeIndex];
+                        const activeIndex = parts.length - 1;
+                        const argIndex = args[lastIndex]?.rest ? Math.min(activeIndex, lastIndex) : activeIndex;
+                        const activeArg = args[argIndex];
                         const enumValues = activeArg?.enum || (activeArg.type === "Boolean" ? ["true", "false"] : undefined);
                         if (enumValues) {
                             const currentValue = parts[activeIndex]?.value ?? "";

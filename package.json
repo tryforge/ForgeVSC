@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "%extension.description%",
   "publisher": "tryforge",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "browser": "./out/web/extension.js",
