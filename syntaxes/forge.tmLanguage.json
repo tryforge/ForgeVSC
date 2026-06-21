@@ -75,6 +75,7 @@
             "1": { "name": "punctuation.section.brackets.end.forge" }
           },
           "patterns": [
+            { "include": "#forge-comment" },
             { "include": "#djs-eval" },
             { "include": "#forge-brackets" }
           ]

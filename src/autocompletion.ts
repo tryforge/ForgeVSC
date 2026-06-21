@@ -83,10 +83,10 @@ export function registerAutocompletion(ctx: vscode.ExtensionContext) {
                             const lastIndex = args.length - 1
 
                             const parts = splitArgs(argsTyped)
-                            let activeIndex = parts.length - 1
-                            if (args[lastIndex]?.rest) activeIndex = Math.min(activeIndex, lastIndex)
+                            const activeIndex = parts.length - 1
+                            const argIndex = args[lastIndex]?.rest ? Math.min(activeIndex, lastIndex) : activeIndex
 
-                            const activeArg = args[activeIndex]
+                            const activeArg = args[argIndex]
                             const enumValues = activeArg?.enum || (activeArg.type === "Boolean" ? ["true", "false"] : undefined)
 
                             if (enumValues) {

@@ -1,5 +1,11 @@
 # Change Log
 
+## v1.2.7 <sub>(June 21, 2026)</sub>
+
+### Fixed
+- Fixed enum autocompletion for rest arguments
+- Fixed `$c[]` not highlighted as comment inside functions
+
 ## v1.2.6 <sub>(June 19, 2026)</sub>
 
 ### Added
