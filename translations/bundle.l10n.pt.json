@@ -71,7 +71,7 @@
   "Cancel": "Cancelar",
   "$(root-folder) Workspace Root": "Raiz do Espaço de Trabalho $(root-folder)",
   "Default": "Padrão",
-  "$(folder) VSCode Folder": "Pasta do VSCode $(folder)",
+  "$(folder) VSCode Folder": "Pasta $(folder) do VSCode",
   "Where do you want to create the config file?": "Onde você deseja criar o arquivo de configuração?",
   "Config file overwritten successfully!": "Arquivo de configuração sobrescrito com sucesso!",
   "Successfully created config file!": "Arquivo de configuração criado com sucesso!",
