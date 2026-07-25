@@ -160,7 +160,7 @@ async function activate(ctx) {
     else {
         await initialize(ctx);
     }
-    const watcher = vscode.workspace.createFileSystemWatcher("**/{.forgevsc.json,.vscode/.forgevsc.json}");
+    const watcher = vscode.workspace.createFileSystemWatcher("**/{.forgevsc.json,forgevsc.json,.vscode/.forgevsc.json,.vscode/forgevsc.json}");
     ctx.subscriptions.push(watcher, watcher.onDidCreate(reload), watcher.onDidChange(reload), watcher.onDidDelete(reload), vscode.workspace.onDidChangeConfiguration(async (e) => {
         if (e.affectsConfiguration("forgevsc"))
             await reload();

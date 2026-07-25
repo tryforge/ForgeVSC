@@ -272,7 +272,7 @@ async function updateEditorRPC(editor) {
     }
     const document = editor.document;
     const fileName = document.fileName.split(/[\\/]/).pop() ?? "Unknown File";
-    const asset = fileName === ".forgevsc.json" ? {
+    const asset = (fileName === ".forgevsc.json" || fileName === "forgevsc.json") ? {
         key: "fvsc-config",
         text: "ForgeVSC Config"
     } : getLanguageAsset(document.languageId);

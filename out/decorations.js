@@ -68,6 +68,23 @@ function resolveColor(input, fallback) {
         return fallback;
     return hex.startsWith("#") ? hex : ("#" + hex);
 }
+/**
+ * Resolves a font style.
+ * @param style The style to resolve.
+ * @returns
+ */
+function resolveFontStyle(style) {
+    switch (style) {
+        case "bold":
+            return { fontWeight: "bold" };
+        case "italic":
+            return { fontStyle: "italic" };
+        case "bold-italic":
+            return { fontWeight: "bold", fontStyle: "italic" };
+        default:
+            return { fontWeight: "normal", fontStyle: "normal" };
+    }
+}
 let lastDecoKey = "";
 /**
  * (Re)creates decoration types only when config colors changed.
@@ -75,6 +92,8 @@ let lastDecoKey = "";
 function ensureDecorations() {
     const config = (0, _1.getExtensionConfig)();
     const colors = config.colors ?? {};
+    const formatting = config.formatting ?? {};
+    const fnStyle = resolveFontStyle(formatting.function?.style);
     const fnColor = resolveColor(colors.function?.name, "#AC75FF");
     const dollarColor = resolveColor(colors.function?.dollar, "#FE7CEB");
     const semiColor = resolveColor(colors.function?.semicolon, "#C586C0");
@@ -91,7 +110,8 @@ function ensureDecorations() {
         negColor,
         silentColor,
         countColor,
-        countDelimColor
+        countDelimColor,
+        JSON.stringify(fnStyle)
     ].join("|");
     if (key === lastDecoKey && decoFn)
         return;
@@ -99,8 +119,14 @@ function ensureDecorations() {
     for (const d of [decoFn, decoDollar, decoSemi, decoCond, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
         d?.dispose();
     }
-    decoFn = vscode.window.createTextEditorDecorationType({ color: fnColor });
-    decoDollar = vscode.window.createTextEditorDecorationType({ color: dollarColor });
+    decoFn = vscode.window.createTextEditorDecorationType({
+        color: fnColor,
+        ...fnStyle
+    });
+    decoDollar = vscode.window.createTextEditorDecorationType({
+        color: dollarColor,
+        ...fnStyle
+    });
     decoSemi = vscode.window.createTextEditorDecorationType({ color: semiColor });
     decoCond = vscode.window.createTextEditorDecorationType({ color: condColor });
     decoOpNeg = vscode.window.createTextEditorDecorationType({ color: negColor });

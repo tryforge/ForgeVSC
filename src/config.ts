@@ -1,6 +1,8 @@
 import { toArray } from "."
 import * as vscode from "vscode"
 
+export type FunctionStyle = "normal" | "bold" | "italic" | "bold-italic"
+
 export interface IExtensionConfig {
     enabledWorkspaces?: string[]
     customFunctionPaths?: string | string[]
@@ -21,6 +23,11 @@ export interface IExtensionConfig {
             countDelimiter?: string
         }
     }
+    formatting?: {
+        function?: {
+            style?: FunctionStyle
+        }
+    }
     features?: {
         folding?: boolean
         hoverInfo?: boolean
@@ -28,7 +35,7 @@ export interface IExtensionConfig {
         signatureHelp?: boolean
         diagnostics?: boolean
         autocompletion?: boolean
-    },
+    }
     rpc?: {
         enabled?: boolean
     }
@@ -42,7 +49,7 @@ export const Defaults: Required<IExtensionConfig> = {
         function: {
             name: "#AC75FF",
             dollar: "#FE7CEB",
-            semicolon: "#C586C0"
+            semicolon: "#C586C0",
         },
         arguments: {
             condition: "#4FC1FF"
@@ -53,6 +60,11 @@ export const Defaults: Required<IExtensionConfig> = {
             count: "#33D17A",
             countDelimiter: "#76E3A0"
         },
+    },
+    formatting: {
+        function: {
+            style: "normal"
+        }
     },
     features: {
         folding: true,
@@ -99,6 +111,11 @@ export function getSettingsConfig() {
                     countDelimiter: vs.get<string>("workspace.colors.operators.countDelimiter"),
                 }
             },
+            formatting: {
+                function: {
+                    style: vs.get<FunctionStyle>("workspace.formatting.function.style"),
+                }
+            },
             features: {
                 folding: vs.get<boolean>("workspace.features.folding"),
                 hoverInfo: vs.get<boolean>("workspace.features.hoverInfo"),
@@ -129,7 +146,9 @@ export function getExtensionConfig() {
  */
 export async function findExtensionConfig(root: vscode.Uri) {
     const paths = [
+        vscode.Uri.joinPath(root, "forgevsc.json"),
         vscode.Uri.joinPath(root, ".forgevsc.json"),
+        vscode.Uri.joinPath(root, ".vscode", "forgevsc.json"),
         vscode.Uri.joinPath(root, ".vscode", ".forgevsc.json")
     ]
 
@@ -190,6 +209,12 @@ export async function loadExtensionConfig() {
                 ...Defaults.colors.operators,
                 ...(vs.workspace.colors?.operators ?? {}),
                 ...(file.colors?.operators ?? {})
+            }
+        },
+        formatting: {
+            function: {
+                ...Defaults.formatting.function,
+                ...(vs.workspace.formatting?.function ?? {})
             }
         },
         features: {

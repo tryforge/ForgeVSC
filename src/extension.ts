@@ -1,10 +1,10 @@
 import {
 	createRPCStatusBar,
 	disconnectRPC,
-	FunctionLocation,
+	type FunctionLocation,
 	getCustomFunctionLocation,
 	getExtensionConfig,
-	GuideMetadata,
+	type GuideMetadata,
 	loadCustomFunctions,
 	loadExtensionConfig,
 	registerAutocompletion,
@@ -20,7 +20,7 @@ import {
 	registerSuggestions,
 	validateDocument
 } from "."
-import { IMetadataFunction } from "./types"
+import type { IMetadataFunction } from "./types"
 import * as vscode from "vscode"
 
 export type WorkspacePackage = {
@@ -174,7 +174,9 @@ export async function activate(ctx: vscode.ExtensionContext) {
 		await initialize(ctx)
 	}
 
-	const watcher = vscode.workspace.createFileSystemWatcher("**/{.forgevsc.json,.vscode/.forgevsc.json}")
+	const watcher = vscode.workspace.createFileSystemWatcher(
+		"**/{.forgevsc.json,forgevsc.json,.vscode/.forgevsc.json,.vscode/forgevsc.json}"
+	)
 	ctx.subscriptions.push(
 		watcher,
 		watcher.onDidCreate(reload),

@@ -5,6 +5,7 @@ import {
     findMatchingBracket,
     FunctionPrefixRegex,
     FunctionScanRegex,
+    type FunctionStyle,
     getExtensionConfig,
     isEscaped,
     isIgnored,
@@ -48,6 +49,24 @@ function resolveColor(input: unknown, fallback: string) {
     return hex.startsWith("#") ? hex : ("#" + hex)
 }
 
+/**
+ * Resolves a font style.
+ * @param style The style to resolve.
+ * @returns 
+ */
+function resolveFontStyle(style?: FunctionStyle) {
+    switch (style) {
+        case "bold":
+            return { fontWeight: "bold" }
+        case "italic":
+            return { fontStyle: "italic" }
+        case "bold-italic":
+            return { fontWeight: "bold", fontStyle: "italic" }
+        default:
+            return { fontWeight: "normal", fontStyle: "normal" }
+    }
+}
+
 let lastDecoKey = ""
 
 /**
@@ -56,6 +75,9 @@ let lastDecoKey = ""
 function ensureDecorations() {
     const config = getExtensionConfig()
     const colors = config.colors ?? {}
+    const formatting = config.formatting ?? {}
+
+    const fnStyle = resolveFontStyle(formatting.function?.style)
 
     const fnColor = resolveColor(colors.function?.name, "#AC75FF")
     const dollarColor = resolveColor(colors.function?.dollar, "#FE7CEB")
@@ -76,7 +98,8 @@ function ensureDecorations() {
         negColor,
         silentColor,
         countColor,
-        countDelimColor
+        countDelimColor,
+        JSON.stringify(fnStyle)
     ].join("|")
 
     if (key === lastDecoKey && decoFn) return
@@ -86,8 +109,14 @@ function ensureDecorations() {
         d?.dispose()
     }
 
-    decoFn = vscode.window.createTextEditorDecorationType({ color: fnColor })
-    decoDollar = vscode.window.createTextEditorDecorationType({ color: dollarColor })
+    decoFn = vscode.window.createTextEditorDecorationType({
+        color: fnColor,
+        ...fnStyle
+    })
+    decoDollar = vscode.window.createTextEditorDecorationType({
+        color: dollarColor,
+        ...fnStyle
+    })
     decoSemi = vscode.window.createTextEditorDecorationType({ color: semiColor })
     decoCond = vscode.window.createTextEditorDecorationType({ color: condColor })
 

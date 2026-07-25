@@ -1,5 +1,11 @@
 # Change Log
 
+## v1.2.9 <sub>(July 25, 2026)</sub>
+
+### Added
+- Added support for `forgevsc.json` file as alternative to the dotted config filename
+- Added a setting to customize function name styling
+
 ## v1.2.8 <sub>(July 02, 2026)</sub>
 
 ### Changed
