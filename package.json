@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "%extension.description%",
   "publisher": "tryforge",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "browser": "./out/web/extension.js",
@@ -32,7 +32,9 @@
     "onLanguage:typescript",
     "onLanguage:javascriptreact",
     "onLanguage:typescriptreact",
+    "workspaceContains:forgevsc.json",
     "workspaceContains:.forgevsc.json",
+    "workspaceContains:.vscode/forgevsc.json",
     "workspaceContains:.vscode/.forgevsc.json"
   ],
   "contributes": {
@@ -263,6 +265,24 @@
           "uniqueItems": true,
           "description": "%config.workspace.customFunctionPaths.description%"
         },
+        "forgevsc.workspace.formatting.function.style": {
+          "order": 5,
+          "type": "string",
+          "enum": [
+            "normal",
+            "bold",
+            "italic",
+            "bold-italic"
+          ],
+          "markdownEnumDescriptions": [
+            "%config.workspace.formatting.function.style.enum.normal.description%",
+            "%config.workspace.formatting.function.style.enum.bold.description%",
+            "%config.workspace.formatting.function.style.enum.italic.description%",
+            "%config.workspace.formatting.function.style.enum.bold-italic.description%"
+          ],
+          "default": "normal",
+          "description": "%config.workspace.formatting.function.style.description%"
+        },
         "forgevsc.workspace.colors.function.name": {
           "order": 10,
           "type": "string",
@@ -387,20 +407,23 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^26.0.0",
+    "@types/node": "^26.1.1",
     "@types/vscode": "^1.105.0",
-    "@typescript-eslint/eslint-plugin": "^8.61.1",
-    "@typescript-eslint/parser": "^8.61.1",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
     "@vscode/l10n-dev": "^0.0.35",
     "@vscode/test-web": "^0.0.81",
     "@vscode/vsce": "^3.9.2",
     "dotenv-cli": "^11.0.0",
     "esbuild": "^0.28.1",
-    "eslint": "^10.5.0",
+    "eslint": "^10.8.0",
     "ovsx": "^1.0.2"
   },
   "dependencies": {
     "@xhayper/discord-rpc": "^1.3.4",
     "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "brace-expansion": "^5.0.8"
   }
 }

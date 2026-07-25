@@ -48,7 +48,7 @@ exports.Defaults = {
         function: {
             name: "#AC75FF",
             dollar: "#FE7CEB",
-            semicolon: "#C586C0"
+            semicolon: "#C586C0",
         },
         arguments: {
             condition: "#4FC1FF"
@@ -59,6 +59,11 @@ exports.Defaults = {
             count: "#33D17A",
             countDelimiter: "#76E3A0"
         },
+    },
+    formatting: {
+        function: {
+            style: "normal"
+        }
     },
     features: {
         folding: true,
@@ -102,6 +107,11 @@ function getSettingsConfig() {
                     countDelimiter: vs.get("workspace.colors.operators.countDelimiter"),
                 }
             },
+            formatting: {
+                function: {
+                    style: vs.get("workspace.formatting.function.style"),
+                }
+            },
             features: {
                 folding: vs.get("workspace.features.folding"),
                 hoverInfo: vs.get("workspace.features.hoverInfo"),
@@ -130,7 +140,9 @@ function getExtensionConfig() {
  */
 async function findExtensionConfig(root) {
     const paths = [
+        vscode.Uri.joinPath(root, "forgevsc.json"),
         vscode.Uri.joinPath(root, ".forgevsc.json"),
+        vscode.Uri.joinPath(root, ".vscode", "forgevsc.json"),
         vscode.Uri.joinPath(root, ".vscode", ".forgevsc.json")
     ];
     for (const uri of paths) {
@@ -185,6 +197,12 @@ async function loadExtensionConfig() {
                 ...exports.Defaults.colors.operators,
                 ...(vs.workspace.colors?.operators ?? {}),
                 ...(file.colors?.operators ?? {})
+            }
+        },
+        formatting: {
+            function: {
+                ...exports.Defaults.formatting.function,
+                ...(vs.workspace.formatting?.function ?? {})
             }
         },
         features: {
