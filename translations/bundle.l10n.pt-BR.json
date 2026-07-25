@@ -1,0 +1,22 @@
+{
+  "*(Conditional)*": "*(Condicional)*",
+  "$(plug) RPC Connected": "$(plug) RPC Conectado",
+  "Discord RPC Connected": "Discord RPC Conectado",
+  "$(debug-disconnect) Reconnect RPC": "$(debug-disconnect) Reconectar RPC",
+  "$(sync~spin) Connecting RPC": "$(sync~spin) Conectando RPC",
+  "Connecting to Discord RPC...": "Conectando ao Discord RPC...",
+  "Documentation": "Documentação",
+  "Favorites": "Favoritos",
+  "Open Extension Settings": "Abrir Configurações da Extensão",
+  "{0} Extension Details": "{0} Detalhes da Extensão",
+  "Reload": "Recarregar",
+  "Open Settings": "Abrir Configurações",
+  "Global": "Global",
+  "Open": "Abrir",
+  "Overwrite": "Sobrescrever",
+  "Cancel": "Cancelar",
+  "Default": "Padrão",
+  "Successfully created config file!": "Arquivo de configuração criado com sucesso!",
+  "Experimental": "Experimental",
+  "since": "desde"
+}
