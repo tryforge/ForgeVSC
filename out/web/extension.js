@@ -211980,10 +211980,24 @@ function resolveColor(input, fallback) {
   if (!isValidHex(hex)) return fallback;
   return hex.startsWith("#") ? hex : "#" + hex;
 }
+function resolveFontStyle(style) {
+  switch (style) {
+    case "bold":
+      return { fontWeight: "bold" };
+    case "italic":
+      return { fontStyle: "italic" };
+    case "bold-italic":
+      return { fontWeight: "bold", fontStyle: "italic" };
+    default:
+      return { fontWeight: "normal", fontStyle: "normal" };
+  }
+}
 var lastDecoKey = "";
 function ensureDecorations() {
   const config = getExtensionConfig();
   const colors = config.colors ?? {};
+  const formatting2 = config.formatting ?? {};
+  const fnStyle = resolveFontStyle(formatting2.function?.style);
   const fnColor = resolveColor(colors.function?.name, "#AC75FF");
   const dollarColor = resolveColor(colors.function?.dollar, "#FE7CEB");
   const semiColor = resolveColor(colors.function?.semicolon, "#C586C0");
@@ -212000,15 +212014,22 @@ function ensureDecorations() {
     negColor,
     silentColor,
     countColor,
-    countDelimColor
+    countDelimColor,
+    JSON.stringify(fnStyle)
   ].join("|");
   if (key === lastDecoKey && decoFn) return;
   lastDecoKey = key;
   for (const d of [decoFn, decoDollar, decoSemi, decoCond, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
     d?.dispose();
   }
-  decoFn = vscode5.window.createTextEditorDecorationType({ color: fnColor });
-  decoDollar = vscode5.window.createTextEditorDecorationType({ color: dollarColor });
+  decoFn = vscode5.window.createTextEditorDecorationType({
+    color: fnColor,
+    ...fnStyle
+  });
+  decoDollar = vscode5.window.createTextEditorDecorationType({
+    color: dollarColor,
+    ...fnStyle
+  });
   decoSemi = vscode5.window.createTextEditorDecorationType({ color: semiColor });
   decoCond = vscode5.window.createTextEditorDecorationType({ color: condColor });
   decoOpNeg = vscode5.window.createTextEditorDecorationType({ color: negColor });
@@ -213329,6 +213350,11 @@ var Defaults = {
       countDelimiter: "#76E3A0"
     }
   },
+  formatting: {
+    function: {
+      style: "normal"
+    }
+  },
   features: {
     folding: true,
     hoverInfo: true,
@@ -213367,6 +213393,11 @@ function getSettingsConfig() {
           countDelimiter: vs.get("workspace.colors.operators.countDelimiter")
         }
       },
+      formatting: {
+        function: {
+          style: vs.get("workspace.formatting.function.style")
+        }
+      },
       features: {
         folding: vs.get("workspace.features.folding"),
         hoverInfo: vs.get("workspace.features.hoverInfo"),
@@ -213386,7 +213417,9 @@ function getExtensionConfig() {
 }
 async function findExtensionConfig(root) {
   const paths2 = [
+    vscode11.Uri.joinPath(root, "forgevsc.json"),
     vscode11.Uri.joinPath(root, ".forgevsc.json"),
+    vscode11.Uri.joinPath(root, ".vscode", "forgevsc.json"),
     vscode11.Uri.joinPath(root, ".vscode", ".forgevsc.json")
   ];
   for (const uri of paths2) {
@@ -213439,6 +213472,12 @@ async function loadExtensionConfig() {
         ...Defaults.colors.operators,
         ...vs.workspace.colors?.operators ?? {},
         ...file.colors?.operators ?? {}
+      }
+    },
+    formatting: {
+      function: {
+        ...Defaults.formatting.function,
+        ...vs.workspace.formatting?.function ?? {}
       }
     },
     features: {
@@ -213626,7 +213665,7 @@ async function updateEditorRPC(editor) {
   }
   const document = editor.document;
   const fileName = document.fileName.split(/[\\/]/).pop() ?? "Unknown File";
-  const asset = fileName === ".forgevsc.json" ? {
+  const asset = fileName === ".forgevsc.json" || fileName === "forgevsc.json" ? {
     key: "fvsc-config",
     text: "ForgeVSC Config"
   } : getLanguageAsset(document.languageId);
@@ -213757,7 +213796,9 @@ async function activate(ctx) {
   } else {
     await initialize(ctx);
   }
-  const watcher = vscode13.workspace.createFileSystemWatcher("**/{.forgevsc.json,.vscode/.forgevsc.json}");
+  const watcher = vscode13.workspace.createFileSystemWatcher(
+    "**/{.forgevsc.json,forgevsc.json,.vscode/.forgevsc.json,.vscode/forgevsc.json}"
+  );
   ctx.subscriptions.push(
     watcher,
     watcher.onDidCreate(reload),
