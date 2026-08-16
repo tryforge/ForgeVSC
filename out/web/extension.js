@@ -212759,7 +212759,7 @@ function markdownForGuide(guide) {
   const lines = [];
   lines.push(`# ${displayGuideTitle(guide)}`);
   lines.push("");
-  lines.push(`> **Approved:** \`${formatDate(guide.approvedAt)}\` by \`${guide.approver.username}\`\\`);
+  lines.push(`> **Approved:** \`${formatDate(guide.approvedAt)}\`${guide.approver ? ` by \`${guide.approver.username}\`` : ""}\\`);
   const contributors = guide.contributors.map((x) => `\`${x.username}\``);
   lines.push(`> **Contributor${contributors.length === 1 ? "" : "s"}:** ${contributors.join(", ")}`);
   lines.push("");
@@ -212919,7 +212919,7 @@ function collectValues(guides2) {
     contributor: [
       ...new Set(guides2.flatMap((g) => g.contributors.filter((c) => !c.isOriginalAuthor).map((c) => c.username)))
     ],
-    approver: [...new Set(guides2.map((g) => g.approver.username))],
+    approver: [...new Set(guides2.map((g) => g.approver?.username).filter(Boolean))],
     package: [...new Set(guides2.map((g) => g.packageName))],
     type: GuideTargetTypes
   };

@@ -28,10 +28,10 @@ export type GuideMetadata = {
     category: string | null
     subCategory: string | null
     content: string
-    reviewerId: number
+    reviewerId: number | null
     submittedAt: string
     approvedAt: string
-    approver: GuideUser
+    approver: GuideUser | null
     contributors: GuideContributor[]
 }
 
@@ -50,9 +50,9 @@ export type GuideFindQuery =
         subCategory?: string | null
         approvedAfter?: string
         approvedBefore?: string
-        reviewerId?: number
-        approverId?: number
-        approverUsername?: string
+        reviewerId?: number | null
+        approverId?: number | null
+        approverUsername?: string | null
         contributorId?: number
         contributorUsername?: string
         authorUsername?: string
@@ -144,7 +144,7 @@ function markdownForGuide(guide: GuideMetadata) {
     lines.push(`# ${displayGuideTitle(guide)}`)
     lines.push("")
 
-    lines.push(`> **Approved:** \`${formatDate(guide.approvedAt)}\` by \`${guide.approver.username}\`\\`)
+    lines.push(`> **Approved:** \`${formatDate(guide.approvedAt)}\`${guide.approver ? ` by \`${guide.approver.username}\`` : ""}\\`)
     const contributors = guide.contributors.map((x) => `\`${x.username}\``)
     lines.push(`> **Contributor${contributors.length === 1 ? "" : "s"}:** ${contributors.join(", ")}`)
 
@@ -368,7 +368,7 @@ function collectValues(guides: GuideMetadata[]) {
         contributor: [
             ...new Set(guides.flatMap((g) => g.contributors.filter((c) => !c.isOriginalAuthor).map((c) => c.username)))
         ],
-        approver: [...new Set(guides.map((g) => g.approver.username))],
+        approver: [...new Set(guides.map((g) => g.approver?.username).filter(Boolean))],
         package: [...new Set(guides.map((g) => g.packageName))],
         type: GuideTargetTypes
     }
