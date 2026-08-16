@@ -1,5 +1,10 @@
 # Change Log
 
+## v1.2.10 <sub>(August 16, 2026)</sub>
+
+### Fixed
+- Fixed guide search failing to open
+
 ## v1.2.9 <sub>(July 25, 2026)</sub>
 
 ### Added
