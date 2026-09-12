@@ -1,4 +1,14 @@
-import { connectRPC, Defaults, disconnectRPC, DocsUrl, findExtensionConfig, getFunctions, Logger, updateEditorRPC } from "."
+import {
+    connectRPC,
+    Defaults,
+    disconnectRPC,
+    DocsUrl,
+    findExtensionConfig,
+    getEvents,
+    getFunctions,
+    Logger,
+    updateEditorRPC
+} from "."
 import * as vscode from "vscode"
 
 /**
@@ -144,6 +154,12 @@ export function registerCommands(ctx: vscode.ExtensionContext) {
         vscode.commands.registerCommand("forgevsc.reloadFunctionMetadata", async () => {
             await getFunctions(true)
             vscode.window.showInformationMessage(vscode.l10n.t("Successfully fetched function metadata!"))
+        }),
+
+        // Reload Event Metadata
+        vscode.commands.registerCommand("forgevsc.reloadEventMetadata", async () => {
+            await getEvents(true)
+            vscode.window.showInformationMessage(vscode.l10n.t("Successfully fetched event metadata!"))
         }),
 
         // Create Guide

@@ -255,9 +255,14 @@ function readMetadata(obj) {
             fn.deprecated = getBoolean(prop.initializer);
         else if (key === "experimental")
             fn.experimental = getBoolean(prop.initializer);
+        else if (key === "firstParamCondition")
+            fn.firstParamCondition = getBoolean(prop.initializer);
     }
     if (!fn.name)
         return null;
+    if (fn.firstParamCondition && fn.args?.length) {
+        fn.args[0] = { ...fn.args[0], condition: true };
+    }
     if (fn.unwrap === undefined)
         fn.unwrap = (!!fn.args?.length && !fn.firstParamCondition);
     if (fn.brackets === undefined)

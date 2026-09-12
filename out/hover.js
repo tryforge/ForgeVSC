@@ -33,14 +33,14 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.registerHover = registerHover;
+exports.registerFunctionHover = registerFunctionHover;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 /**
  * Registers the hover info for functions and operators.
  * @param ctx The extension context.
  */
-function registerHover(ctx) {
+function registerFunctionHover(ctx) {
     ctx.subscriptions.push(vscode.languages.registerHoverProvider(_1.Languages, {
         async provideHover(document, position) {
             const config = (0, _1.getExtensionConfig)();
@@ -140,25 +140,26 @@ function registerHover(ctx) {
                     const bracketIndex = start + matchedText.length;
                     const hasBracket = acceptsArgs && line[bracketIndex] === "[";
                     const md = new vscode.MarkdownString();
-                    md.appendCodeblock(`${(brackets || hasBracket) ? (0, _1.generateUsage)(fn) : name}${output ? `: ` + output.join(", ") : ""}\n`);
+                    md.appendCodeblock(((brackets || hasBracket) ? (0, _1.generateUsage)(fn) : name) + (output ? `: ${output.join(", ")}` : ""));
                     md.appendText(`${description}\n`);
                     if (version) {
                         const links = [];
-                        const sourceUrl = await (0, _1.buildSourceURL)(fn);
+                        const sourceUrl = await (0, _1.buildFunctionURL)(fn);
                         if (sourceUrl)
-                            links.push(`[${vscode.l10n.t("Source")}](${sourceUrl})`);
+                            links.push(`[$(github) ${vscode.l10n.t("Source")}](${sourceUrl})`);
                         const guide = await (0, _1.findGuide)({ targetType: "function", targetName: name });
                         const pkgName = guide?.packageName || (0, _1.getPackageName)(source);
                         if (pkgName)
-                            links.push(`[${vscode.l10n.t("Documentation")}](https://docs.botforge.org/function/${name}?p=${pkgName})`);
+                            links.push(`[$(extensions) ${vscode.l10n.t("Documentation")}](https://docs.botforge.org/function/${name}?p=${pkgName})`);
                         if (guide) {
                             const cmd = vscode.Uri.parse(`command:forgevsc.previewGuide?${encodeURIComponent(JSON.stringify([guide.id]))}`);
-                            links.push(`[${vscode.l10n.t("Guide")}](${cmd})`);
+                            links.push(`[$(book) ${vscode.l10n.t("Guide")}](${cmd})`);
                         }
                         md.appendMarkdown(`---\n`);
-                        md.appendMarkdown(`##### ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? " | " + links.join(" | ") : ""));
+                        md.appendMarkdown(`##### $(package) ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? ` | ${links.join(" | ")}` : ""));
                     }
                     md.isTrusted = true;
+                    md.supportThemeIcons = true;
                     const hoverEnd = Math.min(end, start + matchedText.length);
                     const range = new vscode.Range(position.line, start, position.line, hoverEnd);
                     return new vscode.Hover(md, range);

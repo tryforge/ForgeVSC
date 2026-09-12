@@ -11,16 +11,17 @@ import {
 	registerCommands,
 	registerDecorations,
 	registerDefaultCommands,
+	registerEventHover,
 	registerFolding,
+	registerFunctionHover,
 	registerGuidePreview,
 	registerGuidesView,
-	registerHover,
 	registerRPC,
 	registerSignatureHelp,
 	registerSuggestions,
 	validateDocument
 } from "."
-import type { IMetadataFunction } from "./types"
+import type { IMetadataEvent, IMetadataFunction } from "./types"
 import * as vscode from "vscode"
 
 export type WorkspacePackage = {
@@ -43,6 +44,9 @@ export type FunctionMetadata = IMetadataFunction & {
 	source?: PackageSource
 	location?: FunctionLocation
 }
+export type EventMetadata = IMetadataEvent & {
+	source?: PackageSource
+}
 export type PathMetadata = {
 	functions: string
 	events?: string
@@ -57,6 +61,9 @@ export interface IMetadataCache<T> {
 
 let functions: FunctionMetadata[] | null = null
 let functionsPromise: Promise<FunctionMetadata[]> | null = null
+
+let events: EventMetadata[] | null = null
+let eventsPromise: Promise<EventMetadata[]> | null = null
 
 let guides: GuideMetadata[] | null = null
 let guidesPromise: Promise<GuideMetadata[]> | null = null
@@ -91,6 +98,7 @@ export const DocsUrl = "https://docs.botforge.org/"
 export const Languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"]
 
 export const FunctionsStorageKey = "forgevsc.functionsCache.v1"
+export const EventsStorageKey = "forgevsc.eventsCache.v1"
 export const GuidesStorageKey = "forgevsc.guidesCache.v1"
 
 export const OperatorInfo = {
@@ -143,6 +151,14 @@ export type OperatorType = keyof typeof ConditionOperatorInfo
  */
 export async function activate(ctx: vscode.ExtensionContext) {
 	Context = ctx
+
+	// temp old storage cleanup
+	if (Context.globalState.get(FunctionsStorageKey)) {
+		await Context.globalState.update(FunctionsStorageKey, undefined)
+	}
+	if (Context.globalState.get(GuidesStorageKey)) {
+		await Context.globalState.update(GuidesStorageKey, undefined)
+	}
 
 	const config = await loadExtensionConfig()
 	isEnabled = isWorkspaceEnabled()
@@ -207,7 +223,8 @@ async function initialize(ctx: vscode.ExtensionContext) {
 	registerGuidesView(ctx)
 
 	registerDecorations(ctx)
-	registerHover(ctx)
+	registerFunctionHover(ctx)
+	registerEventHover(ctx)
 	registerFolding(ctx)
 
 	registerAutocompletion(ctx)
@@ -359,15 +376,29 @@ function buildCacheKey(installed: WorkspacePackage[], additional: string[] = [],
 }
 
 /**
+ * Returns the path for a cache file.
+ * @param storageKey The storage key.
+ */
+function getCacheUri(storageKey: string) {
+	return vscode.Uri.joinPath(Context.globalStorageUri, `${storageKey}.json`)
+}
+
+/**
  * Reads the metadata from cache.
  * @param storageKey The storage key.
  * @param key The cache key.
- * @returns 
  */
 async function readMetadataCache<T>(storageKey: string, key: string) {
-	const data = Context.globalState.get<IMetadataCache<T>>(storageKey)
-	if (!data || data.version !== 1 || data.key !== key) return null
-	return data.metadata
+	try {
+		const uri = getCacheUri(storageKey)
+		const raw = await vscode.workspace.fs.readFile(uri)
+		const data = JSON.parse(new TextDecoder().decode(raw)) as IMetadataCache<T>
+
+		if (!data || data.version !== 1 || data.key !== key) return null
+		return data.metadata
+	} catch {
+		return null
+	}
 }
 
 /**
@@ -384,7 +415,10 @@ async function writeMetadataCache<T>(storageKey: string, key: string, data: T) {
 		metadata: data
 	}
 
-	await Context.globalState.update(storageKey, payload)
+	await vscode.workspace.fs.createDirectory(Context.globalStorageUri)
+	const uri = getCacheUri(storageKey)
+	const json = new TextEncoder().encode(JSON.stringify(payload))
+	await vscode.workspace.fs.writeFile(uri, json)
 }
 
 /**
@@ -392,7 +426,9 @@ async function writeMetadataCache<T>(storageKey: string, key: string, data: T) {
  * @param storageKey The storage key.
  */
 export async function clearMetadataCache(storageKey: string) {
-	await Context.globalState.update(storageKey, undefined)
+	try {
+		await vscode.workspace.fs.delete(getCacheUri(storageKey))
+	} catch { }
 }
 
 /**
@@ -600,14 +636,27 @@ function resolveAdditionalPackage(input: string) {
 /**
  * Fetches the functions metadata from a repo.
  * @param source The package source.
- * @returns 
  */
-async function fetchMetadata(source: PackageSource) {
+async function fetchFunctionMetadata(source: PackageSource): Promise<FunctionMetadata[] | null> {
 	const url = `https://raw.githubusercontent.com/${source.repo}/${source.branch}/metadata/functions.json`
 	const res = await fetch(url).catch(() => undefined)
 	if (!res?.ok) return null
 
 	const data = await res.json() as FunctionMetadata[]
+	return data.map((x) => ({ ...x, source }))
+}
+
+/**
+ * Fetches the events metadata from a repo.
+ * @param source The package source.
+ */
+async function fetchEventMetadata(source: PackageSource): Promise<EventMetadata[] | null> {
+	const url = `https://raw.githubusercontent.com/${source.repo}/${source.branch}/metadata/events.json`
+	const res = await fetch(url).catch(() => undefined)
+	if (res?.status === 404) return []
+	if (!res?.ok) return null
+
+	const data = await res.json() as EventMetadata[]
 	return data.map((x) => ({ ...x, source }))
 }
 
@@ -632,7 +681,6 @@ function overwriteNative(native: FunctionMetadata[], custom: FunctionMetadata[])
 /**
  * Fetches all functions from metadata.
  * @param force Whether to force fetching.
- * @returns 
  */
 export async function fetchFunctions(force: boolean = false) {
 	const folders = vscode.workspace.workspaceFolders
@@ -694,7 +742,7 @@ export async function fetchFunctions(force: boolean = false) {
 		} catch { }
 
 		if (!handled) {
-			const data = await fetchMetadata(pkgSource)
+			const data = await fetchFunctionMetadata(pkgSource)
 			if (data) {
 				extensionFunctions.push(...data)
 				fetched.add(pkgName)
@@ -706,7 +754,7 @@ export async function fetchFunctions(force: boolean = false) {
 	}
 
 	for (const source of uniqueAdditional) {
-		const data = await fetchMetadata(source)
+		const data = await fetchFunctionMetadata(source)
 		if (data) {
 			extensionFunctions.push(...data)
 			fetched.add(source.label)
@@ -721,7 +769,7 @@ export async function fetchFunctions(force: boolean = false) {
 
 	let main: FunctionMetadata[] = []
 	if ((!hasDefaultInstalled && !hasDefaultAdditional) || fetchMain) {
-		const data = await fetchMetadata(def)
+		const data = await fetchFunctionMetadata(def)
 		if (data) {
 			main = data
 			fetched.add(def.label)
@@ -739,7 +787,7 @@ export async function fetchFunctions(force: boolean = false) {
 	Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}. (${Array.from(fetched).join(", ")})`)
 	if (customFunctionPaths.length) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`)
 	if (failed) {
-		const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")
+		const text = `Fetching function metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")
 		Logger.error(text)
 		vscode.window.showErrorMessage(text)
 	}
@@ -752,7 +800,6 @@ export async function fetchFunctions(force: boolean = false) {
 /**
  * Returns all cached functions.
  * @param force Whether to force fetching.
- * @returns 
  */
 export async function getFunctions(force: boolean = false) {
 	if (functions && !force) return functions
@@ -768,6 +815,142 @@ export async function getFunctions(force: boolean = false) {
 	}
 
 	return functionsPromise
+}
+
+/**
+ * Fetches all events from metadata.
+ * @param force Whether to force fetching.
+ */
+export async function fetchEvents(force: boolean = false) {
+	const folders = vscode.workspace.workspaceFolders
+	if (!folders?.length) return []
+
+	const { additionalPackages } = getExtensionConfig()
+	const root = folders[0].uri
+
+	const rawInstalled = await getForgePackages()
+	const rawAdditional = additionalPackages?.filter(Boolean) ?? []
+	let failedFetch = []
+
+	const def = buildPackage("tryforge/ForgeScript", "main", "@tryforge/forgescript")
+	const getId = (source: PackageSource) => getPackageId(source)
+
+	const installed = (await Promise.all(
+		rawInstalled.map(async (pkg) => {
+			const source = await resolveInstalledPackage(root, pkg)
+			if (!source && pkg.name !== def.label) failedFetch.push(pkg.name)
+			return source
+		})
+	)).filter((x): x is PackageSource => !!x)
+
+	const additional = rawAdditional.map((input) => {
+		const source = resolveAdditionalPackage(input)
+		if (!source && input !== def.label) failedFetch.push(input)
+		return source
+	}).filter((x): x is PackageSource => !!x)
+
+	const uniqueAdditional = [...new Map(additional.map((source) => [getId(source), source])).values()]
+	const overridden = new Set(uniqueAdditional.map(getId))
+	const uniqueInstalled = installed.filter((source) => !overridden.has(getId(source)))
+
+	const cacheKey = buildCacheKey(rawInstalled, rawAdditional)
+	if (!force) {
+		const cached = await readMetadataCache<EventMetadata[]>(EventsStorageKey, cacheKey)
+		if (cached) {
+			Logger.info(`Loaded cached metadata from ${cached.length} events.`)
+			return cached
+		}
+	}
+
+	let extensionEvents: EventMetadata[] = []
+	let fetched = new Set()
+	let fetchMain = false
+
+	for (const pkgSource of uniqueInstalled) {
+		const pkgName = pkgSource.label!
+		let handled = false
+
+		try {
+			const localMetaUri = vscode.Uri.joinPath(root, "node_modules", pkgName, "metadata", "events.json")
+			const data = await vscode.workspace.fs.readFile(localMetaUri)
+			const json = JSON.parse(new TextDecoder().decode(data)) as EventMetadata[]
+
+			extensionEvents.push(...json.map((x) => ({ ...x, source: pkgSource })))
+			fetched.add(pkgName)
+			handled = true
+		} catch { }
+
+		if (!handled) {
+			const data = await fetchEventMetadata(pkgSource)
+			if (data) {
+				extensionEvents.push(...data)
+				if (data.length) fetched.add(pkgName)
+			} else {
+				if (pkgName !== def.label) failedFetch.push(pkgName)
+				else fetchMain = true
+			}
+		}
+	}
+
+	for (const source of uniqueAdditional) {
+		const data = await fetchEventMetadata(source)
+		if (data) {
+			extensionEvents.push(...data)
+			if (data.length) fetched.add(source.label)
+		} else {
+			if (getId(source) !== getId(def)) failedFetch.push(source.label)
+			else fetchMain = true
+		}
+	}
+
+	const hasDefaultInstalled = uniqueInstalled.some((x) => getId(x) === getId(def))
+	const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def))
+
+	let main: EventMetadata[] = []
+	if ((!hasDefaultInstalled && !hasDefaultAdditional) || fetchMain) {
+		const data = await fetchEventMetadata(def)
+		if (data) {
+			main = data
+			fetched.add(def.label)
+		}
+		else failedFetch.unshift(def.label)
+	}
+
+	const metadata = [...main, ...extensionEvents]
+
+	failedFetch = [...new Set(failedFetch)]
+	const failed = failedFetch.length
+	const count = fetched.size
+
+	Logger.info(`Fetched metadata from ${metadata.length} events across ${count} package${count === 1 ? "" : "s"}. (${Array.from(fetched).join(", ")})`)
+	if (failed) {
+		const text = `Fetching event metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")
+		Logger.error(text)
+		vscode.window.showErrorMessage(text)
+	}
+
+	await writeMetadataCache(EventsStorageKey, cacheKey, metadata)
+	return metadata
+}
+
+/**
+ * Returns all cached events.
+ * @param force Whether to force fetching.
+ */
+export async function getEvents(force: boolean = false) {
+	if (events && !force) return events
+
+	if (!eventsPromise) {
+		eventsPromise = (async () => {
+			const res = await fetchEvents(force)
+			events = res
+			return res
+		})().finally(() => {
+			eventsPromise = null
+		})
+	}
+
+	return eventsPromise
 }
 
 /**
@@ -924,7 +1107,7 @@ export function generateUsage(fn: FunctionMetadata, withTypes: boolean = false) 
  * @param fn The function metadata.
  * @returns 
  */
-export async function buildSourceURL(fn: FunctionMetadata) {
+export async function buildFunctionURL(fn: FunctionMetadata) {
 	const { source, category } = fn
 	if (!source) return null
 
@@ -935,6 +1118,24 @@ export async function buildSourceURL(fn: FunctionMetadata) {
 	if (paths) path = paths.functions
 
 	return `https://github.com/${repo}/blob/${branch}/${path}${category ? `/${category}` : ""}/${fn.name.replace("$", "")}.ts`
+}
+
+/**
+ * Builds the source URL for events.
+ * @param event The event metadata.
+ * @returns 
+ */
+export async function buildEventURL(event: EventMetadata) {
+	const { source } = event
+	if (!source) return null
+
+	const { repo, branch } = source
+	let path = "src/events"
+
+	const paths = await getPaths(source)
+	if (paths?.events) path = paths.events
+
+	return `https://github.com/${repo}/blob/${branch}/${path}/${event.name}.ts`
 }
 
 /**
@@ -970,6 +1171,15 @@ export async function findFunction(name: string, loose: boolean = false) {
 	}
 
 	return null
+}
+
+/**
+ * Finds multiple events by its name.
+ * @param name The event name.
+ */
+export async function findEvents(name: string) {
+	const all = await getEvents()
+	return all.filter((x) => x.name === name)
 }
 
 /**

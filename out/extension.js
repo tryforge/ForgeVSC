@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ConditionOperatorInfo = exports.OperatorInfo = exports.GuidesStorageKey = exports.FunctionsStorageKey = exports.Languages = exports.DocsUrl = exports.InvalidOperatorRegex = exports.ConditionOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionPrefixRegex = exports.FunctionRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
+exports.ConditionOperatorInfo = exports.OperatorInfo = exports.GuidesStorageKey = exports.EventsStorageKey = exports.FunctionsStorageKey = exports.Languages = exports.DocsUrl = exports.InvalidOperatorRegex = exports.ConditionOperatorRegex = exports.LooseFunctionPrefixRegex = exports.LooseFunctionNameRegex = exports.FunctionScanRegex = exports.FunctionOpenScanRegex = exports.FunctionAutocompleteRegex = exports.FunctionArgumentRegex = exports.FunctionHeadRegex = exports.FunctionNameRegex = exports.FunctionPrefixRegex = exports.FunctionRegex = exports.LooseOperatorChain = exports.OperatorChain = exports.Logger = void 0;
 exports.activate = activate;
 exports.toArray = toArray;
 exports.clearMetadataCache = clearMetadataCache;
@@ -43,13 +43,17 @@ exports.buildPackage = buildPackage;
 exports.getPackageName = getPackageName;
 exports.fetchFunctions = fetchFunctions;
 exports.getFunctions = getFunctions;
+exports.fetchEvents = fetchEvents;
+exports.getEvents = getEvents;
 exports.fetchGuides = fetchGuides;
 exports.getGuides = getGuides;
 exports.getPaths = getPaths;
 exports.locateCodeBlock = locateCodeBlock;
 exports.generateUsage = generateUsage;
-exports.buildSourceURL = buildSourceURL;
+exports.buildFunctionURL = buildFunctionURL;
+exports.buildEventURL = buildEventURL;
 exports.findFunction = findFunction;
+exports.findEvents = findEvents;
 exports.validateOperatorPrefix = validateOperatorPrefix;
 exports.cloneRegex = cloneRegex;
 exports.isEscaped = isEscaped;
@@ -66,6 +70,8 @@ const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 let functions = null;
 let functionsPromise = null;
+let events = null;
+let eventsPromise = null;
 let guides = null;
 let guidesPromise = null;
 let paths = new Map();
@@ -90,6 +96,7 @@ exports.InvalidOperatorRegex = /#.*!|@\[\].*!|@\[\].*#/;
 exports.DocsUrl = "https://docs.botforge.org/";
 exports.Languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"];
 exports.FunctionsStorageKey = "forgevsc.functionsCache.v1";
+exports.EventsStorageKey = "forgevsc.eventsCache.v1";
 exports.GuidesStorageKey = "forgevsc.guidesCache.v1";
 exports.OperatorInfo = {
     "!": {
@@ -137,6 +144,13 @@ exports.ConditionOperatorInfo = {
  */
 async function activate(ctx) {
     Context = ctx;
+    // temp old storage cleanup
+    if (Context.globalState.get(exports.FunctionsStorageKey)) {
+        await Context.globalState.update(exports.FunctionsStorageKey, undefined);
+    }
+    if (Context.globalState.get(exports.GuidesStorageKey)) {
+        await Context.globalState.update(exports.GuidesStorageKey, undefined);
+    }
     const config = await (0, _1.loadExtensionConfig)();
     isEnabled = isWorkspaceEnabled();
     metadataCacheKey = buildCacheKey(await getForgePackages(), config.additionalPackages, config.customFunctionPaths);
@@ -182,7 +196,8 @@ async function initialize(ctx) {
     (0, _1.registerGuidePreview)(ctx);
     (0, _1.registerGuidesView)(ctx);
     (0, _1.registerDecorations)(ctx);
-    (0, _1.registerHover)(ctx);
+    (0, _1.registerFunctionHover)(ctx);
+    (0, _1.registerEventHover)(ctx);
     (0, _1.registerFolding)(ctx);
     (0, _1.registerAutocompletion)(ctx);
     (0, _1.registerSignatureHelp)(ctx);
@@ -298,16 +313,29 @@ function buildCacheKey(installed, additional = [], customPaths) {
     });
 }
 /**
+ * Returns the path for a cache file.
+ * @param storageKey The storage key.
+ */
+function getCacheUri(storageKey) {
+    return vscode.Uri.joinPath(Context.globalStorageUri, `${storageKey}.json`);
+}
+/**
  * Reads the metadata from cache.
  * @param storageKey The storage key.
  * @param key The cache key.
- * @returns
  */
 async function readMetadataCache(storageKey, key) {
-    const data = Context.globalState.get(storageKey);
-    if (!data || data.version !== 1 || data.key !== key)
+    try {
+        const uri = getCacheUri(storageKey);
+        const raw = await vscode.workspace.fs.readFile(uri);
+        const data = JSON.parse(new TextDecoder().decode(raw));
+        if (!data || data.version !== 1 || data.key !== key)
+            return null;
+        return data.metadata;
+    }
+    catch {
         return null;
-    return data.metadata;
+    }
 }
 /**
  * Writes the metadata to cache.
@@ -322,14 +350,20 @@ async function writeMetadataCache(storageKey, key, data) {
         timestamp: Date.now(),
         metadata: data
     };
-    await Context.globalState.update(storageKey, payload);
+    await vscode.workspace.fs.createDirectory(Context.globalStorageUri);
+    const uri = getCacheUri(storageKey);
+    const json = new TextEncoder().encode(JSON.stringify(payload));
+    await vscode.workspace.fs.writeFile(uri, json);
 }
 /**
  * Clears the metadata from cache.
  * @param storageKey The storage key.
  */
 async function clearMetadataCache(storageKey) {
-    await Context.globalState.update(storageKey, undefined);
+    try {
+        await vscode.workspace.fs.delete(getCacheUri(storageKey));
+    }
+    catch { }
 }
 /**
  * Checks whether the current workspace is enabled.
@@ -520,11 +554,24 @@ function resolveAdditionalPackage(input) {
 /**
  * Fetches the functions metadata from a repo.
  * @param source The package source.
- * @returns
  */
-async function fetchMetadata(source) {
+async function fetchFunctionMetadata(source) {
     const url = `https://raw.githubusercontent.com/${source.repo}/${source.branch}/metadata/functions.json`;
     const res = await fetch(url).catch(() => undefined);
+    if (!res?.ok)
+        return null;
+    const data = await res.json();
+    return data.map((x) => ({ ...x, source }));
+}
+/**
+ * Fetches the events metadata from a repo.
+ * @param source The package source.
+ */
+async function fetchEventMetadata(source) {
+    const url = `https://raw.githubusercontent.com/${source.repo}/${source.branch}/metadata/events.json`;
+    const res = await fetch(url).catch(() => undefined);
+    if (res?.status === 404)
+        return [];
     if (!res?.ok)
         return null;
     const data = await res.json();
@@ -549,7 +596,6 @@ function overwriteNative(native, custom) {
 /**
  * Fetches all functions from metadata.
  * @param force Whether to force fetching.
- * @returns
  */
 async function fetchFunctions(force = false) {
     const folders = vscode.workspace.workspaceFolders;
@@ -601,7 +647,7 @@ async function fetchFunctions(force = false) {
         }
         catch { }
         if (!handled) {
-            const data = await fetchMetadata(pkgSource);
+            const data = await fetchFunctionMetadata(pkgSource);
             if (data) {
                 extensionFunctions.push(...data);
                 fetched.add(pkgName);
@@ -615,7 +661,7 @@ async function fetchFunctions(force = false) {
         }
     }
     for (const source of uniqueAdditional) {
-        const data = await fetchMetadata(source);
+        const data = await fetchFunctionMetadata(source);
         if (data) {
             extensionFunctions.push(...data);
             fetched.add(source.label);
@@ -631,7 +677,7 @@ async function fetchFunctions(force = false) {
     const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def));
     let main = [];
     if ((!hasDefaultInstalled && !hasDefaultAdditional) || fetchMain) {
-        const data = await fetchMetadata(def);
+        const data = await fetchFunctionMetadata(def);
         if (data) {
             main = data;
             fetched.add(def.label);
@@ -648,7 +694,7 @@ async function fetchFunctions(force = false) {
     if (customFunctionPaths.length)
         exports.Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`);
     if (failed) {
-        const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
+        const text = `Fetching function metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
         exports.Logger.error(text);
         vscode.window.showErrorMessage(text);
     }
@@ -659,7 +705,6 @@ async function fetchFunctions(force = false) {
 /**
  * Returns all cached functions.
  * @param force Whether to force fetching.
- * @returns
  */
 async function getFunctions(force = false) {
     if (functions && !force)
@@ -674,6 +719,131 @@ async function getFunctions(force = false) {
         });
     }
     return functionsPromise;
+}
+/**
+ * Fetches all events from metadata.
+ * @param force Whether to force fetching.
+ */
+async function fetchEvents(force = false) {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders?.length)
+        return [];
+    const { additionalPackages } = (0, _1.getExtensionConfig)();
+    const root = folders[0].uri;
+    const rawInstalled = await getForgePackages();
+    const rawAdditional = additionalPackages?.filter(Boolean) ?? [];
+    let failedFetch = [];
+    const def = buildPackage("tryforge/ForgeScript", "main", "@tryforge/forgescript");
+    const getId = (source) => getPackageId(source);
+    const installed = (await Promise.all(rawInstalled.map(async (pkg) => {
+        const source = await resolveInstalledPackage(root, pkg);
+        if (!source && pkg.name !== def.label)
+            failedFetch.push(pkg.name);
+        return source;
+    }))).filter((x) => !!x);
+    const additional = rawAdditional.map((input) => {
+        const source = resolveAdditionalPackage(input);
+        if (!source && input !== def.label)
+            failedFetch.push(input);
+        return source;
+    }).filter((x) => !!x);
+    const uniqueAdditional = [...new Map(additional.map((source) => [getId(source), source])).values()];
+    const overridden = new Set(uniqueAdditional.map(getId));
+    const uniqueInstalled = installed.filter((source) => !overridden.has(getId(source)));
+    const cacheKey = buildCacheKey(rawInstalled, rawAdditional);
+    if (!force) {
+        const cached = await readMetadataCache(exports.EventsStorageKey, cacheKey);
+        if (cached) {
+            exports.Logger.info(`Loaded cached metadata from ${cached.length} events.`);
+            return cached;
+        }
+    }
+    let extensionEvents = [];
+    let fetched = new Set();
+    let fetchMain = false;
+    for (const pkgSource of uniqueInstalled) {
+        const pkgName = pkgSource.label;
+        let handled = false;
+        try {
+            const localMetaUri = vscode.Uri.joinPath(root, "node_modules", pkgName, "metadata", "events.json");
+            const data = await vscode.workspace.fs.readFile(localMetaUri);
+            const json = JSON.parse(new TextDecoder().decode(data));
+            extensionEvents.push(...json.map((x) => ({ ...x, source: pkgSource })));
+            fetched.add(pkgName);
+            handled = true;
+        }
+        catch { }
+        if (!handled) {
+            const data = await fetchEventMetadata(pkgSource);
+            if (data) {
+                extensionEvents.push(...data);
+                if (data.length)
+                    fetched.add(pkgName);
+            }
+            else {
+                if (pkgName !== def.label)
+                    failedFetch.push(pkgName);
+                else
+                    fetchMain = true;
+            }
+        }
+    }
+    for (const source of uniqueAdditional) {
+        const data = await fetchEventMetadata(source);
+        if (data) {
+            extensionEvents.push(...data);
+            if (data.length)
+                fetched.add(source.label);
+        }
+        else {
+            if (getId(source) !== getId(def))
+                failedFetch.push(source.label);
+            else
+                fetchMain = true;
+        }
+    }
+    const hasDefaultInstalled = uniqueInstalled.some((x) => getId(x) === getId(def));
+    const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def));
+    let main = [];
+    if ((!hasDefaultInstalled && !hasDefaultAdditional) || fetchMain) {
+        const data = await fetchEventMetadata(def);
+        if (data) {
+            main = data;
+            fetched.add(def.label);
+        }
+        else
+            failedFetch.unshift(def.label);
+    }
+    const metadata = [...main, ...extensionEvents];
+    failedFetch = [...new Set(failedFetch)];
+    const failed = failedFetch.length;
+    const count = fetched.size;
+    exports.Logger.info(`Fetched metadata from ${metadata.length} events across ${count} package${count === 1 ? "" : "s"}. (${Array.from(fetched).join(", ")})`);
+    if (failed) {
+        const text = `Fetching event metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
+        exports.Logger.error(text);
+        vscode.window.showErrorMessage(text);
+    }
+    await writeMetadataCache(exports.EventsStorageKey, cacheKey, metadata);
+    return metadata;
+}
+/**
+ * Returns all cached events.
+ * @param force Whether to force fetching.
+ */
+async function getEvents(force = false) {
+    if (events && !force)
+        return events;
+    if (!eventsPromise) {
+        eventsPromise = (async () => {
+            const res = await fetchEvents(force);
+            events = res;
+            return res;
+        })().finally(() => {
+            eventsPromise = null;
+        });
+    }
+    return eventsPromise;
 }
 /**
  * Fetches all guides from metadata.
@@ -810,7 +980,7 @@ function generateUsage(fn, withTypes = false) {
  * @param fn The function metadata.
  * @returns
  */
-async function buildSourceURL(fn) {
+async function buildFunctionURL(fn) {
     const { source, category } = fn;
     if (!source)
         return null;
@@ -820,6 +990,22 @@ async function buildSourceURL(fn) {
     if (paths)
         path = paths.functions;
     return `https://github.com/${repo}/blob/${branch}/${path}${category ? `/${category}` : ""}/${fn.name.replace("$", "")}.ts`;
+}
+/**
+ * Builds the source URL for events.
+ * @param event The event metadata.
+ * @returns
+ */
+async function buildEventURL(event) {
+    const { source } = event;
+    if (!source)
+        return null;
+    const { repo, branch } = source;
+    let path = "src/events";
+    const paths = await getPaths(source);
+    if (paths?.events)
+        path = paths.events;
+    return `https://github.com/${repo}/blob/${branch}/${path}/${event.name}.ts`;
 }
 /**
  * Finds a function by its name.
@@ -850,6 +1036,14 @@ async function findFunction(name, loose = false) {
             return { fn, matchedText: prefix + raw };
     }
     return null;
+}
+/**
+ * Finds multiple events by its name.
+ * @param name The event name.
+ */
+async function findEvents(name) {
+    const all = await getEvents();
+    return all.filter((x) => x.name === name);
 }
 /**
  * Validates the operator prefix order from the input.

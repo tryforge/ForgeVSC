@@ -153,6 +153,11 @@ function registerCommands(ctx) {
         await (0, _1.getFunctions)(true);
         vscode.window.showInformationMessage(vscode.l10n.t("Successfully fetched function metadata!"));
     }), 
+    // Reload Event Metadata
+    vscode.commands.registerCommand("forgevsc.reloadEventMetadata", async () => {
+        await (0, _1.getEvents)(true);
+        vscode.window.showInformationMessage(vscode.l10n.t("Successfully fetched event metadata!"));
+    }), 
     // Create Guide
     vscode.commands.registerCommand("forgevsc.createGuide", async () => {
         await vscode.env.openExternal(vscode.Uri.parse(_1.DocsUrl));

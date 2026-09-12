@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "%extension.description%",
   "publisher": "tryforge",
-  "version": "1.2.10",
+  "version": "1.2.11",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "browser": "./out/web/extension.js",
@@ -66,6 +66,12 @@
       {
         "command": "forgevsc.reloadFunctionMetadata",
         "title": "%command.reloadFunctionMetadata.title%",
+        "category": "ForgeVSC",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "forgevsc.reloadEventMetadata",
+        "title": "%command.reloadEventMetadata.title%",
         "category": "ForgeVSC",
         "icon": "$(refresh)"
       },
@@ -410,15 +416,15 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^26.2.0",
     "@types/vscode": "^1.105.0",
-    "@typescript-eslint/eslint-plugin": "^8.67.0",
-    "@typescript-eslint/parser": "^8.67.0",
+    "@typescript-eslint/eslint-plugin": "^8.70.0",
+    "@typescript-eslint/parser": "^8.70.0",
     "@vscode/l10n-dev": "^0.0.35",
     "@vscode/test-web": "^0.0.81",
     "@vscode/vsce": "^3.9.2",
     "dotenv-cli": "^11.0.0",
     "esbuild": "^0.28.2",
-    "eslint": "^10.8.1",
-    "ovsx": "^1.1.1"
+    "eslint": "^10.9.1",
+    "ovsx": "^1.2.0"
   },
   "dependencies": {
     "@xhayper/discord-rpc": "^1.3.4",

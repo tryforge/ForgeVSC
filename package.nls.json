@@ -2,6 +2,7 @@
   "extension.description": "Official Visual Studio Code Extension for ForgeScript.",
   "command.createConfig.title": "Create config file (.forgevsc.json)",
   "command.reloadFunctionMetadata.title": "Fetch function metadata. Use with caution!",
+  "command.reloadEventMetadata.title": "Fetch event metadata. Use with caution!",
   "command.searchGuides.title": "Search Guides",
   "command.reloadGuideMetadata.title": "Refresh Guides",
   "command.openGuide.title": "Open Guide",

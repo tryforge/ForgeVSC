@@ -103,6 +103,14 @@ export interface IMetadataFunction {
     brackets?: boolean
 }
 
+export interface IMetadataEvent {
+    name: string
+    description: string
+    version?: string
+    intents?: string[]
+    deprecated?: boolean
+}
+
 export interface IForgeFunctionParam {
     name: string
     type?: ArgType | keyof typeof ArgType

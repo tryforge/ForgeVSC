@@ -76,6 +76,7 @@
   "Config file overwritten successfully!": "Config file overwritten successfully!",
   "Successfully created config file!": "Successfully created config file!",
   "Successfully fetched function metadata!": "Successfully fetched function metadata!",
+  "Successfully fetched event metadata!": "Successfully fetched event metadata!",
   "Deprecated": "Deprecated",
   "Experimental": "Experimental",
   "since": "since"
