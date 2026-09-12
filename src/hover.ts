@@ -1,5 +1,5 @@
 import {
-    buildSourceURL,
+    buildFunctionURL,
     ConditionOperatorInfo,
     findConditionOperator,
     findFunction,
@@ -22,7 +22,7 @@ import * as vscode from "vscode"
  * Registers the hover info for functions and operators.
  * @param ctx The extension context.
  */
-export function registerHover(ctx: vscode.ExtensionContext) {
+export function registerFunctionHover(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
         vscode.languages.registerHoverProvider(Languages, {
             async provideHover(document, position) {
@@ -136,28 +136,29 @@ export function registerHover(ctx: vscode.ExtensionContext) {
 
                         const md = new vscode.MarkdownString()
                         md.appendCodeblock(
-                            `${(brackets || hasBracket) ? generateUsage(fn) : name}${output ? `: ` + (output as Array<any>).join(", ") : ""}\n`
+                            ((brackets || hasBracket) ? generateUsage(fn) : name) + (output ? `: ${output.join(", ")}` : "")
                         )
                         md.appendText(`${description}\n`)
                         if (version) {
                             const links: string[] = []
-                            const sourceUrl = await buildSourceURL(fn)
-                            if (sourceUrl) links.push(`[${vscode.l10n.t("Source")}](${sourceUrl})`)
+                            const sourceUrl = await buildFunctionURL(fn)
+                            if (sourceUrl) links.push(`[$(github) ${vscode.l10n.t("Source")}](${sourceUrl})`)
                             const guide = await findGuide({ targetType: "function", targetName: name })
                             const pkgName = guide?.packageName || getPackageName(source)
-                            if (pkgName) links.push(`[${vscode.l10n.t("Documentation")}](https://docs.botforge.org/function/${name}?p=${pkgName})`)
+                            if (pkgName) links.push(`[$(extensions) ${vscode.l10n.t("Documentation")}](https://docs.botforge.org/function/${name}?p=${pkgName})`)
                             if (guide) {
                                 const cmd = vscode.Uri.parse(
                                     `command:forgevsc.previewGuide?${encodeURIComponent(JSON.stringify([guide.id]))}`
                                 )
-                                links.push(`[${vscode.l10n.t("Guide")}](${cmd})`)
+                                links.push(`[$(book) ${vscode.l10n.t("Guide")}](${cmd})`)
                             }
                             md.appendMarkdown(`---\n`)
                             md.appendMarkdown(
-                                `##### ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? " | " + links.join(" | ") : "")
+                                `##### $(package) ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? ` | ${links.join(" | ")}` : "")
                             )
                         }
                         md.isTrusted = true
+                        md.supportThemeIcons = true
 
                         const hoverEnd = Math.min(end, start + matchedText.length)
                         const range = new vscode.Range(position.line, start, position.line, hoverEnd)

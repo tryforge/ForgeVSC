@@ -221,9 +221,13 @@ function readMetadata(obj: ts.ObjectLiteralExpression) {
         else if (key === "description") fn.description = getString(prop.initializer)
         else if (key === "deprecated") fn.deprecated = getBoolean(prop.initializer)
         else if (key === "experimental") fn.experimental = getBoolean(prop.initializer)
+        else if (key === "firstParamCondition") fn.firstParamCondition = getBoolean(prop.initializer)
     }
 
     if (!fn.name) return null
+    if (fn.firstParamCondition && fn.args?.length) {
+        fn.args[0] = { ...fn.args[0], condition: true }
+    }
     if (fn.unwrap === undefined) fn.unwrap = (!!fn.args?.length && !fn.firstParamCondition)
     if (fn.brackets === undefined) fn.brackets = (fn.args?.length ? true : undefined)
     if (fn.description === undefined) fn.description = "Custom function"

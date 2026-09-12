@@ -1,5 +1,18 @@
 # Change Log
 
+## v1.2.11 <sub>(September 12, 2026)</sub>
+
+### Added
+- Added hover cards for event types
+- Added theme icons in hover cards
+- Added command for fetching event metadata
+
+### Changed
+- Moved metadata cache to disk-based storage to reduce extension state size
+
+### Fixed
+- Fixed `firstParamCondition` property on custom functions being ignored
+
 ## v1.2.10 <sub>(August 16, 2026)</sub>
 
 ### Fixed

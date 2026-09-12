@@ -67,7 +67,7 @@ var require_inspector = __commonJS({
 // node_modules/typescript/lib/typescript.js
 var require_typescript = __commonJS({
   "node_modules/typescript/lib/typescript.js"(exports, module2) {
-    var ts2 = {};
+    var ts3 = {};
     ((module3) => {
       "use strict";
       var __defProp2 = Object.defineProperty;
@@ -211586,9 +211586,9 @@ Additional information: BADCLIENT: Bad error code, ${badCode} not found in range
         };
       }
     })({ get exports() {
-      return ts2;
+      return ts3;
     }, set exports(v) {
-      ts2 = v;
+      ts3 = v;
       if (typeof module2 !== "undefined" && module2.exports) {
         module2.exports = v;
       }
@@ -211602,6 +211602,7 @@ __export(extension_exports, {
   ConditionOperatorInfo: () => ConditionOperatorInfo,
   ConditionOperatorRegex: () => ConditionOperatorRegex,
   DocsUrl: () => DocsUrl,
+  EventsStorageKey: () => EventsStorageKey,
   FunctionArgumentRegex: () => FunctionArgumentRegex,
   FunctionAutocompleteRegex: () => FunctionAutocompleteRegex,
   FunctionHeadRegex: () => FunctionHeadRegex,
@@ -211622,18 +211623,22 @@ __export(extension_exports, {
   OperatorInfo: () => OperatorInfo,
   activate: () => activate,
   bracketDepth: () => bracketDepth,
+  buildEventURL: () => buildEventURL,
+  buildFunctionURL: () => buildFunctionURL,
   buildPackage: () => buildPackage,
-  buildSourceURL: () => buildSourceURL,
   clearMetadataCache: () => clearMetadataCache,
   cloneRegex: () => cloneRegex,
   deactivate: () => deactivate,
+  fetchEvents: () => fetchEvents,
   fetchFunctions: () => fetchFunctions,
   fetchGuides: () => fetchGuides,
   findConditionOperator: () => findConditionOperator,
+  findEvents: () => findEvents,
   findFunction: () => findFunction,
   findMatchingBracket: () => findMatchingBracket,
   findOpeningBracket: () => findOpeningBracket,
   generateUsage: () => generateUsage,
+  getEvents: () => getEvents,
   getForgePackages: () => getForgePackages,
   getFunctions: () => getFunctions,
   getGuides: () => getGuides,
@@ -211651,131 +211656,11 @@ __export(extension_exports, {
 });
 module.exports = __toCommonJS(extension_exports);
 
-// src/diagnostics.ts
-var vscode = __toESM(require("vscode"));
-async function validateDocument(document, collection) {
-  const config = getExtensionConfig();
-  if (!document || !Languages.includes(document.languageId) || !config.features.diagnostics) return;
-  const diagnostics = [];
-  const text = document.getText();
-  const ScanRegex = cloneRegex(FunctionScanRegex);
-  ScanRegex.lastIndex = 0;
-  let match;
-  while (match = ScanRegex.exec(text)) {
-    const index = match.index;
-    const start = document.positionAt(index);
-    if (!locateCodeBlock(document, start) || isEscaped(text, index) || isIgnored(text, index)) continue;
-    const full = match[0];
-    const hasOpening = full.endsWith("[");
-    const base = hasOpening ? full.slice(0, -1) : full;
-    const found = await findFunction(base, true);
-    if (!found) continue;
-    const { fn, matchedText } = found;
-    const end = document.positionAt(index + matchedText.length);
-    if (fn.deprecated) {
-      const hint = new vscode.Diagnostic(
-        new vscode.Range(start, end),
-        vscode.l10n.t("This function is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available."),
-        vscode.DiagnosticSeverity.Hint
-      );
-      const warning = new vscode.Diagnostic(
-        new vscode.Range(start, end),
-        vscode.l10n.t("Function `{0}` is deprecated. Use an available alternative instead", fn.name),
-        vscode.DiagnosticSeverity.Warning
-      );
-      warning.tags = [vscode.DiagnosticTag.Deprecated];
-      diagnostics.push(hint, warning);
-    }
-    if (fn.experimental) {
-      const diagnostic = new vscode.Diagnostic(
-        new vscode.Range(start, end),
-        vscode.l10n.t("This is an experimental function. It may not work as expected and is not guaranteed to be stable. Expect bugs, changes, or removal."),
-        vscode.DiagnosticSeverity.Hint
-      );
-      diagnostics.push(diagnostic);
-    }
-    const { isInvalidOrder, rawPrefix } = validateOperatorPrefix(base);
-    if (isInvalidOrder) {
-      const offset = rawPrefix.length;
-      const opStart = document.positionAt(index + 1);
-      const opEnd = document.positionAt(index + offset);
-      diagnostics.push(new vscode.Diagnostic(
-        new vscode.Range(opStart, opEnd),
-        vscode.l10n.t("Function `{0}` has invalid operator order", fn.name),
-        vscode.DiagnosticSeverity.Error
-      ));
-      continue;
-    }
-    const strictPrefix = base.match(FunctionPrefixRegex)?.[0] ?? "$";
-    if (rawPrefix.length > strictPrefix.length) {
-      const extraStart = document.positionAt(index + strictPrefix.length);
-      const extraEnd = document.positionAt(index + rawPrefix.length);
-      diagnostics.push(new vscode.Diagnostic(
-        new vscode.Range(extraStart, extraEnd),
-        vscode.l10n.t("Function `{0}` has duplicated operators supplied", fn.name),
-        vscode.DiagnosticSeverity.Error
-      ));
-      continue;
-    }
-    const isAttached = matchedText.length === base.length && matchedText.toLowerCase() === base.toLowerCase();
-    const hasOpeningAttached = hasOpening && isAttached;
-    const args = fn.args ?? [];
-    const acceptsArgs = fn.brackets !== void 0 && args.length > 0;
-    const requiresArgs = fn.brackets;
-    const range = new vscode.Range(start, end);
-    if (requiresArgs && !hasOpeningAttached) {
-      diagnostics.push(new vscode.Diagnostic(
-        range,
-        vscode.l10n.t("Function `{0}` requires brackets", fn.name),
-        vscode.DiagnosticSeverity.Error
-      ));
-      continue;
-    }
-    if (!isAttached || args.length === 0) continue;
-    if (acceptsArgs && hasOpening) {
-      const openIndex = index + full.length - 1;
-      const closeIndex = findMatchingBracket(text, openIndex);
-      if (closeIndex === -1) {
-        diagnostics.push(new vscode.Diagnostic(
-          range,
-          vscode.l10n.t("Function `{0}` is missing brace closure", fn.name),
-          vscode.DiagnosticSeverity.Error
-        ));
-        continue;
-      }
-      const argString = text.slice(openIndex + 1, closeIndex);
-      const providedArgs = splitArgs(argString);
-      for (let i = 0; i < args.length; i++) {
-        const expected = args[i];
-        const provided = providedArgs[i];
-        if (expected.required && provided === void 0) {
-          const argStart = document.positionAt(openIndex + 1);
-          const argEnd = document.positionAt(closeIndex);
-          diagnostics.push(new vscode.Diagnostic(
-            new vscode.Range(argStart, argEnd),
-            vscode.l10n.t("Function `{0}` is missing argument `{1}`", fn.name, expected.name),
-            vscode.DiagnosticSeverity.Error
-          ));
-        }
-      }
-      if (providedArgs.length > args.length && !args.at(-1)?.rest) {
-        const end2 = document.positionAt(closeIndex + 1);
-        diagnostics.push(new vscode.Diagnostic(
-          new vscode.Range(start, end2),
-          args.length === 1 ? vscode.l10n.t("Function `{0}` expects 1 argument at most, received {1}", fn.name, providedArgs.length) : vscode.l10n.t("Function `{0}` expects {1} arguments at most, received {2}", fn.name, args.length, providedArgs.length),
-          vscode.DiagnosticSeverity.Error
-        ));
-      }
-    }
-  }
-  collection.set(document.uri, diagnostics);
-}
-
 // src/autocompletion.ts
-var vscode2 = __toESM(require("vscode"));
+var vscode = __toESM(require("vscode"));
 function registerAutocompletion(ctx) {
   ctx.subscriptions.push(
-    vscode2.languages.registerCompletionItemProvider(Languages, {
+    vscode.languages.registerCompletionItemProvider(Languages, {
       async provideCompletionItems(document, position) {
         const config = getExtensionConfig();
         if (!locateCodeBlock(document, position) || !config.features.autocompletion) return;
@@ -211791,20 +211676,20 @@ function registerAutocompletion(ctx) {
             const items = functions2.flatMap((fn) => {
               const names = [fn.name, ...fn.aliases ?? []];
               return names.map((name) => {
-                const item = new vscode2.CompletionItem(name, vscode2.CompletionItemKind.Function);
+                const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function);
                 item.insertText = name;
                 item.detail = generateUsage(fn);
-                item.documentation = new vscode2.MarkdownString(
-                  `${(fn.deprecated ? `\u{1F6D1} **${vscode2.l10n.t("Deprecated")}**
-` : fn.experimental ? `\u26A0\uFE0F **${vscode2.l10n.t("Experimental")}**
+                item.documentation = new vscode.MarkdownString(
+                  `${(fn.deprecated ? `\u{1F6D1} **${vscode.l10n.t("Deprecated")}**
+` : fn.experimental ? `\u26A0\uFE0F **${vscode.l10n.t("Experimental")}**
 ` : "") + "\n" + fn.description}${fn.version ? `
 
-*@${vscode2.l10n.t("since")}* \u2014 \`${getPackageName(fn.source) ?? ""} v${fn.version}\`` : ""}`
+*@${vscode.l10n.t("since")}* \u2014 \`${getPackageName(fn.source) ?? ""} v${fn.version}\`` : ""}`
                 );
-                item.kind = vscode2.CompletionItemKind.Function;
-                if (fn.deprecated) item.tags = [vscode2.CompletionItemTag.Deprecated];
+                item.kind = vscode.CompletionItemKind.Function;
+                if (fn.deprecated) item.tags = [vscode.CompletionItemTag.Deprecated];
                 const startPos = position.translate(0, -match[0].length);
-                item.range = new vscode2.Range(startPos, position);
+                item.range = new vscode.Range(startPos, position);
                 return item;
               });
             });
@@ -211833,10 +211718,10 @@ function registerAutocompletion(ctx) {
               if (enumValues) {
                 const currentValue = parts[activeIndex]?.value ?? "";
                 return enumValues.map((val) => {
-                  const item = new vscode2.CompletionItem(val, vscode2.CompletionItemKind.EnumMember);
+                  const item = new vscode.CompletionItem(val, vscode.CompletionItemKind.EnumMember);
                   const start = position.translate(0, -currentValue.length);
                   item.insertText = val;
-                  item.range = new vscode2.Range(start, position);
+                  item.range = new vscode.Range(start, position);
                   return item;
                 });
               }
@@ -211849,119 +211734,315 @@ function registerAutocompletion(ctx) {
   );
 }
 
-// src/signature.ts
-var vscode3 = __toESM(require("vscode"));
-function registerSignatureHelp(ctx) {
+// src/commands.ts
+var vscode2 = __toESM(require("vscode"));
+function registerDefaultCommands(ctx) {
   ctx.subscriptions.push(
-    vscode3.languages.registerSignatureHelpProvider(
-      Languages,
-      new ForgeSignatureHelpProvider(),
-      "[",
-      ";",
-      "]"
-    )
-  );
-}
-var ForgeSignatureHelpProvider = class {
-  async provideSignatureHelp(document, position) {
-    const code = locateCodeBlock(document, position);
-    const config = getExtensionConfig();
-    if (!code || !config.features.signatureHelp || isIgnored(document.getText(), document.offsetAt(position)))
-      return null;
-    const text = code.slice;
-    const openIndex = findOpeningBracket(text);
-    if (openIndex === -1) return null;
-    const beforeBracket = text.slice(0, openIndex);
-    const match = beforeBracket.match(new RegExp(FunctionRegex.source + "$"));
-    if (!match) return null;
-    const startIndex = beforeBracket.lastIndexOf("$");
-    if (isEscaped(beforeBracket, startIndex)) return null;
-    const typedToken = match[0];
-    const found = await findFunction(typedToken);
-    if (!found) return null;
-    const { fn, matchedText } = found;
-    if (matchedText.length !== typedToken.length) return null;
-    const argsTyped = text.slice(openIndex + 1);
-    const args = fn.args ?? [];
-    if (args.length === 0) return null;
-    const help = new vscode3.SignatureHelp();
-    const sig = new vscode3.SignatureInformation(generateUsage(fn, true));
-    sig.documentation = fn.description;
-    sig.parameters = args.map((arg) => {
-      const param = new vscode3.ParameterInformation(
-        `${arg.rest ? "..." : ""}${arg.name}${arg.required ? "" : "?"}: ${arg.type}`,
-        new vscode3.MarkdownString(`${arg.description}${arg.condition ? `
-
-${vscode3.l10n.t("*(Conditional)*")}` : ""}
-
----`)
+    // Open Extension Log
+    vscode2.commands.registerCommand("forgevsc.openExtensionLog", () => {
+      Logger.show();
+    }),
+    // Open Settings (Backend)
+    vscode2.commands.registerCommand("forgevsc.openSettings", async (setting, user = true) => {
+      await vscode2.commands.executeCommand(
+        "workbench.action." + (user ? "openSettings" : "openWorkspaceSettings"),
+        setting?.trim() || "@ext:tryforge.forgevsc"
       );
-      return param;
-    });
-    const parts = splitArgs(argsTyped);
-    const typedCount = argsTyped.trim() === "" ? 0 : parts.length;
-    const hasRest = args.at(-1)?.rest === true;
-    if (!hasRest && typedCount > args.length) return null;
-    const activeParam = Math.max(typedCount - 1, 0);
-    help.signatures = [sig];
-    help.activeSignature = 0;
-    help.activeParameter = Math.min(activeParam, args.length - 1);
-    return help;
-  }
-};
-
-// src/suggestions.ts
-var vscode4 = __toESM(require("vscode"));
-function registerSuggestions(ctx) {
-  ctx.subscriptions.push(
-    vscode4.languages.registerInlineCompletionItemProvider(
-      Languages,
-      new ForgeInlineCompletionItemProvider()
-    )
+    }),
+    // Open Extension Settings (UI)
+    vscode2.commands.registerCommand("forgevsc.openExtensionSettings", async () => {
+      const items = [];
+      if (vscode2.workspace.workspaceFolders?.length) {
+        items.push({
+          label: vscode2.l10n.t("$(folder) Workspace Settings"),
+          detail: vscode2.workspace.name || vscode2.l10n.t("Workspace"),
+          description: vscode2.l10n.t("Folder"),
+          target: "workbench.action.openWorkspaceSettings"
+        });
+      }
+      items.push({
+        label: vscode2.l10n.t("$(account) User Settings"),
+        description: vscode2.l10n.t("Global"),
+        target: "workbench.action.openSettings"
+      });
+      const choice = await vscode2.window.showQuickPick(items, {
+        placeHolder: vscode2.l10n.t("Which extension settings would you like to open?")
+      });
+      if (!choice) return;
+      await vscode2.commands.executeCommand(choice.target, "@ext:tryforge.forgevsc");
+    })
   );
 }
-var ForgeInlineCompletionItemProvider = class {
-  async provideInlineCompletionItems(document, position) {
-    const code = locateCodeBlock(document, position);
-    const config = getExtensionConfig();
-    if (!code || !config.features.suggestions) return;
-    const text = document.getText();
-    if (isIgnored(text, document.offsetAt(position))) return;
-    const slice = code.slice.replace(/[ \t\r]+$/g, "");
-    const nextChar = document.getText(new vscode4.Range(position, position.translate(0, 1)));
-    if (nextChar !== "[") {
-      const match = slice.match(FunctionHeadRegex);
-      if (match) {
-        const startIndex = slice.lastIndexOf("$");
-        if (startIndex !== -1 && isEscaped(slice, startIndex)) return null;
-        const found = await findFunction(match[1]);
-        if (found?.fn.brackets !== void 0) {
-          return [new vscode4.InlineCompletionItem("[]", new vscode4.Range(position, position))];
-        }
+function registerCommands(ctx) {
+  ctx.subscriptions.push(
+    // Create Config
+    vscode2.commands.registerCommand("forgevsc.createConfig", async () => {
+      const btnOpenSettings = vscode2.l10n.t("Open Settings");
+      const action = await vscode2.window.showWarningMessage(
+        vscode2.l10n.t("The custom configuration file is deprecated and maintained only for legacy compatibility. Please use extension settings instead."),
+        btnOpenSettings,
+        vscode2.l10n.t("Dismiss")
+      );
+      if (action === btnOpenSettings) {
+        await vscode2.commands.executeCommand("forgevsc.openSettings", void 0, false);
+        return;
       }
-    }
-    if (nextChar !== "]") {
-      const openIndex = findOpeningBracket(code.slice);
-      if (openIndex !== -1) {
-        const head = code.slice.slice(0, openIndex);
-        const index = head.lastIndexOf("$");
-        if (index !== -1 && isEscaped(head, index)) return null;
-        if (FunctionHeadRegex.test(head)) {
-          const block = text.slice(code.start, code.end);
-          const close = findMatchingBracket(block, openIndex);
-          const missingClosing = bracketDepth(block) > 0;
-          if (close === -1 || missingClosing) {
-            return [new vscode4.InlineCompletionItem("]", new vscode4.Range(position, position))];
+      const folders = vscode2.workspace.workspaceFolders;
+      if (!folders?.length) {
+        vscode2.window.showErrorMessage(vscode2.l10n.t("Open a workspace folder first."));
+        return;
+      }
+      const root = folders[0].uri;
+      const path = await findExtensionConfig(root);
+      let fileName = ".forgevsc.json";
+      let uri;
+      if (path) {
+        const btnOpen = vscode2.l10n.t("Open");
+        const btnOverwrite = vscode2.l10n.t("Overwrite");
+        const action2 = await vscode2.window.showWarningMessage(
+          vscode2.l10n.t("Extension config file already exists."),
+          btnOpen,
+          btnOverwrite,
+          vscode2.l10n.t("Cancel")
+        );
+        if (action2 === btnOpen) {
+          const doc2 = await vscode2.workspace.openTextDocument(path);
+          await vscode2.window.showTextDocument(doc2);
+          return;
+        }
+        if (action2 !== btnOverwrite) return;
+        uri = path;
+      } else {
+        const choice = await vscode2.window.showQuickPick(
+          [
+            {
+              label: vscode2.l10n.t("$(root-folder) Workspace Root"),
+              detail: fileName,
+              description: vscode2.l10n.t("Default"),
+              target: vscode2.Uri.joinPath(root, fileName)
+            },
+            {
+              label: vscode2.l10n.t("$(folder) VSCode Folder"),
+              detail: ".vscode/" + fileName,
+              target: vscode2.Uri.joinPath(root, ".vscode", fileName)
+            }
+          ],
+          {
+            placeHolder: vscode2.l10n.t("Where do you want to create the config file?")
+          }
+        );
+        if (!choice) return;
+        uri = choice.target;
+        if (choice.detail.startsWith(".vscode")) {
+          const dir = vscode2.Uri.joinPath(root, ".vscode");
+          try {
+            await vscode2.workspace.fs.createDirectory(dir);
+          } catch {
           }
         }
       }
+      const { enabledWorkspaces, rpc: rpc2, ...Config } = Defaults;
+      const content = JSON.stringify(Config, null, 2) + "\n";
+      const text = new TextEncoder().encode(content);
+      await vscode2.workspace.fs.writeFile(uri, text);
+      const doc = await vscode2.workspace.openTextDocument(uri);
+      await vscode2.window.showTextDocument(doc);
+      vscode2.window.showInformationMessage(
+        path ? vscode2.l10n.t("Config file overwritten successfully!") : vscode2.l10n.t("Successfully created config file!")
+      );
+    }),
+    // Reload Function Metadata
+    vscode2.commands.registerCommand("forgevsc.reloadFunctionMetadata", async () => {
+      await getFunctions(true);
+      vscode2.window.showInformationMessage(vscode2.l10n.t("Successfully fetched function metadata!"));
+    }),
+    // Reload Event Metadata
+    vscode2.commands.registerCommand("forgevsc.reloadEventMetadata", async () => {
+      await getEvents(true);
+      vscode2.window.showInformationMessage(vscode2.l10n.t("Successfully fetched event metadata!"));
+    }),
+    // Create Guide
+    vscode2.commands.registerCommand("forgevsc.createGuide", async () => {
+      await vscode2.env.openExternal(vscode2.Uri.parse(DocsUrl));
+    }),
+    // Reconnect RPC
+    vscode2.commands.registerCommand("forgevsc.reconnectRPC", async () => {
+      await disconnectRPC();
+      const connected = await connectRPC();
+      if (connected) await updateEditorRPC(vscode2.window.activeTextEditor);
+    })
+  );
+}
+
+// src/config.ts
+var vscode3 = __toESM(require("vscode"));
+var Defaults = {
+  enabledWorkspaces: [],
+  customFunctionPaths: [],
+  additionalPackages: [],
+  colors: {
+    function: {
+      name: "#AC75FF",
+      dollar: "#FE7CEB",
+      semicolon: "#C586C0"
+    },
+    arguments: {
+      condition: "#4FC1FF"
+    },
+    operators: {
+      negation: "#4FA3FF",
+      silent: "#FF9F43",
+      count: "#33D17A",
+      countDelimiter: "#76E3A0"
     }
-    return null;
+  },
+  formatting: {
+    function: {
+      style: "normal"
+    }
+  },
+  features: {
+    folding: true,
+    hoverInfo: true,
+    suggestions: true,
+    signatureHelp: true,
+    diagnostics: true,
+    autocompletion: true
+  },
+  rpc: {
+    enabled: true
   }
 };
+var cached = Defaults;
+function getSettingsConfig() {
+  const vs = vscode3.workspace.getConfiguration("forgevsc");
+  return {
+    global: {
+      enabledWorkspaces: vs.get("global.enabledWorkspaces")
+    },
+    workspace: {
+      customFunctionPaths: vs.get("workspace.customFunctionPaths"),
+      additionalPackages: vs.get("workspace.additionalPackages"),
+      colors: {
+        function: {
+          name: vs.get("workspace.colors.function.name"),
+          dollar: vs.get("workspace.colors.function.dollar"),
+          semicolon: vs.get("workspace.colors.function.semicolon")
+        },
+        arguments: {
+          condition: vs.get("workspace.colors.arguments.condition")
+        },
+        operators: {
+          negation: vs.get("workspace.colors.operators.negation"),
+          silent: vs.get("workspace.colors.operators.silent"),
+          count: vs.get("workspace.colors.operators.count"),
+          countDelimiter: vs.get("workspace.colors.operators.countDelimiter")
+        }
+      },
+      formatting: {
+        function: {
+          style: vs.get("workspace.formatting.function.style")
+        }
+      },
+      features: {
+        folding: vs.get("workspace.features.folding"),
+        hoverInfo: vs.get("workspace.features.hoverInfo"),
+        suggestions: vs.get("workspace.features.suggestions"),
+        signatureHelp: vs.get("workspace.features.signatureHelp"),
+        diagnostics: vs.get("workspace.features.diagnostics"),
+        autocompletion: vs.get("workspace.features.autocompletion")
+      },
+      rpc: {
+        enabled: vs.get("workspace.rpc.enabled")
+      }
+    }
+  };
+}
+function getExtensionConfig() {
+  return cached;
+}
+async function findExtensionConfig(root) {
+  const paths2 = [
+    vscode3.Uri.joinPath(root, "forgevsc.json"),
+    vscode3.Uri.joinPath(root, ".forgevsc.json"),
+    vscode3.Uri.joinPath(root, ".vscode", "forgevsc.json"),
+    vscode3.Uri.joinPath(root, ".vscode", ".forgevsc.json")
+  ];
+  for (const uri of paths2) {
+    try {
+      await vscode3.workspace.fs.stat(uri);
+      return uri;
+    } catch {
+    }
+  }
+  return null;
+}
+async function loadExtensionConfig() {
+  const folders = vscode3.workspace.workspaceFolders;
+  const vs = getSettingsConfig();
+  let file = {};
+  if (folders?.length) {
+    const root = folders[0].uri;
+    const uri = await findExtensionConfig(root);
+    if (uri) {
+      try {
+        const raw = await vscode3.workspace.fs.readFile(uri);
+        const text = new TextDecoder().decode(raw);
+        file = JSON.parse(text);
+      } catch {
+      }
+    }
+  }
+  cached = {
+    enabledWorkspaces: vs.global.enabledWorkspaces ?? [],
+    customFunctionPaths: toArray(
+      file.customFunctionPaths ?? vs.workspace.customFunctionPaths ?? Defaults.customFunctionPaths
+    ),
+    additionalPackages: Array.from(/* @__PURE__ */ new Set([
+      ...Defaults.additionalPackages,
+      ...vs.workspace.additionalPackages ?? [],
+      ...file.additionalPackages ?? []
+    ])),
+    colors: {
+      function: {
+        ...Defaults.colors.function,
+        ...vs.workspace.colors?.function ?? {},
+        ...file.colors?.function ?? {}
+      },
+      arguments: {
+        ...Defaults.colors.arguments,
+        ...vs.workspace.colors?.arguments ?? {},
+        ...file.colors?.arguments ?? {}
+      },
+      operators: {
+        ...Defaults.colors.operators,
+        ...vs.workspace.colors?.operators ?? {},
+        ...file.colors?.operators ?? {}
+      }
+    },
+    formatting: {
+      function: {
+        ...Defaults.formatting.function,
+        ...vs.workspace.formatting?.function ?? {}
+      }
+    },
+    features: {
+      folding: file.features?.folding ?? vs.workspace.features?.folding ?? Defaults.features.folding,
+      hoverInfo: file.features?.hoverInfo ?? vs.workspace.features?.hoverInfo ?? Defaults.features.hoverInfo,
+      suggestions: file.features?.suggestions ?? vs.workspace.features?.suggestions ?? Defaults.features.suggestions,
+      signatureHelp: file.features?.signatureHelp ?? vs.workspace.features?.signatureHelp ?? Defaults.features.signatureHelp,
+      diagnostics: file.features?.diagnostics ?? vs.workspace.features?.diagnostics ?? Defaults.features.diagnostics,
+      autocompletion: file.features?.autocompletion ?? vs.workspace.features?.autocompletion ?? Defaults.features.autocompletion
+    },
+    rpc: {
+      enabled: vs.workspace.rpc.enabled ?? Defaults.rpc.enabled
+    }
+  };
+  return cached;
+}
 
 // src/decorations.ts
-var vscode5 = __toESM(require("vscode"));
+var vscode4 = __toESM(require("vscode"));
 var decoFn = null;
 var decoDollar = null;
 var decoSemi = null;
@@ -212022,20 +212103,20 @@ function ensureDecorations() {
   for (const d of [decoFn, decoDollar, decoSemi, decoCond, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
     d?.dispose();
   }
-  decoFn = vscode5.window.createTextEditorDecorationType({
+  decoFn = vscode4.window.createTextEditorDecorationType({
     color: fnColor,
     ...fnStyle
   });
-  decoDollar = vscode5.window.createTextEditorDecorationType({
+  decoDollar = vscode4.window.createTextEditorDecorationType({
     color: dollarColor,
     ...fnStyle
   });
-  decoSemi = vscode5.window.createTextEditorDecorationType({ color: semiColor });
-  decoCond = vscode5.window.createTextEditorDecorationType({ color: condColor });
-  decoOpNeg = vscode5.window.createTextEditorDecorationType({ color: negColor });
-  decoOpSilent = vscode5.window.createTextEditorDecorationType({ color: silentColor });
-  decoOpCount = vscode5.window.createTextEditorDecorationType({ color: countColor });
-  decoOpCountDelim = vscode5.window.createTextEditorDecorationType({ color: countDelimColor });
+  decoSemi = vscode4.window.createTextEditorDecorationType({ color: semiColor });
+  decoCond = vscode4.window.createTextEditorDecorationType({ color: condColor });
+  decoOpNeg = vscode4.window.createTextEditorDecorationType({ color: negColor });
+  decoOpSilent = vscode4.window.createTextEditorDecorationType({ color: silentColor });
+  decoOpCount = vscode4.window.createTextEditorDecorationType({ color: countColor });
+  decoOpCountDelim = vscode4.window.createTextEditorDecorationType({ color: countDelimColor });
 }
 async function applyDecorations(editor) {
   ensureDecorations();
@@ -212070,16 +212151,16 @@ async function applyDecorations(editor) {
     const nameLength = Math.max(matchedText.length - prefixMatch.length, 0);
     if (nameLength <= 0) continue;
     const nameStart = matchIndex + prefixMatch.length;
-    fnRanges.push(new vscode5.Range(doc.positionAt(nameStart), doc.positionAt(nameStart + nameLength)));
-    dollarRanges.push(new vscode5.Range(doc.positionAt(matchIndex), doc.positionAt(matchIndex + 1)));
+    fnRanges.push(new vscode4.Range(doc.positionAt(nameStart), doc.positionAt(nameStart + nameLength)));
+    dollarRanges.push(new vscode4.Range(doc.positionAt(matchIndex), doc.positionAt(matchIndex + 1)));
     const prefix = prefixMatch;
     for (let i = 0; i < prefix.length; i++) {
       const c = prefix[i];
       const abs = matchIndex + i;
       if (c === "!") {
-        opNegRanges.push(new vscode5.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
+        opNegRanges.push(new vscode4.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
       } else if (c === "#") {
-        opSilentRanges.push(new vscode5.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
+        opSilentRanges.push(new vscode4.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
       } else if (c === "@") {
         const j = prefix.indexOf("@[", i);
         const k = j !== -1 ? prefix.indexOf("]", j) : -1;
@@ -212089,11 +212170,11 @@ async function applyDecorations(editor) {
           const hasDelim = k === j + 3;
           if (hasDelim) {
             const delimAbs = absStart + 2;
-            opCountRanges.push(new vscode5.Range(doc.positionAt(absStart), doc.positionAt(absStart + 2)));
-            opCountRanges.push(new vscode5.Range(doc.positionAt(absEnd - 1), doc.positionAt(absEnd)));
-            opCountDelimRanges.push(new vscode5.Range(doc.positionAt(delimAbs), doc.positionAt(delimAbs + 1)));
+            opCountRanges.push(new vscode4.Range(doc.positionAt(absStart), doc.positionAt(absStart + 2)));
+            opCountRanges.push(new vscode4.Range(doc.positionAt(absEnd - 1), doc.positionAt(absEnd)));
+            opCountDelimRanges.push(new vscode4.Range(doc.positionAt(delimAbs), doc.positionAt(delimAbs + 1)));
           } else {
-            opCountRanges.push(new vscode5.Range(doc.positionAt(absStart), doc.positionAt(absEnd)));
+            opCountRanges.push(new vscode4.Range(doc.positionAt(absStart), doc.positionAt(absEnd)));
           }
         }
         break;
@@ -212114,7 +212195,7 @@ async function applyDecorations(editor) {
       if (op) {
         const start = openIndex + 1 + arg.start + op.start;
         const end = start + op.operator.length;
-        condRanges.push(new vscode5.Range(doc.positionAt(start), doc.positionAt(end)));
+        condRanges.push(new vscode4.Range(doc.positionAt(start), doc.positionAt(end)));
       }
     }
     let depth = 0;
@@ -212124,7 +212205,7 @@ async function applyDecorations(editor) {
       if (ch === "[" && isOpeningBracket(text, i)) depth++;
       else if (ch === "]" && depth > 0 && !escaped) depth--;
       else if (ch === ";" && depth === 0 && !escaped) {
-        semiRanges.push(new vscode5.Range(doc.positionAt(i), doc.positionAt(i + 1)));
+        semiRanges.push(new vscode4.Range(doc.positionAt(i), doc.positionAt(i + 1)));
       }
     }
   }
@@ -212140,7 +212221,7 @@ async function applyDecorations(editor) {
 function registerDecorations(ctx) {
   ensureDecorations();
   const updateAll = () => {
-    for (const editor of vscode5.window.visibleTextEditors) {
+    for (const editor of vscode4.window.visibleTextEditors) {
       if (!Languages.includes(editor.document.languageId)) continue;
       applyDecorations(editor);
     }
@@ -212153,15 +212234,256 @@ function registerDecorations(ctx) {
         }
       }
     },
-    vscode5.window.onDidChangeVisibleTextEditors(() => updateAll()),
-    vscode5.workspace.onDidChangeTextDocument((e) => {
-      for (const editor of vscode5.window.visibleTextEditors) {
+    vscode4.window.onDidChangeVisibleTextEditors(() => updateAll()),
+    vscode4.workspace.onDidChangeTextDocument((e) => {
+      for (const editor of vscode4.window.visibleTextEditors) {
         if (editor.document !== e.document) continue;
         applyDecorations(editor);
       }
     })
   );
   updateAll();
+}
+
+// src/diagnostics.ts
+var vscode5 = __toESM(require("vscode"));
+async function validateDocument(document, collection) {
+  const config = getExtensionConfig();
+  if (!document || !Languages.includes(document.languageId) || !config.features.diagnostics) return;
+  const diagnostics = [];
+  const text = document.getText();
+  const ScanRegex = cloneRegex(FunctionScanRegex);
+  ScanRegex.lastIndex = 0;
+  let match;
+  while (match = ScanRegex.exec(text)) {
+    const index = match.index;
+    const start = document.positionAt(index);
+    if (!locateCodeBlock(document, start) || isEscaped(text, index) || isIgnored(text, index)) continue;
+    const full = match[0];
+    const hasOpening = full.endsWith("[");
+    const base = hasOpening ? full.slice(0, -1) : full;
+    const found = await findFunction(base, true);
+    if (!found) continue;
+    const { fn, matchedText } = found;
+    const end = document.positionAt(index + matchedText.length);
+    if (fn.deprecated) {
+      const hint = new vscode5.Diagnostic(
+        new vscode5.Range(start, end),
+        vscode5.l10n.t("This function is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available."),
+        vscode5.DiagnosticSeverity.Hint
+      );
+      const warning = new vscode5.Diagnostic(
+        new vscode5.Range(start, end),
+        vscode5.l10n.t("Function `{0}` is deprecated. Use an available alternative instead", fn.name),
+        vscode5.DiagnosticSeverity.Warning
+      );
+      warning.tags = [vscode5.DiagnosticTag.Deprecated];
+      diagnostics.push(hint, warning);
+    }
+    if (fn.experimental) {
+      const diagnostic = new vscode5.Diagnostic(
+        new vscode5.Range(start, end),
+        vscode5.l10n.t("This is an experimental function. It may not work as expected and is not guaranteed to be stable. Expect bugs, changes, or removal."),
+        vscode5.DiagnosticSeverity.Hint
+      );
+      diagnostics.push(diagnostic);
+    }
+    const { isInvalidOrder, rawPrefix } = validateOperatorPrefix(base);
+    if (isInvalidOrder) {
+      const offset = rawPrefix.length;
+      const opStart = document.positionAt(index + 1);
+      const opEnd = document.positionAt(index + offset);
+      diagnostics.push(new vscode5.Diagnostic(
+        new vscode5.Range(opStart, opEnd),
+        vscode5.l10n.t("Function `{0}` has invalid operator order", fn.name),
+        vscode5.DiagnosticSeverity.Error
+      ));
+      continue;
+    }
+    const strictPrefix = base.match(FunctionPrefixRegex)?.[0] ?? "$";
+    if (rawPrefix.length > strictPrefix.length) {
+      const extraStart = document.positionAt(index + strictPrefix.length);
+      const extraEnd = document.positionAt(index + rawPrefix.length);
+      diagnostics.push(new vscode5.Diagnostic(
+        new vscode5.Range(extraStart, extraEnd),
+        vscode5.l10n.t("Function `{0}` has duplicated operators supplied", fn.name),
+        vscode5.DiagnosticSeverity.Error
+      ));
+      continue;
+    }
+    const isAttached = matchedText.length === base.length && matchedText.toLowerCase() === base.toLowerCase();
+    const hasOpeningAttached = hasOpening && isAttached;
+    const args = fn.args ?? [];
+    const acceptsArgs = fn.brackets !== void 0 && args.length > 0;
+    const requiresArgs = fn.brackets;
+    const range = new vscode5.Range(start, end);
+    if (requiresArgs && !hasOpeningAttached) {
+      diagnostics.push(new vscode5.Diagnostic(
+        range,
+        vscode5.l10n.t("Function `{0}` requires brackets", fn.name),
+        vscode5.DiagnosticSeverity.Error
+      ));
+      continue;
+    }
+    if (!isAttached || args.length === 0) continue;
+    if (acceptsArgs && hasOpening) {
+      const openIndex = index + full.length - 1;
+      const closeIndex = findMatchingBracket(text, openIndex);
+      if (closeIndex === -1) {
+        diagnostics.push(new vscode5.Diagnostic(
+          range,
+          vscode5.l10n.t("Function `{0}` is missing brace closure", fn.name),
+          vscode5.DiagnosticSeverity.Error
+        ));
+        continue;
+      }
+      const argString = text.slice(openIndex + 1, closeIndex);
+      const providedArgs = splitArgs(argString);
+      for (let i = 0; i < args.length; i++) {
+        const expected = args[i];
+        const provided = providedArgs[i];
+        if (expected.required && provided === void 0) {
+          const argStart = document.positionAt(openIndex + 1);
+          const argEnd = document.positionAt(closeIndex);
+          diagnostics.push(new vscode5.Diagnostic(
+            new vscode5.Range(argStart, argEnd),
+            vscode5.l10n.t("Function `{0}` is missing argument `{1}`", fn.name, expected.name),
+            vscode5.DiagnosticSeverity.Error
+          ));
+        }
+      }
+      if (providedArgs.length > args.length && !args.at(-1)?.rest) {
+        const end2 = document.positionAt(closeIndex + 1);
+        diagnostics.push(new vscode5.Diagnostic(
+          new vscode5.Range(start, end2),
+          args.length === 1 ? vscode5.l10n.t("Function `{0}` expects 1 argument at most, received {1}", fn.name, providedArgs.length) : vscode5.l10n.t("Function `{0}` expects {1} arguments at most, received {2}", fn.name, args.length, providedArgs.length),
+          vscode5.DiagnosticSeverity.Error
+        ));
+      }
+    }
+  }
+  collection.set(document.uri, diagnostics);
+}
+
+// src/events.ts
+var vscode6 = __toESM(require("vscode"));
+var import_typescript = __toESM(require_typescript());
+function findEventTypeLiteral(sf, offset) {
+  let result = null;
+  function visit(node) {
+    if (result) return;
+    if (import_typescript.default.isObjectLiteralExpression(node)) {
+      const hasCode = node.properties.some(
+        (p) => import_typescript.default.isPropertyAssignment(p) && (import_typescript.default.isIdentifier(p.name) || import_typescript.default.isStringLiteral(p.name)) && p.name.text === "code"
+      );
+      if (hasCode) {
+        for (const prop of node.properties) {
+          if (!import_typescript.default.isPropertyAssignment(prop)) continue;
+          if (!import_typescript.default.isIdentifier(prop.name) && !import_typescript.default.isStringLiteral(prop.name)) continue;
+          if (prop.name.text !== "type") continue;
+          if (!import_typescript.default.isStringLiteral(prop.initializer)) continue;
+          const start = prop.initializer.getStart(sf) + 1;
+          const end = prop.initializer.getEnd() - 1;
+          if (offset >= start && offset <= end) {
+            result = prop.initializer;
+            return;
+          }
+        }
+      }
+    }
+    import_typescript.default.forEachChild(node, visit);
+  }
+  visit(sf);
+  return result;
+}
+function registerEventHover(ctx) {
+  ctx.subscriptions.push(
+    vscode6.languages.registerHoverProvider(Languages, {
+      async provideHover(document, position) {
+        const config = getExtensionConfig();
+        if (!config.features.hoverInfo) return;
+        const text = document.getText();
+        const offset = document.offsetAt(position);
+        if (isIgnored(text, offset)) return;
+        const kind = document.fileName.endsWith(".tsx") ? import_typescript.default.ScriptKind.TSX : document.fileName.endsWith(".ts") ? import_typescript.default.ScriptKind.TS : document.fileName.endsWith(".jsx") ? import_typescript.default.ScriptKind.JSX : import_typescript.default.ScriptKind.JS;
+        const sf = import_typescript.default.createSourceFile(document.fileName, text, import_typescript.default.ScriptTarget.Latest, true, kind);
+        const literal = findEventTypeLiteral(sf, offset);
+        if (!literal) return;
+        const events2 = await findEvents(literal.text);
+        if (!events2.length) return;
+        const range = new vscode6.Range(
+          document.positionAt(literal.getStart(sf) + 1),
+          document.positionAt(literal.getEnd() - 1)
+        );
+        const contents = await Promise.all(
+          events2.map(async (event) => {
+            const { name, description, version, source, deprecated } = event;
+            const md = new vscode6.MarkdownString();
+            md.appendCodeblock(name);
+            md.appendText(`${description}
+`);
+            if (deprecated) md.appendMarkdown(`
+**\u{1F6D1} Deprecated**
+
+`);
+            if (version) {
+              const links = [];
+              const sourceUrl = await buildEventURL(event);
+              if (sourceUrl) links.push(`[$(github) ${vscode6.l10n.t("Source")}](${sourceUrl})`);
+              const guide = await findGuide({ targetType: "event", targetName: name });
+              const pkgName = guide?.packageName || getPackageName(source);
+              if (pkgName) links.push(`[$(extensions) ${vscode6.l10n.t("Documentation")}](https://docs.botforge.org/event/${name}?p=${pkgName})`);
+              if (guide) {
+                const cmd = vscode6.Uri.parse(
+                  `command:forgevsc.previewGuide?${encodeURIComponent(JSON.stringify([guide.id]))}`
+                );
+                links.push(`[$(book) ${vscode6.l10n.t("Guide")}](${cmd})`);
+              }
+              md.appendMarkdown(`---
+`);
+              md.appendMarkdown(
+                `##### $(package) ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? " | " + links.join(" | ") : "")
+              );
+            }
+            md.isTrusted = true;
+            md.supportThemeIcons = true;
+            return md;
+          })
+        );
+        return new vscode6.Hover(contents, range);
+      }
+    })
+  );
+}
+
+// src/folding.ts
+var vscode7 = __toESM(require("vscode"));
+function registerFolding(ctx) {
+  ctx.subscriptions.push(
+    vscode7.languages.registerFoldingRangeProvider(Languages, {
+      provideFoldingRanges(document) {
+        const config = getExtensionConfig();
+        if (!config.features.folding) return null;
+        const ranges = [];
+        const text = document.getText();
+        let match;
+        while (match = FunctionOpenScanRegex.exec(text)) {
+          const index = match.index;
+          const startPos = document.positionAt(index);
+          if (!locateCodeBlock(document, startPos) || isEscaped(text, index) || isIgnored(text, index)) continue;
+          const openIndex = index + match[0].length - 1;
+          const closeIndex = findMatchingBracket(text, openIndex);
+          if (closeIndex === -1) continue;
+          const startLine = document.positionAt(openIndex).line;
+          const endLine = document.positionAt(closeIndex).line - 1;
+          if (endLine > startLine) {
+            ranges.push(new vscode7.FoldingRange(startLine, endLine, vscode7.FoldingRangeKind.Region));
+          }
+        }
+        return ranges;
+      }
+    })
+  );
 }
 
 // src/types.ts
@@ -212205,8 +212527,8 @@ var ArgType = /* @__PURE__ */ ((ArgType2) => {
 })(ArgType || {});
 
 // src/functions.ts
-var vscode6 = __toESM(require("vscode"));
-var import_typescript = __toESM(require_typescript());
+var vscode8 = __toESM(require("vscode"));
+var import_typescript2 = __toESM(require_typescript());
 var DefaultParam = {
   type: "String",
   required: true,
@@ -212214,30 +212536,30 @@ var DefaultParam = {
   description: "Custom function param"
 };
 function getString(node) {
-  if (import_typescript.default.isStringLiteral(node)) return node.text;
-  if (import_typescript.default.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  if (import_typescript2.default.isStringLiteral(node)) return node.text;
+  if (import_typescript2.default.isNoSubstitutionTemplateLiteral(node)) return node.text;
   return void 0;
 }
 function getBoolean(node) {
-  if (node.kind === import_typescript.default.SyntaxKind.TrueKeyword) return true;
-  if (node.kind === import_typescript.default.SyntaxKind.FalseKeyword) return false;
+  if (node.kind === import_typescript2.default.SyntaxKind.TrueKeyword) return true;
+  if (node.kind === import_typescript2.default.SyntaxKind.FalseKeyword) return false;
   return void 0;
 }
 function getEnumName(node) {
   node = unwrapExpression(node);
-  if (import_typescript.default.isIdentifier(node)) return node.text;
-  if (import_typescript.default.isPropertyAccessExpression(node)) return node.name.text;
+  if (import_typescript2.default.isIdentifier(node)) return node.text;
+  if (import_typescript2.default.isPropertyAccessExpression(node)) return node.name.text;
   return void 0;
 }
 function resolveArgType(node) {
-  if (import_typescript.default.isPropertyAccessExpression(node)) {
-    if (import_typescript.default.isIdentifier(node.expression) && node.expression.text === "ArgType") {
+  if (import_typescript2.default.isPropertyAccessExpression(node)) {
+    if (import_typescript2.default.isIdentifier(node.expression) && node.expression.text === "ArgType") {
       return node.name.text;
     }
     return node.name.text;
   }
-  if (import_typescript.default.isIdentifier(node)) return node.text;
-  if (import_typescript.default.isStringLiteral(node)) return node.text;
+  if (import_typescript2.default.isIdentifier(node)) return node.text;
+  if (import_typescript2.default.isStringLiteral(node)) return node.text;
   return void 0;
 }
 function parseArgType(node) {
@@ -212262,9 +212584,9 @@ function normalizeParam(partial) {
   return param;
 }
 function getArgCall(node) {
-  if (!import_typescript.default.isPropertyAccessExpression(node.expression)) return void 0;
+  if (!import_typescript2.default.isPropertyAccessExpression(node.expression)) return void 0;
   const access = node.expression;
-  if (!import_typescript.default.isIdentifier(access.expression) || access.expression.text !== "Arg")
+  if (!import_typescript2.default.isIdentifier(access.expression) || access.expression.text !== "Arg")
     return void 0;
   const method = access.name.text;
   const match = method.match(/^(optional|required|rest)(.+)$/);
@@ -212282,9 +212604,9 @@ function getArgCall(node) {
     param.enumName = getEnumName(node.arguments[0]);
   }
   const name = node.arguments[offset];
-  param.name = name && import_typescript.default.isStringLiteral(name) ? name.text : void 0;
+  param.name = name && import_typescript2.default.isStringLiteral(name) ? name.text : void 0;
   const desc = node.arguments[offset + 1];
-  param.description = desc && import_typescript.default.isStringLiteral(desc) ? desc.text : DefaultParam.description;
+  param.description = desc && import_typescript2.default.isStringLiteral(desc) ? desc.text : DefaultParam.description;
   if (mode === "rest") {
     const req = node.arguments[offset + 2];
     const required = req && getBoolean(req);
@@ -212305,12 +212627,12 @@ function getArgCall(node) {
   return normalizeParam(param);
 }
 function getParamObject(node) {
-  if (!import_typescript.default.isObjectLiteralExpression(node)) return void 0;
+  if (!import_typescript2.default.isObjectLiteralExpression(node)) return void 0;
   let param = {};
   for (const prop of node.properties) {
-    if (!import_typescript.default.isPropertyAssignment(prop)) continue;
-    if (!import_typescript.default.isIdentifier(prop.name) && !import_typescript.default.isStringLiteral(prop.name)) continue;
-    const key = import_typescript.default.isIdentifier(prop.name) ? prop.name.text : prop.name.text;
+    if (!import_typescript2.default.isPropertyAssignment(prop)) continue;
+    if (!import_typescript2.default.isIdentifier(prop.name) && !import_typescript2.default.isStringLiteral(prop.name)) continue;
+    const key = import_typescript2.default.isIdentifier(prop.name) ? prop.name.text : prop.name.text;
     if (key === "name") param.name = getString(prop.initializer);
     else if (key === "type") param.type = parseArgType(prop.initializer) ?? "String";
     else if (key === "required") param.required = getBoolean(prop.initializer);
@@ -212322,15 +212644,15 @@ function getParamObject(node) {
   return normalizeParam(param);
 }
 function getParam(el) {
-  if (import_typescript.default.isStringLiteral(el)) return normalizeParam({ name: el.text });
-  if (import_typescript.default.isCallExpression(el)) {
+  if (import_typescript2.default.isStringLiteral(el)) return normalizeParam({ name: el.text });
+  if (import_typescript2.default.isCallExpression(el)) {
     const arg = getArgCall(el);
     if (arg) return arg;
   }
   return getParamObject(el);
 }
 function getParams(node) {
-  if (!import_typescript.default.isArrayLiteralExpression(node)) return void 0;
+  if (!import_typescript2.default.isArrayLiteralExpression(node)) return void 0;
   const args = [];
   for (const el of node.elements) {
     const param = getParam(el);
@@ -212345,20 +212667,20 @@ function getOutput(node) {
     const value = parseArgType(expr);
     if (value) out.push(value);
   };
-  if (import_typescript.default.isArrayLiteralExpression(node)) {
+  if (import_typescript2.default.isArrayLiteralExpression(node)) {
     for (const el of node.elements) add(el);
   } else add(node);
   return out.length ? out : void 0;
 }
 function getPropertyKey(name) {
-  if (import_typescript.default.isIdentifier(name) || import_typescript.default.isStringLiteral(name) || import_typescript.default.isNoSubstitutionTemplateLiteral(name))
+  if (import_typescript2.default.isIdentifier(name) || import_typescript2.default.isStringLiteral(name) || import_typescript2.default.isNoSubstitutionTemplateLiteral(name))
     return name.text;
   return void 0;
 }
 function readMetadata(obj) {
   let fn = {};
   for (const prop of obj.properties) {
-    if (!import_typescript.default.isPropertyAssignment(prop)) continue;
+    if (!import_typescript2.default.isPropertyAssignment(prop)) continue;
     const key = getPropertyKey(prop.name);
     if (!key) continue;
     if (key === "name") {
@@ -212371,8 +212693,12 @@ function readMetadata(obj) {
     else if (key === "description") fn.description = getString(prop.initializer);
     else if (key === "deprecated") fn.deprecated = getBoolean(prop.initializer);
     else if (key === "experimental") fn.experimental = getBoolean(prop.initializer);
+    else if (key === "firstParamCondition") fn.firstParamCondition = getBoolean(prop.initializer);
   }
   if (!fn.name) return null;
+  if (fn.firstParamCondition && fn.args?.length) {
+    fn.args[0] = { ...fn.args[0], condition: true };
+  }
   if (fn.unwrap === void 0) fn.unwrap = !!fn.args?.length && !fn.firstParamCondition;
   if (fn.brackets === void 0) fn.brackets = fn.args?.length ? true : void 0;
   if (fn.description === void 0) fn.description = "Custom function";
@@ -212381,9 +212707,9 @@ function readMetadata(obj) {
 function collectBindings(sf) {
   const bindings = /* @__PURE__ */ new Map();
   for (const stmt of sf.statements) {
-    if (!import_typescript.default.isVariableStatement(stmt)) continue;
+    if (!import_typescript2.default.isVariableStatement(stmt)) continue;
     for (const decl of stmt.declarationList.declarations) {
-      if (!import_typescript.default.isIdentifier(decl.name) || !decl.initializer) continue;
+      if (!import_typescript2.default.isIdentifier(decl.name) || !decl.initializer) continue;
       bindings.set(decl.name.text, decl.initializer);
     }
   }
@@ -212392,19 +212718,19 @@ function collectBindings(sf) {
 function unwrapExpression(node) {
   let current = node;
   while (true) {
-    if (import_typescript.default.isParenthesizedExpression(current)) {
+    if (import_typescript2.default.isParenthesizedExpression(current)) {
       current = current.expression;
       continue;
     }
-    if (import_typescript.default.isAsExpression(current)) {
+    if (import_typescript2.default.isAsExpression(current)) {
       current = current.expression;
       continue;
     }
-    if (import_typescript.default.isSatisfiesExpression(current)) {
+    if (import_typescript2.default.isSatisfiesExpression(current)) {
       current = current.expression;
       continue;
     }
-    if (import_typescript.default.isNonNullExpression(current)) {
+    if (import_typescript2.default.isNonNullExpression(current)) {
       current = current.expression;
       continue;
     }
@@ -212413,21 +212739,21 @@ function unwrapExpression(node) {
 }
 function resolveMetadataExpressions(node, bindings, seen = /* @__PURE__ */ new Set()) {
   const expr = unwrapExpression(node);
-  if (import_typescript.default.isObjectLiteralExpression(expr)) {
+  if (import_typescript2.default.isObjectLiteralExpression(expr)) {
     const meta = readMetadata(expr);
     return meta ? [meta] : [];
   }
-  if (import_typescript.default.isNewExpression(expr) && expr.arguments?.length) {
+  if (import_typescript2.default.isNewExpression(expr) && expr.arguments?.length) {
     const arg0 = unwrapExpression(expr.arguments[0]);
-    if (import_typescript.default.isObjectLiteralExpression(arg0)) {
+    if (import_typescript2.default.isObjectLiteralExpression(arg0)) {
       const meta = readMetadata(arg0);
       return meta ? [meta] : [];
     }
   }
-  if (import_typescript.default.isArrayLiteralExpression(expr)) {
+  if (import_typescript2.default.isArrayLiteralExpression(expr)) {
     const out = [];
     for (const el of expr.elements) {
-      if (import_typescript.default.isSpreadElement(el)) {
+      if (import_typescript2.default.isSpreadElement(el)) {
         out.push(...resolveMetadataExpressions(el.expression, bindings, seen));
         continue;
       }
@@ -212435,7 +212761,7 @@ function resolveMetadataExpressions(node, bindings, seen = /* @__PURE__ */ new S
     }
     return out;
   }
-  if (import_typescript.default.isIdentifier(expr)) {
+  if (import_typescript2.default.isIdentifier(expr)) {
     const name = expr.text;
     if (seen.has(name)) return [];
     const init = bindings.get(name);
@@ -212450,11 +212776,11 @@ function resolveMetadataExpressions(node, bindings, seen = /* @__PURE__ */ new S
 function getPropertyChain(node) {
   let current = node;
   const parts = [];
-  while (import_typescript.default.isPropertyAccessExpression(current)) {
+  while (import_typescript2.default.isPropertyAccessExpression(current)) {
     parts.unshift(current.name.text);
     current = current.expression;
   }
-  if (import_typescript.default.isIdentifier(current)) {
+  if (import_typescript2.default.isIdentifier(current)) {
     parts.unshift(current.text);
     return parts;
   }
@@ -212464,11 +212790,11 @@ async function getCustomFunctionLocation(name) {
   const all = await getFunctions();
   const fn = all.find((x) => x.name.toLowerCase() === name.toLowerCase());
   if (!fn?.location) return;
-  return new vscode6.Location(vscode6.Uri.file(fn.location.file), fn.location.position);
+  return new vscode8.Location(vscode8.Uri.file(fn.location.file), fn.location.position);
 }
 function extractCustomFunctions(text, fileName) {
-  const kind = fileName.endsWith(".ts") || fileName.endsWith(".tsx") ? import_typescript.default.ScriptKind.TS : fileName.endsWith(".jsx") ? import_typescript.default.ScriptKind.JSX : import_typescript.default.ScriptKind.JS;
-  const sf = import_typescript.default.createSourceFile(fileName, text, import_typescript.default.ScriptTarget.Latest, true, kind);
+  const kind = fileName.endsWith(".ts") || fileName.endsWith(".tsx") ? import_typescript2.default.ScriptKind.TS : fileName.endsWith(".jsx") ? import_typescript2.default.ScriptKind.JSX : import_typescript2.default.ScriptKind.JS;
+  const sf = import_typescript2.default.createSourceFile(fileName, text, import_typescript2.default.ScriptTarget.Latest, true, kind);
   const bindings = collectBindings(sf);
   const found = [];
   const pushResolved = (expr) => {
@@ -212478,21 +212804,21 @@ function extractCustomFunctions(text, fileName) {
       const { line, character } = sf.getLineAndCharacterOfPosition(target.getStart());
       meta.location = {
         file: fileName,
-        position: new vscode6.Position(line, character)
+        position: new vscode8.Position(line, character)
       };
       found.push(meta);
     }
   };
   function visit(node) {
-    if (import_typescript.default.isExportAssignment(node)) pushResolved(node.expression);
-    if (import_typescript.default.isBinaryExpression(node) && node.operatorToken.kind === import_typescript.default.SyntaxKind.EqualsToken) {
+    if (import_typescript2.default.isExportAssignment(node)) pushResolved(node.expression);
+    if (import_typescript2.default.isBinaryExpression(node) && node.operatorToken.kind === import_typescript2.default.SyntaxKind.EqualsToken) {
       const leftChain = getPropertyChain(node.left);
       if (!leftChain) return;
       const isModuleExports = leftChain[0] === "module" && leftChain[1] === "exports";
       const isExportsDefault = leftChain[0] === "exports" && leftChain[1] === "default";
       if (isModuleExports || isExportsDefault) pushResolved(node.right);
     }
-    import_typescript.default.forEachChild(node, visit);
+    import_typescript2.default.forEachChild(node, visit);
   }
   visit(sf);
   const unique = /* @__PURE__ */ new Map();
@@ -212503,14 +212829,14 @@ function isAbsolutePath(p) {
   return /^(?:[a-zA-Z]:[\\/]|\/)/.test(p);
 }
 function resolveWorkspacePath(p) {
-  const folders = vscode6.workspace.workspaceFolders;
+  const folders = vscode8.workspace.workspaceFolders;
   if (!folders?.length) return null;
-  if (isAbsolutePath(p)) return vscode6.Uri.file(p);
-  return vscode6.Uri.joinPath(folders[0].uri, p);
+  if (isAbsolutePath(p)) return vscode8.Uri.file(p);
+  return vscode8.Uri.joinPath(folders[0].uri, p);
 }
 async function safeReadDirectory(uri) {
   try {
-    return await vscode6.workspace.fs.readDirectory(uri);
+    return await vscode8.workspace.fs.readDirectory(uri);
   } catch (e) {
     if (e?.code === "FileNotFound" || e?.code === "ENOENT") return [];
     throw e;
@@ -212519,8 +212845,8 @@ async function safeReadDirectory(uri) {
 async function collectFiles(dir, out = []) {
   const entries = await safeReadDirectory(dir);
   for (const [name, type] of entries) {
-    const uri = vscode6.Uri.joinPath(dir, name);
-    if (type === vscode6.FileType.Directory) await collectFiles(uri, out);
+    const uri = vscode8.Uri.joinPath(dir, name);
+    if (type === vscode8.FileType.Directory) await collectFiles(uri, out);
     else if (/\.(ts|js|tsx|jsx)$/.test(name)) out.push(uri);
   }
   return out;
@@ -212534,177 +212860,12 @@ async function loadCustomFunctions(customFunctionsPath) {
     if (!dirUri) continue;
     const files = await collectFiles(dirUri);
     for (const file of files) {
-      const buf = await vscode6.workspace.fs.readFile(file);
+      const buf = await vscode8.workspace.fs.readFile(file);
       const text = new TextDecoder().decode(buf);
       meta.push(...extractCustomFunctions(text, file.path));
     }
   }
   return meta;
-}
-
-// src/commands.ts
-var vscode7 = __toESM(require("vscode"));
-function registerDefaultCommands(ctx) {
-  ctx.subscriptions.push(
-    // Open Extension Log
-    vscode7.commands.registerCommand("forgevsc.openExtensionLog", () => {
-      Logger.show();
-    }),
-    // Open Settings (Backend)
-    vscode7.commands.registerCommand("forgevsc.openSettings", async (setting, user = true) => {
-      await vscode7.commands.executeCommand(
-        "workbench.action." + (user ? "openSettings" : "openWorkspaceSettings"),
-        setting?.trim() || "@ext:tryforge.forgevsc"
-      );
-    }),
-    // Open Extension Settings (UI)
-    vscode7.commands.registerCommand("forgevsc.openExtensionSettings", async () => {
-      const items = [];
-      if (vscode7.workspace.workspaceFolders?.length) {
-        items.push({
-          label: vscode7.l10n.t("$(folder) Workspace Settings"),
-          detail: vscode7.workspace.name || vscode7.l10n.t("Workspace"),
-          description: vscode7.l10n.t("Folder"),
-          target: "workbench.action.openWorkspaceSettings"
-        });
-      }
-      items.push({
-        label: vscode7.l10n.t("$(account) User Settings"),
-        description: vscode7.l10n.t("Global"),
-        target: "workbench.action.openSettings"
-      });
-      const choice = await vscode7.window.showQuickPick(items, {
-        placeHolder: vscode7.l10n.t("Which extension settings would you like to open?")
-      });
-      if (!choice) return;
-      await vscode7.commands.executeCommand(choice.target, "@ext:tryforge.forgevsc");
-    })
-  );
-}
-function registerCommands(ctx) {
-  ctx.subscriptions.push(
-    // Create Config
-    vscode7.commands.registerCommand("forgevsc.createConfig", async () => {
-      const btnOpenSettings = vscode7.l10n.t("Open Settings");
-      const action = await vscode7.window.showWarningMessage(
-        vscode7.l10n.t("The custom configuration file is deprecated and maintained only for legacy compatibility. Please use extension settings instead."),
-        btnOpenSettings,
-        vscode7.l10n.t("Dismiss")
-      );
-      if (action === btnOpenSettings) {
-        await vscode7.commands.executeCommand("forgevsc.openSettings", void 0, false);
-        return;
-      }
-      const folders = vscode7.workspace.workspaceFolders;
-      if (!folders?.length) {
-        vscode7.window.showErrorMessage(vscode7.l10n.t("Open a workspace folder first."));
-        return;
-      }
-      const root = folders[0].uri;
-      const path = await findExtensionConfig(root);
-      let fileName = ".forgevsc.json";
-      let uri;
-      if (path) {
-        const btnOpen = vscode7.l10n.t("Open");
-        const btnOverwrite = vscode7.l10n.t("Overwrite");
-        const action2 = await vscode7.window.showWarningMessage(
-          vscode7.l10n.t("Extension config file already exists."),
-          btnOpen,
-          btnOverwrite,
-          vscode7.l10n.t("Cancel")
-        );
-        if (action2 === btnOpen) {
-          const doc2 = await vscode7.workspace.openTextDocument(path);
-          await vscode7.window.showTextDocument(doc2);
-          return;
-        }
-        if (action2 !== btnOverwrite) return;
-        uri = path;
-      } else {
-        const choice = await vscode7.window.showQuickPick(
-          [
-            {
-              label: vscode7.l10n.t("$(root-folder) Workspace Root"),
-              detail: fileName,
-              description: vscode7.l10n.t("Default"),
-              target: vscode7.Uri.joinPath(root, fileName)
-            },
-            {
-              label: vscode7.l10n.t("$(folder) VSCode Folder"),
-              detail: ".vscode/" + fileName,
-              target: vscode7.Uri.joinPath(root, ".vscode", fileName)
-            }
-          ],
-          {
-            placeHolder: vscode7.l10n.t("Where do you want to create the config file?")
-          }
-        );
-        if (!choice) return;
-        uri = choice.target;
-        if (choice.detail.startsWith(".vscode")) {
-          const dir = vscode7.Uri.joinPath(root, ".vscode");
-          try {
-            await vscode7.workspace.fs.createDirectory(dir);
-          } catch {
-          }
-        }
-      }
-      const { enabledWorkspaces, rpc: rpc2, ...Config } = Defaults;
-      const content = JSON.stringify(Config, null, 2) + "\n";
-      const text = new TextEncoder().encode(content);
-      await vscode7.workspace.fs.writeFile(uri, text);
-      const doc = await vscode7.workspace.openTextDocument(uri);
-      await vscode7.window.showTextDocument(doc);
-      vscode7.window.showInformationMessage(
-        path ? vscode7.l10n.t("Config file overwritten successfully!") : vscode7.l10n.t("Successfully created config file!")
-      );
-    }),
-    // Reload Function Metadata
-    vscode7.commands.registerCommand("forgevsc.reloadFunctionMetadata", async () => {
-      await getFunctions(true);
-      vscode7.window.showInformationMessage(vscode7.l10n.t("Successfully fetched function metadata!"));
-    }),
-    // Create Guide
-    vscode7.commands.registerCommand("forgevsc.createGuide", async () => {
-      await vscode7.env.openExternal(vscode7.Uri.parse(DocsUrl));
-    }),
-    // Reconnect RPC
-    vscode7.commands.registerCommand("forgevsc.reconnectRPC", async () => {
-      await disconnectRPC();
-      const connected = await connectRPC();
-      if (connected) await updateEditorRPC(vscode7.window.activeTextEditor);
-    })
-  );
-}
-
-// src/folding.ts
-var vscode8 = __toESM(require("vscode"));
-function registerFolding(ctx) {
-  ctx.subscriptions.push(
-    vscode8.languages.registerFoldingRangeProvider(Languages, {
-      provideFoldingRanges(document) {
-        const config = getExtensionConfig();
-        if (!config.features.folding) return null;
-        const ranges = [];
-        const text = document.getText();
-        let match;
-        while (match = FunctionOpenScanRegex.exec(text)) {
-          const index = match.index;
-          const startPos = document.positionAt(index);
-          if (!locateCodeBlock(document, startPos) || isEscaped(text, index) || isIgnored(text, index)) continue;
-          const openIndex = index + match[0].length - 1;
-          const closeIndex = findMatchingBracket(text, openIndex);
-          if (closeIndex === -1) continue;
-          const startLine = document.positionAt(openIndex).line;
-          const endLine = document.positionAt(closeIndex).line - 1;
-          if (endLine > startLine) {
-            ranges.push(new vscode8.FoldingRange(startLine, endLine, vscode8.FoldingRangeKind.Region));
-          }
-        }
-        return ranges;
-      }
-    })
-  );
 }
 
 // src/guides.ts
@@ -213205,7 +213366,7 @@ function registerGuidesView(ctx) {
 
 // src/hover.ts
 var vscode10 = __toESM(require("vscode"));
-function registerHover(ctx) {
+function registerFunctionHover(ctx) {
   ctx.subscriptions.push(
     vscode10.languages.registerHoverProvider(Languages, {
       async provideHover(document, position) {
@@ -213293,31 +213454,31 @@ ${doc.description}`);
             const hasBracket = acceptsArgs && line[bracketIndex] === "[";
             const md = new vscode10.MarkdownString();
             md.appendCodeblock(
-              `${brackets || hasBracket ? generateUsage(fn) : name}${output ? `: ` + output.join(", ") : ""}
-`
+              (brackets || hasBracket ? generateUsage(fn) : name) + (output ? `: ${output.join(", ")}` : "")
             );
             md.appendText(`${description}
 `);
             if (version) {
               const links = [];
-              const sourceUrl = await buildSourceURL(fn);
-              if (sourceUrl) links.push(`[${vscode10.l10n.t("Source")}](${sourceUrl})`);
+              const sourceUrl = await buildFunctionURL(fn);
+              if (sourceUrl) links.push(`[$(github) ${vscode10.l10n.t("Source")}](${sourceUrl})`);
               const guide = await findGuide({ targetType: "function", targetName: name });
               const pkgName = guide?.packageName || getPackageName(source);
-              if (pkgName) links.push(`[${vscode10.l10n.t("Documentation")}](https://docs.botforge.org/function/${name}?p=${pkgName})`);
+              if (pkgName) links.push(`[$(extensions) ${vscode10.l10n.t("Documentation")}](https://docs.botforge.org/function/${name}?p=${pkgName})`);
               if (guide) {
                 const cmd = vscode10.Uri.parse(
                   `command:forgevsc.previewGuide?${encodeURIComponent(JSON.stringify([guide.id]))}`
                 );
-                links.push(`[${vscode10.l10n.t("Guide")}](${cmd})`);
+                links.push(`[$(book) ${vscode10.l10n.t("Guide")}](${cmd})`);
               }
               md.appendMarkdown(`---
 `);
               md.appendMarkdown(
-                `##### ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? " | " + links.join(" | ") : "")
+                `##### $(package) ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? ` | ${links.join(" | ")}` : "")
               );
             }
             md.isTrusted = true;
+            md.supportThemeIcons = true;
             const hoverEnd = Math.min(end, start + matchedText.length);
             const range = new vscode10.Range(position.line, start, position.line, hoverEnd);
             return new vscode10.Hover(md, range);
@@ -213328,175 +213489,8 @@ ${doc.description}`);
   );
 }
 
-// src/config.ts
-var vscode11 = __toESM(require("vscode"));
-var Defaults = {
-  enabledWorkspaces: [],
-  customFunctionPaths: [],
-  additionalPackages: [],
-  colors: {
-    function: {
-      name: "#AC75FF",
-      dollar: "#FE7CEB",
-      semicolon: "#C586C0"
-    },
-    arguments: {
-      condition: "#4FC1FF"
-    },
-    operators: {
-      negation: "#4FA3FF",
-      silent: "#FF9F43",
-      count: "#33D17A",
-      countDelimiter: "#76E3A0"
-    }
-  },
-  formatting: {
-    function: {
-      style: "normal"
-    }
-  },
-  features: {
-    folding: true,
-    hoverInfo: true,
-    suggestions: true,
-    signatureHelp: true,
-    diagnostics: true,
-    autocompletion: true
-  },
-  rpc: {
-    enabled: true
-  }
-};
-var cached = Defaults;
-function getSettingsConfig() {
-  const vs = vscode11.workspace.getConfiguration("forgevsc");
-  return {
-    global: {
-      enabledWorkspaces: vs.get("global.enabledWorkspaces")
-    },
-    workspace: {
-      customFunctionPaths: vs.get("workspace.customFunctionPaths"),
-      additionalPackages: vs.get("workspace.additionalPackages"),
-      colors: {
-        function: {
-          name: vs.get("workspace.colors.function.name"),
-          dollar: vs.get("workspace.colors.function.dollar"),
-          semicolon: vs.get("workspace.colors.function.semicolon")
-        },
-        arguments: {
-          condition: vs.get("workspace.colors.arguments.condition")
-        },
-        operators: {
-          negation: vs.get("workspace.colors.operators.negation"),
-          silent: vs.get("workspace.colors.operators.silent"),
-          count: vs.get("workspace.colors.operators.count"),
-          countDelimiter: vs.get("workspace.colors.operators.countDelimiter")
-        }
-      },
-      formatting: {
-        function: {
-          style: vs.get("workspace.formatting.function.style")
-        }
-      },
-      features: {
-        folding: vs.get("workspace.features.folding"),
-        hoverInfo: vs.get("workspace.features.hoverInfo"),
-        suggestions: vs.get("workspace.features.suggestions"),
-        signatureHelp: vs.get("workspace.features.signatureHelp"),
-        diagnostics: vs.get("workspace.features.diagnostics"),
-        autocompletion: vs.get("workspace.features.autocompletion")
-      },
-      rpc: {
-        enabled: vs.get("workspace.rpc.enabled")
-      }
-    }
-  };
-}
-function getExtensionConfig() {
-  return cached;
-}
-async function findExtensionConfig(root) {
-  const paths2 = [
-    vscode11.Uri.joinPath(root, "forgevsc.json"),
-    vscode11.Uri.joinPath(root, ".forgevsc.json"),
-    vscode11.Uri.joinPath(root, ".vscode", "forgevsc.json"),
-    vscode11.Uri.joinPath(root, ".vscode", ".forgevsc.json")
-  ];
-  for (const uri of paths2) {
-    try {
-      await vscode11.workspace.fs.stat(uri);
-      return uri;
-    } catch {
-    }
-  }
-  return null;
-}
-async function loadExtensionConfig() {
-  const folders = vscode11.workspace.workspaceFolders;
-  const vs = getSettingsConfig();
-  let file = {};
-  if (folders?.length) {
-    const root = folders[0].uri;
-    const uri = await findExtensionConfig(root);
-    if (uri) {
-      try {
-        const raw = await vscode11.workspace.fs.readFile(uri);
-        const text = new TextDecoder().decode(raw);
-        file = JSON.parse(text);
-      } catch {
-      }
-    }
-  }
-  cached = {
-    enabledWorkspaces: vs.global.enabledWorkspaces ?? [],
-    customFunctionPaths: toArray(
-      file.customFunctionPaths ?? vs.workspace.customFunctionPaths ?? Defaults.customFunctionPaths
-    ),
-    additionalPackages: Array.from(/* @__PURE__ */ new Set([
-      ...Defaults.additionalPackages,
-      ...vs.workspace.additionalPackages ?? [],
-      ...file.additionalPackages ?? []
-    ])),
-    colors: {
-      function: {
-        ...Defaults.colors.function,
-        ...vs.workspace.colors?.function ?? {},
-        ...file.colors?.function ?? {}
-      },
-      arguments: {
-        ...Defaults.colors.arguments,
-        ...vs.workspace.colors?.arguments ?? {},
-        ...file.colors?.arguments ?? {}
-      },
-      operators: {
-        ...Defaults.colors.operators,
-        ...vs.workspace.colors?.operators ?? {},
-        ...file.colors?.operators ?? {}
-      }
-    },
-    formatting: {
-      function: {
-        ...Defaults.formatting.function,
-        ...vs.workspace.formatting?.function ?? {}
-      }
-    },
-    features: {
-      folding: file.features?.folding ?? vs.workspace.features?.folding ?? Defaults.features.folding,
-      hoverInfo: file.features?.hoverInfo ?? vs.workspace.features?.hoverInfo ?? Defaults.features.hoverInfo,
-      suggestions: file.features?.suggestions ?? vs.workspace.features?.suggestions ?? Defaults.features.suggestions,
-      signatureHelp: file.features?.signatureHelp ?? vs.workspace.features?.signatureHelp ?? Defaults.features.signatureHelp,
-      diagnostics: file.features?.diagnostics ?? vs.workspace.features?.diagnostics ?? Defaults.features.diagnostics,
-      autocompletion: file.features?.autocompletion ?? vs.workspace.features?.autocompletion ?? Defaults.features.autocompletion
-    },
-    rpc: {
-      enabled: vs.workspace.rpc.enabled ?? Defaults.rpc.enabled
-    }
-  };
-  return cached;
-}
-
 // src/rpc.ts
-var vscode12 = __toESM(require("vscode"));
+var vscode11 = __toESM(require("vscode"));
 var CLIENT_ID = "1511962883993374791";
 var rpc = null;
 var rpcModule = null;
@@ -213504,12 +213498,12 @@ var connectingInterval = null;
 var statusBar = null;
 var startTimestamp = Date.now();
 async function getRepoUrl() {
-  const folders = vscode12.workspace.workspaceFolders;
+  const folders = vscode11.workspace.workspaceFolders;
   if (!folders?.length) return null;
   try {
     const root = folders[0].uri;
-    const uri = vscode12.Uri.joinPath(root, ".git", "config");
-    const raw = await vscode12.workspace.fs.readFile(uri);
+    const uri = vscode11.Uri.joinPath(root, ".git", "config");
+    const raw = await vscode11.workspace.fs.readFile(uri);
     const config = new TextDecoder().decode(raw);
     const match = config.match(/url = (.+)/);
     if (!match) return null;
@@ -213521,7 +213515,7 @@ async function getRepoUrl() {
   }
 }
 async function loadRPC() {
-  if (vscode12.env.uiKind === vscode12.UIKind.Web) {
+  if (vscode11.env.uiKind === vscode11.UIKind.Web) {
     Logger.info("[RPC] Discord RPC disabled in web environment.");
     return null;
   }
@@ -213531,19 +213525,19 @@ async function loadRPC() {
   return rpcModule.Client;
 }
 function createRPCStatusBar(ctx) {
-  statusBar = vscode12.window.createStatusBarItem(vscode12.StatusBarAlignment.Left, 50);
+  statusBar = vscode11.window.createStatusBarItem(vscode11.StatusBarAlignment.Left, 50);
   statusBar.show();
   ctx.subscriptions.push(statusBar);
 }
 function updateRPCStatusBar(connected) {
   if (!statusBar) return;
   if (connected) {
-    statusBar.text = vscode12.l10n.t("$(plug) RPC Connected");
-    statusBar.tooltip = vscode12.l10n.t("Discord RPC Connected");
+    statusBar.text = vscode11.l10n.t("$(plug) RPC Connected");
+    statusBar.tooltip = vscode11.l10n.t("Discord RPC Connected");
     statusBar.command = void 0;
   } else {
-    statusBar.text = vscode12.l10n.t("$(debug-disconnect) Reconnect RPC");
-    statusBar.tooltip = vscode12.l10n.t("Reconnect Discord RPC");
+    statusBar.text = vscode11.l10n.t("$(debug-disconnect) Reconnect RPC");
+    statusBar.tooltip = vscode11.l10n.t("Reconnect Discord RPC");
     statusBar.command = "forgevsc.reconnectRPC";
   }
 }
@@ -213553,8 +213547,8 @@ function startConnectingAnimation() {
   let i = 0;
   connectingInterval = setInterval(() => {
     if (!statusBar) return;
-    statusBar.text = vscode12.l10n.t("$(sync~spin) Connecting RPC") + ".".repeat(i % 4);
-    statusBar.tooltip = vscode12.l10n.t("Connecting to Discord RPC...");
+    statusBar.text = vscode11.l10n.t("$(sync~spin) Connecting RPC") + ".".repeat(i % 4);
+    statusBar.tooltip = vscode11.l10n.t("Connecting to Discord RPC...");
     i++;
   }, 400);
 }
@@ -213565,7 +213559,7 @@ function stopConnectingAnimation() {
   }
 }
 async function connectRPC() {
-  if (vscode12.env.uiKind === vscode12.UIKind.Web) return false;
+  if (vscode11.env.uiKind === vscode11.UIKind.Web) return false;
   if (rpc) return true;
   try {
     startConnectingAnimation();
@@ -213671,7 +213665,7 @@ async function updateEditorRPC(editor) {
   } : getLanguageAsset(document.languageId);
   await updateRPC({
     details: `Editing ${fileName}`,
-    state: `Workspace: ${vscode12.workspace.name}`,
+    state: `Workspace: ${vscode11.workspace.name}`,
     smallImageKey: asset?.key,
     smallImageText: asset?.text
   });
@@ -213679,13 +213673,13 @@ async function updateEditorRPC(editor) {
 async function registerRPC(ctx) {
   const connected = await connectRPC();
   if (!connected) return;
-  await updateEditorRPC(vscode12.window.activeTextEditor);
+  await updateEditorRPC(vscode11.window.activeTextEditor);
   ctx.subscriptions.push(
-    vscode12.window.onDidChangeActiveTextEditor(async (editor) => {
+    vscode11.window.onDidChangeActiveTextEditor(async (editor) => {
       await updateEditorRPC(editor);
     }),
-    vscode12.workspace.onDidSaveTextDocument(async (document) => {
-      const editor = vscode12.window.activeTextEditor;
+    vscode11.workspace.onDidSaveTextDocument(async (document) => {
+      const editor = vscode11.window.activeTextEditor;
       if (editor?.document === document) {
         await updateEditorRPC(editor);
       }
@@ -213698,10 +213692,123 @@ async function registerRPC(ctx) {
   );
 }
 
-// src/extension.ts
+// src/signature.ts
+var vscode12 = __toESM(require("vscode"));
+function registerSignatureHelp(ctx) {
+  ctx.subscriptions.push(
+    vscode12.languages.registerSignatureHelpProvider(
+      Languages,
+      new ForgeSignatureHelpProvider(),
+      "[",
+      ";",
+      "]"
+    )
+  );
+}
+var ForgeSignatureHelpProvider = class {
+  async provideSignatureHelp(document, position) {
+    const code = locateCodeBlock(document, position);
+    const config = getExtensionConfig();
+    if (!code || !config.features.signatureHelp || isIgnored(document.getText(), document.offsetAt(position)))
+      return null;
+    const text = code.slice;
+    const openIndex = findOpeningBracket(text);
+    if (openIndex === -1) return null;
+    const beforeBracket = text.slice(0, openIndex);
+    const match = beforeBracket.match(new RegExp(FunctionRegex.source + "$"));
+    if (!match) return null;
+    const startIndex = beforeBracket.lastIndexOf("$");
+    if (isEscaped(beforeBracket, startIndex)) return null;
+    const typedToken = match[0];
+    const found = await findFunction(typedToken);
+    if (!found) return null;
+    const { fn, matchedText } = found;
+    if (matchedText.length !== typedToken.length) return null;
+    const argsTyped = text.slice(openIndex + 1);
+    const args = fn.args ?? [];
+    if (args.length === 0) return null;
+    const help = new vscode12.SignatureHelp();
+    const sig = new vscode12.SignatureInformation(generateUsage(fn, true));
+    sig.documentation = fn.description;
+    sig.parameters = args.map((arg) => {
+      const param = new vscode12.ParameterInformation(
+        `${arg.rest ? "..." : ""}${arg.name}${arg.required ? "" : "?"}: ${arg.type}`,
+        new vscode12.MarkdownString(`${arg.description}${arg.condition ? `
+
+${vscode12.l10n.t("*(Conditional)*")}` : ""}
+
+---`)
+      );
+      return param;
+    });
+    const parts = splitArgs(argsTyped);
+    const typedCount = argsTyped.trim() === "" ? 0 : parts.length;
+    const hasRest = args.at(-1)?.rest === true;
+    if (!hasRest && typedCount > args.length) return null;
+    const activeParam = Math.max(typedCount - 1, 0);
+    help.signatures = [sig];
+    help.activeSignature = 0;
+    help.activeParameter = Math.min(activeParam, args.length - 1);
+    return help;
+  }
+};
+
+// src/suggestions.ts
 var vscode13 = __toESM(require("vscode"));
+function registerSuggestions(ctx) {
+  ctx.subscriptions.push(
+    vscode13.languages.registerInlineCompletionItemProvider(
+      Languages,
+      new ForgeInlineCompletionItemProvider()
+    )
+  );
+}
+var ForgeInlineCompletionItemProvider = class {
+  async provideInlineCompletionItems(document, position) {
+    const code = locateCodeBlock(document, position);
+    const config = getExtensionConfig();
+    if (!code || !config.features.suggestions) return;
+    const text = document.getText();
+    if (isIgnored(text, document.offsetAt(position))) return;
+    const slice = code.slice.replace(/[ \t\r]+$/g, "");
+    const nextChar = document.getText(new vscode13.Range(position, position.translate(0, 1)));
+    if (nextChar !== "[") {
+      const match = slice.match(FunctionHeadRegex);
+      if (match) {
+        const startIndex = slice.lastIndexOf("$");
+        if (startIndex !== -1 && isEscaped(slice, startIndex)) return null;
+        const found = await findFunction(match[1]);
+        if (found?.fn.brackets !== void 0) {
+          return [new vscode13.InlineCompletionItem("[]", new vscode13.Range(position, position))];
+        }
+      }
+    }
+    if (nextChar !== "]") {
+      const openIndex = findOpeningBracket(code.slice);
+      if (openIndex !== -1) {
+        const head = code.slice.slice(0, openIndex);
+        const index = head.lastIndexOf("$");
+        if (index !== -1 && isEscaped(head, index)) return null;
+        if (FunctionHeadRegex.test(head)) {
+          const block = text.slice(code.start, code.end);
+          const close = findMatchingBracket(block, openIndex);
+          const missingClosing = bracketDepth(block) > 0;
+          if (close === -1 || missingClosing) {
+            return [new vscode13.InlineCompletionItem("]", new vscode13.Range(position, position))];
+          }
+        }
+      }
+    }
+    return null;
+  }
+};
+
+// src/extension.ts
+var vscode14 = __toESM(require("vscode"));
 var functions = null;
 var functionsPromise = null;
+var events = null;
+var eventsPromise = null;
 var guides = null;
 var guidesPromise = null;
 var paths = /* @__PURE__ */ new Map();
@@ -213727,49 +213834,56 @@ var InvalidOperatorRegex = /#.*!|@\[\].*!|@\[\].*#/;
 var DocsUrl = "https://docs.botforge.org/";
 var Languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"];
 var FunctionsStorageKey = "forgevsc.functionsCache.v1";
+var EventsStorageKey = "forgevsc.eventsCache.v1";
 var GuidesStorageKey = "forgevsc.guidesCache.v1";
 var OperatorInfo = {
   "!": {
-    name: vscode13.l10n.t("Negation Operator"),
-    description: vscode13.l10n.t(`The negation operator disables any possible output of a function. This can be useful for functions that return a "status" after execution, such as booleans or numbers.`)
+    name: vscode14.l10n.t("Negation Operator"),
+    description: vscode14.l10n.t(`The negation operator disables any possible output of a function. This can be useful for functions that return a "status" after execution, such as booleans or numbers.`)
   },
   "#": {
-    name: vscode13.l10n.t("Silent Operator"),
-    description: vscode13.l10n.t("The silent operator will suppress any error a function might throw and stops further code execution as well.")
+    name: vscode14.l10n.t("Silent Operator"),
+    description: vscode14.l10n.t("The silent operator will suppress any error a function might throw and stops further code execution as well.")
   },
   "@": {
-    name: vscode13.l10n.t("Count Operator"),
-    description: vscode13.l10n.t("The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**.")
+    name: vscode14.l10n.t("Count Operator"),
+    description: vscode14.l10n.t("The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**.")
   }
 };
 var ConditionOperatorInfo = {
   "==": {
-    name: vscode13.l10n.t("Equal Operator"),
-    description: vscode13.l10n.t("Checks whether the left value is **exactly equal** to the right value.")
+    name: vscode14.l10n.t("Equal Operator"),
+    description: vscode14.l10n.t("Checks whether the left value is **exactly equal** to the right value.")
   },
   "!=": {
-    name: vscode13.l10n.t("Not Equal Operator"),
-    description: vscode13.l10n.t("Checks whether the left value is **different** from the right value.")
+    name: vscode14.l10n.t("Not Equal Operator"),
+    description: vscode14.l10n.t("Checks whether the left value is **different** from the right value.")
   },
   "<": {
-    name: vscode13.l10n.t("Less Than Operator"),
-    description: vscode13.l10n.t("Checks whether the left value is **less than** the right value.")
+    name: vscode14.l10n.t("Less Than Operator"),
+    description: vscode14.l10n.t("Checks whether the left value is **less than** the right value.")
   },
   "<=": {
-    name: vscode13.l10n.t("Less Than or Equal Operator"),
-    description: vscode13.l10n.t("Checks whether the left value is **less than or equal** to the right value.")
+    name: vscode14.l10n.t("Less Than or Equal Operator"),
+    description: vscode14.l10n.t("Checks whether the left value is **less than or equal** to the right value.")
   },
   ">": {
-    name: vscode13.l10n.t("Greater Than Operator"),
-    description: vscode13.l10n.t("Checks whether the left value is **greater than** the right value.")
+    name: vscode14.l10n.t("Greater Than Operator"),
+    description: vscode14.l10n.t("Checks whether the left value is **greater than** the right value.")
   },
   ">=": {
-    name: vscode13.l10n.t("Greater Than or Equal Operator"),
-    description: vscode13.l10n.t("Checks whether the left value is **greater than or equal** to the right value.")
+    name: vscode14.l10n.t("Greater Than or Equal Operator"),
+    description: vscode14.l10n.t("Checks whether the left value is **greater than or equal** to the right value.")
   }
 };
 async function activate(ctx) {
   Context = ctx;
+  if (Context.globalState.get(FunctionsStorageKey)) {
+    await Context.globalState.update(FunctionsStorageKey, void 0);
+  }
+  if (Context.globalState.get(GuidesStorageKey)) {
+    await Context.globalState.update(GuidesStorageKey, void 0);
+  }
   const config = await loadExtensionConfig();
   isEnabled = isWorkspaceEnabled();
   metadataCacheKey = buildCacheKey(
@@ -213778,17 +213892,17 @@ async function activate(ctx) {
     config.customFunctionPaths
   );
   const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC";
-  Logger = vscode13.window.createOutputChannel(name, { log: true });
+  Logger = vscode14.window.createOutputChannel(name, { log: true });
   ctx.subscriptions.push(Logger);
   registerDefaultCommands(ctx);
   if (!isEnabled) {
     Logger.info("Extension is disabled for this workspace.");
-    const status = vscode13.window.createStatusBarItem(vscode13.StatusBarAlignment.Left);
-    status.text = vscode13.l10n.t("$(circle-slash) {0} Disabled", name);
-    status.tooltip = vscode13.l10n.t("Open Extension Settings");
+    const status = vscode14.window.createStatusBarItem(vscode14.StatusBarAlignment.Left);
+    status.text = vscode14.l10n.t("$(circle-slash) {0} Disabled", name);
+    status.tooltip = vscode14.l10n.t("Open Extension Settings");
     status.command = {
       command: "forgevsc.openSettings",
-      title: vscode13.l10n.t("Open Extension Settings"),
+      title: vscode14.l10n.t("Open Extension Settings"),
       arguments: ["forgevsc.global.enabledWorkspaces"]
     };
     status.show();
@@ -213796,7 +213910,7 @@ async function activate(ctx) {
   } else {
     await initialize(ctx);
   }
-  const watcher = vscode13.workspace.createFileSystemWatcher(
+  const watcher = vscode14.workspace.createFileSystemWatcher(
     "**/{.forgevsc.json,forgevsc.json,.vscode/.forgevsc.json,.vscode/forgevsc.json}"
   );
   ctx.subscriptions.push(
@@ -213804,7 +213918,7 @@ async function activate(ctx) {
     watcher.onDidCreate(reload),
     watcher.onDidChange(reload),
     watcher.onDidDelete(reload),
-    vscode13.workspace.onDidChangeConfiguration(async (e) => {
+    vscode14.workspace.onDidChangeConfiguration(async (e) => {
       if (e.affectsConfiguration("forgevsc")) await reload();
     })
   );
@@ -213813,7 +213927,7 @@ async function initialize(ctx) {
   Logger.show(true);
   Logger.info("Starting extension...");
   const config = getExtensionConfig();
-  if (vscode13.env.uiKind === vscode13.UIKind.Desktop && config.rpc.enabled) {
+  if (vscode14.env.uiKind === vscode14.UIKind.Desktop && config.rpc.enabled) {
     createRPCStatusBar(ctx);
     await registerRPC(ctx);
   }
@@ -213821,42 +213935,43 @@ async function initialize(ctx) {
   registerGuidePreview(ctx);
   registerGuidesView(ctx);
   registerDecorations(ctx);
-  registerHover(ctx);
+  registerFunctionHover(ctx);
+  registerEventHover(ctx);
   registerFolding(ctx);
   registerAutocompletion(ctx);
   registerSignatureHelp(ctx);
   registerSuggestions(ctx);
-  const diagnostics = vscode13.languages.createDiagnosticCollection("forge");
+  const diagnostics = vscode14.languages.createDiagnosticCollection("forge");
   ctx.subscriptions.push(diagnostics);
-  for (const editor of vscode13.window.visibleTextEditors) {
+  for (const editor of vscode14.window.visibleTextEditors) {
     validateDocument(editor.document, diagnostics);
   }
   setTimeout(async () => {
-    const files = await vscode13.workspace.findFiles("**/*.{js,ts,jsx,tsx}", "**/node_modules/**");
+    const files = await vscode14.workspace.findFiles("**/*.{js,ts,jsx,tsx}", "**/node_modules/**");
     for (const file of files) {
       try {
-        const doc = await vscode13.workspace.openTextDocument(file);
+        const doc = await vscode14.workspace.openTextDocument(file);
         validateDocument(doc, diagnostics);
       } catch {
       }
     }
   }, 0);
   ctx.subscriptions.push(
-    vscode13.workspace.onDidChangeTextDocument((event) => {
+    vscode14.workspace.onDidChangeTextDocument((event) => {
       validateDocument(event.document, diagnostics);
-      const editor = vscode13.window.activeTextEditor;
+      const editor = vscode14.window.activeTextEditor;
       if (!editor || event.document !== editor.document) return;
       for (const change of event.contentChanges) {
         if (change.text === "" || change.text.includes(";")) {
-          vscode13.commands.executeCommand("editor.action.triggerParameterHints");
+          vscode14.commands.executeCommand("editor.action.triggerParameterHints");
           break;
         }
       }
     }),
-    vscode13.workspace.onDidOpenTextDocument((doc) => validateDocument(doc, diagnostics))
+    vscode14.workspace.onDidOpenTextDocument((doc) => validateDocument(doc, diagnostics))
   );
   ctx.subscriptions.push(
-    vscode13.languages.registerDefinitionProvider(Languages, {
+    vscode14.languages.registerDefinitionProvider(Languages, {
       provideDefinition(document, position) {
         const range = document.getWordRangeAtPosition(position, /\$[a-zA-Z0-9]+/);
         if (!range) return;
@@ -213866,10 +213981,10 @@ async function initialize(ctx) {
     })
   );
   const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC";
-  const status = vscode13.window.createStatusBarItem(vscode13.StatusBarAlignment.Left, 100);
+  const status = vscode14.window.createStatusBarItem(vscode14.StatusBarAlignment.Left, 100);
   status.text = `$(package) ${name} v` + ctx.extension.packageJSON.version;
   status.command = "forgevsc.openExtensionLog";
-  status.tooltip = vscode13.l10n.t("{0} Extension Details", name);
+  status.tooltip = vscode14.l10n.t("{0} Extension Details", name);
   status.show();
   ctx.subscriptions.push(status);
   Logger.info("Extension started successfully!");
@@ -213886,18 +214001,18 @@ async function reload() {
   const packagesChanged = oldKey !== null && oldKey !== newKey;
   const newState = isWorkspaceEnabled();
   const showInformationMessage = async (message, openSettings = true) => {
-    const btnReload = vscode13.l10n.t("Reload");
-    const btnLater = vscode13.l10n.t("Later");
-    const btnOpenSettings = vscode13.l10n.t("Open Settings");
-    const action = await vscode13.window.showInformationMessage(
+    const btnReload = vscode14.l10n.t("Reload");
+    const btnLater = vscode14.l10n.t("Later");
+    const btnOpenSettings = vscode14.l10n.t("Open Settings");
+    const action = await vscode14.window.showInformationMessage(
       message,
       ...openSettings ? [btnReload, btnOpenSettings] : [btnReload, btnLater]
     );
     if (action === btnReload) {
-      if (openSettings) await vscode13.commands.executeCommand("workbench.action.reloadWindow");
-      else await vscode13.commands.executeCommand("forgevsc.reloadFunctionMetadata");
+      if (openSettings) await vscode14.commands.executeCommand("workbench.action.reloadWindow");
+      else await vscode14.commands.executeCommand("forgevsc.reloadFunctionMetadata");
     } else if (action === btnOpenSettings) {
-      await vscode13.commands.executeCommand(
+      await vscode14.commands.executeCommand(
         "forgevsc.openSettings",
         "forgevsc.global.enabledWorkspaces"
       );
@@ -213907,16 +214022,16 @@ async function reload() {
     isEnabled = newState;
     if (!isEnabled) {
       Logger.info("Extension disabled after configuration change.");
-      await showInformationMessage(vscode13.l10n.t("Extension is disabled for this workspace. Reload recommended."));
+      await showInformationMessage(vscode14.l10n.t("Extension is disabled for this workspace. Reload recommended."));
       return;
     }
     Logger.info("Extension enabled after configuration change.");
-    await showInformationMessage(vscode13.l10n.t("Extension has been enabled. Reload to fully activate."));
+    await showInformationMessage(vscode14.l10n.t("Extension has been enabled. Reload to fully activate."));
     return;
   }
   if (packagesChanged) {
     await showInformationMessage(
-      vscode13.l10n.t("Package sources or custom function paths have changed. Reload to refresh function metadata."),
+      vscode14.l10n.t("Package sources or custom function paths have changed. Reload to refresh function metadata."),
       false
     );
   }
@@ -213932,10 +214047,19 @@ function buildCacheKey(installed, additional = [], customPaths) {
     additional: [...additional].map((x) => x.trim()).filter(Boolean).sort()
   });
 }
+function getCacheUri(storageKey) {
+  return vscode14.Uri.joinPath(Context.globalStorageUri, `${storageKey}.json`);
+}
 async function readMetadataCache(storageKey, key) {
-  const data = Context.globalState.get(storageKey);
-  if (!data || data.version !== 1 || data.key !== key) return null;
-  return data.metadata;
+  try {
+    const uri = getCacheUri(storageKey);
+    const raw = await vscode14.workspace.fs.readFile(uri);
+    const data = JSON.parse(new TextDecoder().decode(raw));
+    if (!data || data.version !== 1 || data.key !== key) return null;
+    return data.metadata;
+  } catch {
+    return null;
+  }
 }
 async function writeMetadataCache(storageKey, key, data) {
   const payload = {
@@ -213944,13 +214068,19 @@ async function writeMetadataCache(storageKey, key, data) {
     timestamp: Date.now(),
     metadata: data
   };
-  await Context.globalState.update(storageKey, payload);
+  await vscode14.workspace.fs.createDirectory(Context.globalStorageUri);
+  const uri = getCacheUri(storageKey);
+  const json = new TextEncoder().encode(JSON.stringify(payload));
+  await vscode14.workspace.fs.writeFile(uri, json);
 }
 async function clearMetadataCache(storageKey) {
-  await Context.globalState.update(storageKey, void 0);
+  try {
+    await vscode14.workspace.fs.delete(getCacheUri(storageKey));
+  } catch {
+  }
 }
 function isWorkspaceEnabled() {
-  const folders = vscode13.workspace.workspaceFolders;
+  const folders = vscode14.workspace.workspaceFolders;
   if (!folders?.length) return true;
   const config = getExtensionConfig();
   const enabled = config.enabledWorkspaces ?? [];
@@ -213958,12 +214088,12 @@ function isWorkspaceEnabled() {
   return folders.some((folder) => enabled.includes(folder.name));
 }
 async function getForgePackages() {
-  const folders = vscode13.workspace.workspaceFolders;
+  const folders = vscode14.workspace.workspaceFolders;
   if (!folders?.length) return [];
-  const pkgUri = vscode13.Uri.joinPath(folders[0].uri, "package.json");
+  const pkgUri = vscode14.Uri.joinPath(folders[0].uri, "package.json");
   let data;
   try {
-    data = await vscode13.workspace.fs.readFile(pkgUri);
+    data = await vscode14.workspace.fs.readFile(pkgUri);
   } catch {
     return [];
   }
@@ -214036,9 +214166,9 @@ async function resolveInstalledPackage(root, pkg) {
   const { name, value } = pkg;
   const direct = normalizeRepo(value);
   if (direct) return buildPackage(direct.repo, direct.branch, name);
-  const pkgUri = vscode13.Uri.joinPath(root, "node_modules", name, "package.json");
+  const pkgUri = vscode14.Uri.joinPath(root, "node_modules", name, "package.json");
   try {
-    const data = await vscode13.workspace.fs.readFile(pkgUri);
+    const data = await vscode14.workspace.fs.readFile(pkgUri);
     const pkg2 = JSON.parse(new TextDecoder().decode(data));
     const repo = pkg2.repository;
     const ref = typeof repo === "string" ? normalizeRepo(repo) : normalizeRepo(repo?.url);
@@ -214054,9 +214184,17 @@ function resolveAdditionalPackage(input) {
   if (!ref) return null;
   return buildPackage(ref.repo, ref.branch, input);
 }
-async function fetchMetadata(source) {
+async function fetchFunctionMetadata(source) {
   const url = `https://raw.githubusercontent.com/${source.repo}/${source.branch}/metadata/functions.json`;
   const res = await fetch(url).catch(() => void 0);
+  if (!res?.ok) return null;
+  const data = await res.json();
+  return data.map((x) => ({ ...x, source }));
+}
+async function fetchEventMetadata(source) {
+  const url = `https://raw.githubusercontent.com/${source.repo}/${source.branch}/metadata/events.json`;
+  const res = await fetch(url).catch(() => void 0);
+  if (res?.status === 404) return [];
   if (!res?.ok) return null;
   const data = await res.json();
   return data.map((x) => ({ ...x, source }));
@@ -214071,7 +214209,7 @@ function overwriteNative(native, custom) {
   return [...map.values()];
 }
 async function fetchFunctions(force = false) {
-  const folders = vscode13.workspace.workspaceFolders;
+  const folders = vscode14.workspace.workspaceFolders;
   if (!folders?.length) return [];
   const { additionalPackages, customFunctionPaths } = getExtensionConfig();
   const root = folders[0].uri;
@@ -214110,8 +214248,8 @@ async function fetchFunctions(force = false) {
     const pkgName = pkgSource.label;
     let handled = false;
     try {
-      const localMetaUri = vscode13.Uri.joinPath(root, "node_modules", pkgName, "metadata", "functions.json");
-      const data = await vscode13.workspace.fs.readFile(localMetaUri);
+      const localMetaUri = vscode14.Uri.joinPath(root, "node_modules", pkgName, "metadata", "functions.json");
+      const data = await vscode14.workspace.fs.readFile(localMetaUri);
       const json = JSON.parse(new TextDecoder().decode(data));
       extensionFunctions.push(...json.map((x) => ({ ...x, source: pkgSource })));
       fetched.add(pkgName);
@@ -214119,7 +214257,7 @@ async function fetchFunctions(force = false) {
     } catch {
     }
     if (!handled) {
-      const data = await fetchMetadata(pkgSource);
+      const data = await fetchFunctionMetadata(pkgSource);
       if (data) {
         extensionFunctions.push(...data);
         fetched.add(pkgName);
@@ -214130,7 +214268,7 @@ async function fetchFunctions(force = false) {
     }
   }
   for (const source of uniqueAdditional) {
-    const data = await fetchMetadata(source);
+    const data = await fetchFunctionMetadata(source);
     if (data) {
       extensionFunctions.push(...data);
       fetched.add(source.label);
@@ -214143,7 +214281,7 @@ async function fetchFunctions(force = false) {
   const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def));
   let main = [];
   if (!hasDefaultInstalled && !hasDefaultAdditional || fetchMain) {
-    const data = await fetchMetadata(def);
+    const data = await fetchFunctionMetadata(def);
     if (data) {
       main = data;
       fetched.add(def.label);
@@ -214157,9 +214295,9 @@ async function fetchFunctions(force = false) {
   Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}. (${Array.from(fetched).join(", ")})`);
   if (customFunctionPaths.length) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`);
   if (failed) {
-    const text = `Fetching metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
+    const text = `Fetching function metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
     Logger.error(text);
-    vscode13.window.showErrorMessage(text);
+    vscode14.window.showErrorMessage(text);
   }
   const merged = overwriteNative(metadata, customFunctions);
   await writeMetadataCache(FunctionsStorageKey, cacheKey, merged);
@@ -214178,6 +214316,111 @@ async function getFunctions(force = false) {
   }
   return functionsPromise;
 }
+async function fetchEvents(force = false) {
+  const folders = vscode14.workspace.workspaceFolders;
+  if (!folders?.length) return [];
+  const { additionalPackages } = getExtensionConfig();
+  const root = folders[0].uri;
+  const rawInstalled = await getForgePackages();
+  const rawAdditional = additionalPackages?.filter(Boolean) ?? [];
+  let failedFetch = [];
+  const def = buildPackage("tryforge/ForgeScript", "main", "@tryforge/forgescript");
+  const getId = (source) => getPackageId(source);
+  const installed = (await Promise.all(
+    rawInstalled.map(async (pkg) => {
+      const source = await resolveInstalledPackage(root, pkg);
+      if (!source && pkg.name !== def.label) failedFetch.push(pkg.name);
+      return source;
+    })
+  )).filter((x) => !!x);
+  const additional = rawAdditional.map((input) => {
+    const source = resolveAdditionalPackage(input);
+    if (!source && input !== def.label) failedFetch.push(input);
+    return source;
+  }).filter((x) => !!x);
+  const uniqueAdditional = [...new Map(additional.map((source) => [getId(source), source])).values()];
+  const overridden = new Set(uniqueAdditional.map(getId));
+  const uniqueInstalled = installed.filter((source) => !overridden.has(getId(source)));
+  const cacheKey = buildCacheKey(rawInstalled, rawAdditional);
+  if (!force) {
+    const cached2 = await readMetadataCache(EventsStorageKey, cacheKey);
+    if (cached2) {
+      Logger.info(`Loaded cached metadata from ${cached2.length} events.`);
+      return cached2;
+    }
+  }
+  let extensionEvents = [];
+  let fetched = /* @__PURE__ */ new Set();
+  let fetchMain = false;
+  for (const pkgSource of uniqueInstalled) {
+    const pkgName = pkgSource.label;
+    let handled = false;
+    try {
+      const localMetaUri = vscode14.Uri.joinPath(root, "node_modules", pkgName, "metadata", "events.json");
+      const data = await vscode14.workspace.fs.readFile(localMetaUri);
+      const json = JSON.parse(new TextDecoder().decode(data));
+      extensionEvents.push(...json.map((x) => ({ ...x, source: pkgSource })));
+      fetched.add(pkgName);
+      handled = true;
+    } catch {
+    }
+    if (!handled) {
+      const data = await fetchEventMetadata(pkgSource);
+      if (data) {
+        extensionEvents.push(...data);
+        if (data.length) fetched.add(pkgName);
+      } else {
+        if (pkgName !== def.label) failedFetch.push(pkgName);
+        else fetchMain = true;
+      }
+    }
+  }
+  for (const source of uniqueAdditional) {
+    const data = await fetchEventMetadata(source);
+    if (data) {
+      extensionEvents.push(...data);
+      if (data.length) fetched.add(source.label);
+    } else {
+      if (getId(source) !== getId(def)) failedFetch.push(source.label);
+      else fetchMain = true;
+    }
+  }
+  const hasDefaultInstalled = uniqueInstalled.some((x) => getId(x) === getId(def));
+  const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def));
+  let main = [];
+  if (!hasDefaultInstalled && !hasDefaultAdditional || fetchMain) {
+    const data = await fetchEventMetadata(def);
+    if (data) {
+      main = data;
+      fetched.add(def.label);
+    } else failedFetch.unshift(def.label);
+  }
+  const metadata = [...main, ...extensionEvents];
+  failedFetch = [...new Set(failedFetch)];
+  const failed = failedFetch.length;
+  const count = fetched.size;
+  Logger.info(`Fetched metadata from ${metadata.length} events across ${count} package${count === 1 ? "" : "s"}. (${Array.from(fetched).join(", ")})`);
+  if (failed) {
+    const text = `Fetching event metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
+    Logger.error(text);
+    vscode14.window.showErrorMessage(text);
+  }
+  await writeMetadataCache(EventsStorageKey, cacheKey, metadata);
+  return metadata;
+}
+async function getEvents(force = false) {
+  if (events && !force) return events;
+  if (!eventsPromise) {
+    eventsPromise = (async () => {
+      const res = await fetchEvents(force);
+      events = res;
+      return res;
+    })().finally(() => {
+      eventsPromise = null;
+    });
+  }
+  return eventsPromise;
+}
 async function fetchGuides(force = false) {
   const key = "default";
   if (!force) {
@@ -214191,14 +214434,14 @@ async function fetchGuides(force = false) {
   const res = await fetch(url).catch((err) => {
     const text = "Fetching guides failed: " + err;
     Logger.error(text);
-    vscode13.window.showErrorMessage(text);
+    vscode14.window.showErrorMessage(text);
     return void 0;
   });
   if (!res) return [];
   if (!res.ok) {
     const text = `Fetching guides failed: ${res.status} ${res.statusText}`;
     Logger.error(text);
-    vscode13.window.showErrorMessage(text);
+    vscode14.window.showErrorMessage(text);
     return [];
   }
   const data = await res.json();
@@ -214275,7 +214518,7 @@ function generateUsage(fn, withTypes = false) {
   ).join(";")}]` : "";
   return fn.name + usage;
 }
-async function buildSourceURL(fn) {
+async function buildFunctionURL(fn) {
   const { source, category } = fn;
   if (!source) return null;
   const { repo, branch } = source;
@@ -214283,6 +214526,15 @@ async function buildSourceURL(fn) {
   const paths2 = await getPaths(source);
   if (paths2) path = paths2.functions;
   return `https://github.com/${repo}/blob/${branch}/${path}${category ? `/${category}` : ""}/${fn.name.replace("$", "")}.ts`;
+}
+async function buildEventURL(event) {
+  const { source } = event;
+  if (!source) return null;
+  const { repo, branch } = source;
+  let path = "src/events";
+  const paths2 = await getPaths(source);
+  if (paths2?.events) path = paths2.events;
+  return `https://github.com/${repo}/blob/${branch}/${path}/${event.name}.ts`;
 }
 async function findFunction(name, loose = false) {
   const match = name.match(loose ? LooseFunctionNameRegex : FunctionNameRegex);
@@ -214307,6 +214559,10 @@ async function findFunction(name, loose = false) {
     if (fn) return { fn, matchedText: prefix + raw };
   }
   return null;
+}
+async function findEvents(name) {
+  const all = await getEvents();
+  return all.filter((x) => x.name === name);
 }
 function validateOperatorPrefix(input) {
   const rawPrefix = input.match(LooseFunctionPrefixRegex)?.[0] ?? "$";
