@@ -1,5 +1,12 @@
 # Change Log
 
+## v1.2.12 <sub>(September 26, 2026)</sub>
+
+### Added
+- Added diagnostics for event types
+- Added comment wrapping/toggle via keyboard shortcut (`Shift+Alt+A`)
+- Added color picker for `Color` arguments
+
 ## v1.2.11 <sub>(September 12, 2026)</sub>
 
 ### Added

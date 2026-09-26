@@ -12,6 +12,7 @@
   "command.createGuide.title": "Create Guide",
   "command.openGuideExternal.title": "Open Guide (External)",
   "command.openExtensionSettings.title": "Open Extension Settings",
+  "command.toggleComment.title": "Toggle Comment",
   "view.guides.title": "Guides",
   "view.guides.welcome": "No guides available.\n[$(refresh) Reload Guides](command:forgevsc.reloadGuideMetadata)\n[$(add) Create Guide](command:forgevsc.createGuide)",
   "config.global.enabledWorkspaces.description": "List of workspace names where ForgeVSC is enabled. Leave empty to enable the extension for all workspaces.",

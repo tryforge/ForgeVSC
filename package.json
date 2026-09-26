@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "%extension.description%",
   "publisher": "tryforge",
-  "version": "1.2.11",
+  "version": "1.2.12",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "browser": "./out/web/extension.js",
@@ -13,7 +13,7 @@
     "url": "https://github.com/xNickyDev/"
   },
   "engines": {
-    "vscode": "^1.105.0"
+    "vscode": "^1.106.0"
   },
   "categories": [
     "Programming Languages",
@@ -126,6 +126,18 @@
         "title": "%command.openExtensionSettings.title%",
         "category": "ForgeVSC",
         "icon": "$(settings)"
+      },
+      {
+        "command": "forgevsc.toggleComment",
+        "title": "%command.toggleComment.title%",
+        "category": "ForgeVSC"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "forgevsc.toggleComment",
+        "key": "shift+alt+a",
+        "when": "editorTextFocus && forgevsc.inCodeBlock"
       }
     ],
     "grammars": [
@@ -227,6 +239,10 @@
         },
         {
           "command": "forgevsc.openGuideExternal",
+          "when": "false"
+        },
+        {
+          "command": "forgevsc.toggleComment",
           "when": "false"
         }
       ]
@@ -415,7 +431,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "^26.2.0",
-    "@types/vscode": "^1.105.0",
+    "@types/vscode": "^1.106.0",
     "@typescript-eslint/eslint-plugin": "^8.70.0",
     "@typescript-eslint/parser": "^8.70.0",
     "@vscode/l10n-dev": "^0.0.35",
@@ -427,7 +443,7 @@
     "ovsx": "^1.2.0"
   },
   "dependencies": {
-    "@xhayper/discord-rpc": "^1.3.4",
+    "@xhayper/discord-rpc": "^1.5.1",
     "typescript": "^6.0.3"
   },
   "allowScripts": {

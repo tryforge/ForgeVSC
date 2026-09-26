@@ -15,7 +15,9 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./autocompletion"), exports);
+__exportStar(require("./colors"), exports);
 __exportStar(require("./commands"), exports);
+__exportStar(require("./comment"), exports);
 __exportStar(require("./config"), exports);
 __exportStar(require("./decorations"), exports);
 __exportStar(require("./diagnostics"), exports);

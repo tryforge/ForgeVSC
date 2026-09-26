@@ -136,6 +136,7 @@ async function validateDocument(document, collection) {
             }
         }
     }
+    await (0, _1.validateEventTypes)(document, diagnostics);
     collection.set(document.uri, diagnostics);
 }
 //# sourceMappingURL=diagnostics.js.map

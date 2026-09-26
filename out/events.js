@@ -36,15 +36,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.validateEventTypes = validateEventTypes;
 exports.registerEventHover = registerEventHover;
 const _1 = require(".");
 const vscode = __importStar(require("vscode"));
 const typescript_1 = __importDefault(require("typescript"));
-function findEventTypeLiteral(sf, offset) {
-    let result = null;
+function collectEventTypeLiterals(sf) {
+    const literals = [];
     function visit(node) {
-        if (result)
-            return;
         if (typescript_1.default.isObjectLiteralExpression(node)) {
             const hasCode = node.properties.some((p) => typescript_1.default.isPropertyAssignment(p) &&
                 (typescript_1.default.isIdentifier(p.name) || typescript_1.default.isStringLiteral(p.name)) &&
@@ -59,19 +58,43 @@ function findEventTypeLiteral(sf, offset) {
                         continue;
                     if (!typescript_1.default.isStringLiteral(prop.initializer))
                         continue;
-                    const start = prop.initializer.getStart(sf) + 1;
-                    const end = prop.initializer.getEnd() - 1;
-                    if (offset >= start && offset <= end) {
-                        result = prop.initializer;
-                        return;
-                    }
+                    literals.push(prop.initializer);
                 }
             }
         }
         typescript_1.default.forEachChild(node, visit);
     }
     visit(sf);
-    return result;
+    return literals;
+}
+/**
+ * Validates all event types for a document.
+ * @param document The text document.
+ * @param diagnostics The diagnostics array to push into.
+ */
+async function validateEventTypes(document, diagnostics) {
+    const text = document.getText();
+    const kind = document.fileName.endsWith(".tsx")
+        ? typescript_1.default.ScriptKind.TSX
+        : document.fileName.endsWith(".ts")
+            ? typescript_1.default.ScriptKind.TS
+            : document.fileName.endsWith(".jsx")
+                ? typescript_1.default.ScriptKind.JSX
+                : typescript_1.default.ScriptKind.JS;
+    const sf = typescript_1.default.createSourceFile(document.fileName, text, typescript_1.default.ScriptTarget.Latest, true, kind);
+    const literals = collectEventTypeLiterals(sf);
+    for (const literal of literals) {
+        const events = await (0, _1.findEvents)(literal.text);
+        if (!events.length || !events.every((x) => x.deprecated))
+            continue;
+        const start = document.positionAt(literal.getStart(sf) + 1);
+        const end = document.positionAt(literal.getEnd() - 1);
+        const range = new vscode.Range(start, end);
+        const hint = new vscode.Diagnostic(range, vscode.l10n.t("This event is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available."), vscode.DiagnosticSeverity.Hint);
+        const warning = new vscode.Diagnostic(range, vscode.l10n.t("Event `{0}` is deprecated. Use an available alternative instead", literal.text), vscode.DiagnosticSeverity.Warning);
+        warning.tags = [vscode.DiagnosticTag.Deprecated];
+        diagnostics.push(hint, warning);
+    }
 }
 /**
  * Registers the hover info for event types.
@@ -95,7 +118,8 @@ function registerEventHover(ctx) {
                         ? typescript_1.default.ScriptKind.JSX
                         : typescript_1.default.ScriptKind.JS;
             const sf = typescript_1.default.createSourceFile(document.fileName, text, typescript_1.default.ScriptTarget.Latest, true, kind);
-            const literal = findEventTypeLiteral(sf, offset);
+            const literals = collectEventTypeLiterals(sf);
+            const literal = literals.find((x) => offset >= x.getStart(sf) + 1 && offset <= x.getEnd() - 1);
             if (!literal)
                 return;
             const events = await (0, _1.findEvents)(literal.text);
@@ -103,12 +127,12 @@ function registerEventHover(ctx) {
                 return;
             const range = new vscode.Range(document.positionAt(literal.getStart(sf) + 1), document.positionAt(literal.getEnd() - 1));
             const contents = await Promise.all(events.map(async (event) => {
-                const { name, description, version, source, deprecated } = event;
+                const { name, description, version, source, intents } = event;
                 const md = new vscode.MarkdownString();
                 md.appendCodeblock(name);
                 md.appendText(`${description}\n`);
-                if (deprecated)
-                    md.appendMarkdown(`\n**🛑 Deprecated**\n\n`);
+                if (intents?.length)
+                    md.appendMarkdown(`**Intents:** \`${intents.join("`, `")}\`\n\n`);
                 if (version) {
                     const links = [];
                     const sourceUrl = await (0, _1.buildEventURL)(event);
@@ -123,7 +147,7 @@ function registerEventHover(ctx) {
                         links.push(`[$(book) ${vscode.l10n.t("Guide")}](${cmd})`);
                     }
                     md.appendMarkdown(`---\n`);
-                    md.appendMarkdown(`##### $(package) ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? " | " + links.join(" | ") : ""));
+                    md.appendMarkdown(`##### $(package) ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? ` | ${links.join(" | ")}` : ""));
                 }
                 md.isTrusted = true;
                 md.supportThemeIcons = true;

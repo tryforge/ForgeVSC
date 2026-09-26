@@ -46,6 +46,8 @@
   "Extension is disabled for this workspace. Reload recommended.": "Extension is disabled for this workspace. Reload recommended.",
   "Extension has been enabled. Reload to fully activate.": "Extension has been enabled. Reload to fully activate.",
   "Package sources or custom function paths have changed. Reload to refresh function metadata.": "Package sources or custom function paths have changed. Reload to refresh function metadata.",
+  "This event is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available.": "This event is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available.",
+  "Event `{0}` is deprecated. Use an available alternative instead": "Event `{0}` is deprecated. Use an available alternative instead",
   "This function is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available.": "This function is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available.",
   "Function `{0}` is deprecated. Use an available alternative instead": "Function `{0}` is deprecated. Use an available alternative instead",
   "This is an experimental function. It may not work as expected and is not guaranteed to be stable. Expect bugs, changes, or removal.": "This is an experimental function. It may not work as expected and is not guaranteed to be stable. Expect bugs, changes, or removal.",
@@ -78,6 +80,5 @@
   "Successfully fetched function metadata!": "Successfully fetched function metadata!",
   "Successfully fetched event metadata!": "Successfully fetched event metadata!",
   "Deprecated": "Deprecated",
-  "Experimental": "Experimental",
-  "since": "since"
+  "Experimental": "Experimental"
 }

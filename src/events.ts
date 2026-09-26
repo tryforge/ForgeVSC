@@ -2,12 +2,10 @@ import { buildEventURL, findEvents, findGuide, getExtensionConfig, getPackageNam
 import * as vscode from "vscode"
 import ts from "typescript"
 
-function findEventTypeLiteral(sf: ts.SourceFile, offset: number): ts.StringLiteral | null {
-    let result: ts.StringLiteral | null = null
+function collectEventTypeLiterals(sf: ts.SourceFile) {
+    const literals: ts.StringLiteral[] = []
 
     function visit(node: ts.Node) {
-        if (result) return
-
         if (ts.isObjectLiteralExpression(node)) {
             const hasCode = node.properties.some((p) =>
                 ts.isPropertyAssignment(p) &&
@@ -22,13 +20,7 @@ function findEventTypeLiteral(sf: ts.SourceFile, offset: number): ts.StringLiter
                     if (prop.name.text !== "type") continue
                     if (!ts.isStringLiteral(prop.initializer)) continue
 
-                    const start = prop.initializer.getStart(sf) + 1
-                    const end = prop.initializer.getEnd() - 1
-
-                    if (offset >= start && offset <= end) {
-                        result = prop.initializer
-                        return
-                    }
+                    literals.push(prop.initializer)
                 }
             }
         }
@@ -37,7 +29,48 @@ function findEventTypeLiteral(sf: ts.SourceFile, offset: number): ts.StringLiter
     }
 
     visit(sf)
-    return result
+    return literals
+}
+
+/**
+ * Validates all event types for a document.
+ * @param document The text document.
+ * @param diagnostics The diagnostics array to push into.
+ */
+export async function validateEventTypes(document: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
+    const text = document.getText()
+    const kind = document.fileName.endsWith(".tsx")
+        ? ts.ScriptKind.TSX
+        : document.fileName.endsWith(".ts")
+            ? ts.ScriptKind.TS
+            : document.fileName.endsWith(".jsx")
+                ? ts.ScriptKind.JSX
+                : ts.ScriptKind.JS
+
+    const sf = ts.createSourceFile(document.fileName, text, ts.ScriptTarget.Latest, true, kind)
+    const literals = collectEventTypeLiterals(sf)
+
+    for (const literal of literals) {
+        const events = await findEvents(literal.text)
+        if (!events.length || !events.every((x) => x.deprecated)) continue
+
+        const start = document.positionAt(literal.getStart(sf) + 1)
+        const end = document.positionAt(literal.getEnd() - 1)
+        const range = new vscode.Range(start, end)
+
+        const hint = new vscode.Diagnostic(
+            range,
+            vscode.l10n.t("This event is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available."),
+            vscode.DiagnosticSeverity.Hint
+        )
+        const warning = new vscode.Diagnostic(
+            range,
+            vscode.l10n.t("Event `{0}` is deprecated. Use an available alternative instead", literal.text),
+            vscode.DiagnosticSeverity.Warning
+        )
+        warning.tags = [vscode.DiagnosticTag.Deprecated]
+        diagnostics.push(hint, warning)
+    }
 }
 
 /**
@@ -64,7 +97,8 @@ export function registerEventHover(ctx: vscode.ExtensionContext) {
                             : ts.ScriptKind.JS
 
                 const sf = ts.createSourceFile(document.fileName, text, ts.ScriptTarget.Latest, true, kind)
-                const literal = findEventTypeLiteral(sf, offset)
+                const literals = collectEventTypeLiterals(sf)
+                const literal = literals.find((x) => offset >= x.getStart(sf) + 1 && offset <= x.getEnd() - 1)
                 if (!literal) return
 
                 const events = await findEvents(literal.text)
@@ -77,12 +111,12 @@ export function registerEventHover(ctx: vscode.ExtensionContext) {
 
                 const contents = await Promise.all(
                     events.map(async (event) => {
-                        const { name, description, version, source, deprecated } = event
+                        const { name, description, version, source, intents } = event
                         const md = new vscode.MarkdownString()
 
                         md.appendCodeblock(name)
                         md.appendText(`${description}\n`)
-                        if (deprecated) md.appendMarkdown(`\n**🛑 Deprecated**\n\n`)
+                        if (intents?.length) md.appendMarkdown(`**Intents:** \`${intents.join("`, `")}\`\n\n`)
                         if (version) {
                             const links: string[] = []
                             const sourceUrl = await buildEventURL(event)
@@ -98,7 +132,7 @@ export function registerEventHover(ctx: vscode.ExtensionContext) {
                             }
                             md.appendMarkdown(`---\n`)
                             md.appendMarkdown(
-                                `##### $(package) ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? " | " + links.join(" | ") : "")
+                                `##### $(package) ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? ` | ${links.join(" | ")}` : "")
                             )
                         }
                         md.isTrusted = true

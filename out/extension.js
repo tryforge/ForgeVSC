@@ -196,9 +196,11 @@ async function initialize(ctx) {
     (0, _1.registerGuidePreview)(ctx);
     (0, _1.registerGuidesView)(ctx);
     (0, _1.registerDecorations)(ctx);
+    (0, _1.registerColorPicker)(ctx);
     (0, _1.registerFunctionHover)(ctx);
     (0, _1.registerEventHover)(ctx);
     (0, _1.registerFolding)(ctx);
+    (0, _1.registerCommentToggle)(ctx);
     (0, _1.registerAutocompletion)(ctx);
     (0, _1.registerSignatureHelp)(ctx);
     (0, _1.registerSuggestions)(ctx);
