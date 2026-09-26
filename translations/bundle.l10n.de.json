@@ -39,6 +39,5 @@
   "Successfully created config file!": "Konfigurationsdatei erfolgreich erstellt!",
   "Successfully fetched function metadata!": "Funktions-Metadaten erfolgreich abgerufen!",
   "Deprecated": "Veraltet",
-  "Experimental": "Experimentell",
-  "since": "seit"
+  "Experimental": "Experimentell"
 }
