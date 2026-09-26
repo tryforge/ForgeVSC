@@ -10,6 +10,7 @@ import {
 	Languages,
 	locateCodeBlock,
 	splitArgs,
+	validateEventTypes,
 	validateOperatorPrefix
 } from "."
 import * as vscode from "vscode"
@@ -171,5 +172,6 @@ export async function validateDocument(
 		}
 	}
 
+	await validateEventTypes(document, diagnostics)
 	collection.set(document.uri, diagnostics)
 }

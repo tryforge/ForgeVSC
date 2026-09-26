@@ -1,5 +1,7 @@
 export * from "./autocompletion"
+export * from "./colors"
 export * from "./commands"
+export * from "./comment"
 export * from "./config"
 export * from "./decorations"
 export * from "./diagnostics"

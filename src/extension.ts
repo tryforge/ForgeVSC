@@ -8,7 +8,9 @@ import {
 	loadCustomFunctions,
 	loadExtensionConfig,
 	registerAutocompletion,
+	registerColorPicker,
 	registerCommands,
+	registerCommentToggle,
 	registerDecorations,
 	registerDefaultCommands,
 	registerEventHover,
@@ -223,9 +225,13 @@ async function initialize(ctx: vscode.ExtensionContext) {
 	registerGuidesView(ctx)
 
 	registerDecorations(ctx)
+	registerColorPicker(ctx)
+
 	registerFunctionHover(ctx)
 	registerEventHover(ctx)
+
 	registerFolding(ctx)
+	registerCommentToggle(ctx)
 
 	registerAutocompletion(ctx)
 	registerSignatureHelp(ctx)

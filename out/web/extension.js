@@ -166094,16 +166094,16 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
       function getAllFixes(context) {
         return fixIdToRegistration.get(cast(context.fixId, isString)).getAllCodeActions(context);
       }
-      function createCombinedCodeActions(changes, commands4) {
-        return { changes, commands: commands4 };
+      function createCombinedCodeActions(changes, commands5) {
+        return { changes, commands: commands5 };
       }
       function createFileTextChanges(fileName, textChanges2) {
         return { fileName, textChanges: textChanges2 };
       }
       function codeFixAll(context, errorCodes68, use) {
-        const commands4 = [];
-        const changes = ts_textChanges_exports.ChangeTracker.with(context, (t) => eachDiagnostic(context, errorCodes68, (diag2) => use(t, diag2, commands4)));
-        return createCombinedCodeActions(changes, commands4.length === 0 ? void 0 : commands4);
+        const commands5 = [];
+        const changes = ts_textChanges_exports.ChangeTracker.with(context, (t) => eachDiagnostic(context, errorCodes68, (diag2) => use(t, diag2, commands5)));
+        return createCombinedCodeActions(changes, commands5.length === 0 ? void 0 : commands5);
       }
       function eachDiagnostic(context, errorCodes68, cb) {
         for (const diag2 of getDiagnostics(context)) {
@@ -169857,8 +169857,8 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
         const packageJsonImportFilter = createPackageJsonImportFilter(sourceFile, preferences, host);
         return getBestFix(getImportFixes(exportInfos, position, isValidTypeOnlyUseSite, useRequire, program, sourceFile, host, preferences).fixes, sourceFile, program, packageJsonImportFilter, host, preferences);
       }
-      function codeFixActionToCodeAction({ description: description3, changes, commands: commands4 }) {
-        return { description: description3, changes, commands: commands4 };
+      function codeFixActionToCodeAction({ description: description3, changes, commands: commands5 }) {
+        return { description: description3, changes, commands: commands5 };
       }
       function getAllExportInfoForSymbol(importingFile, symbol, symbolName2, moduleSymbol, preferCapitalized, program, host, preferences, cancellationToken) {
         const getChecker = createGetChecker(program, host);
@@ -172749,14 +172749,14 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
         },
         fixIds: [fixIdInstallTypesPackage],
         getAllCodeActions: (context) => {
-          return codeFixAll(context, errorCodes31, (_changes, diag2, commands4) => {
+          return codeFixAll(context, errorCodes31, (_changes, diag2, commands5) => {
             const packageName = tryGetImportedPackageName(diag2.file, diag2.start);
             if (packageName === void 0) return void 0;
             switch (context.fixId) {
               case fixIdInstallTypesPackage: {
                 const pkg = getTypesPackageNameToInstall(packageName, context.host, diag2.code);
                 if (pkg) {
-                  commands4.push(getInstallCommand(diag2.file.fileName, pkg));
+                  commands5.push(getInstallCommand(diag2.file.fileName, pkg));
                 }
                 break;
               }
@@ -192018,7 +192018,7 @@ ${options.prefix}` : "\n" : options.prefix
         function getColumn() {
           return writer.getColumn();
         }
-        function getIndent() {
+        function getIndent2() {
           return writer.getIndent();
         }
         function isAtStartOfLine() {
@@ -192055,7 +192055,7 @@ ${options.prefix}` : "\n" : options.prefix
           getTextPos,
           getLine,
           getColumn,
-          getIndent,
+          getIndent: getIndent2,
           isAtStartOfLine,
           hasTrailingComment: () => writer.hasTrailingComment(),
           hasTrailingWhitespace: () => writer.hasTrailingWhitespace(),
@@ -210043,8 +210043,8 @@ Additional information: BADCLIENT: Bad error code, ${badCode} not found in range
           }
         }
         applyCodeActionCommand(args) {
-          const commands4 = args.command;
-          for (const command of toArray2(commands4)) {
+          const commands5 = args.command;
+          for (const command of toArray2(commands5)) {
             const { file, project } = this.getFileAndProject(command);
             project.getLanguageService().applyCodeActionCommand(command, this.getFormatOptions(file)).then(
               (_result) => {
@@ -210071,11 +210071,11 @@ Additional information: BADCLIENT: Bad error code, ${badCode} not found in range
           }
           return { startPosition, endPosition };
         }
-        mapCodeAction({ description: description3, changes, commands: commands4 }) {
-          return { description: description3, changes: this.mapTextChangesToCodeEdits(changes), commands: commands4 };
+        mapCodeAction({ description: description3, changes, commands: commands5 }) {
+          return { description: description3, changes: this.mapTextChangesToCodeEdits(changes), commands: commands5 };
         }
-        mapCodeFixAction({ fixName: fixName8, description: description3, changes, commands: commands4, fixId: fixId56, fixAllDescription }) {
-          return { fixName: fixName8, description: description3, changes: this.mapTextChangesToCodeEdits(changes), commands: commands4, fixId: fixId56, fixAllDescription };
+        mapCodeFixAction({ fixName: fixName8, description: description3, changes, commands: commands5, fixId: fixId56, fixAllDescription }) {
+          return { fixName: fixName8, description: description3, changes: this.mapTextChangesToCodeEdits(changes), commands: commands5, fixId: fixId56, fixAllDescription };
         }
         mapPasteEditsAction({ edits, fixId: fixId56 }) {
           return { edits: this.mapTextChangesToCodeEdits(edits), fixId: fixId56 };
@@ -211684,7 +211684,7 @@ function registerAutocompletion(ctx) {
 ` : fn.experimental ? `\u26A0\uFE0F **${vscode.l10n.t("Experimental")}**
 ` : "") + "\n" + fn.description}${fn.version ? `
 
-*@${vscode.l10n.t("since")}* \u2014 \`${getPackageName(fn.source) ?? ""} v${fn.version}\`` : ""}`
+*@since* \u2014 \`${getPackageName(fn.source) ?? ""} v${fn.version}\`` : ""}`
                 );
                 item.kind = vscode.CompletionItemKind.Function;
                 if (fn.deprecated) item.tags = [vscode.CompletionItemTag.Deprecated];
@@ -211734,62 +211734,189 @@ function registerAutocompletion(ctx) {
   );
 }
 
-// src/commands.ts
+// src/colors.ts
 var vscode2 = __toESM(require("vscode"));
+var NamedColors = {
+  default: "000000",
+  white: "ffffff",
+  aqua: "1abc9c",
+  green: "57f287",
+  blue: "3498db",
+  yellow: "fee75c",
+  purple: "9b59b6",
+  luminousvividpink: "e91e63",
+  fuchsia: "eb459e",
+  gold: "f1c40f",
+  orange: "e67e22",
+  red: "ed4245",
+  grey: "95a5a6",
+  gray: "95a5a6",
+  navy: "34495e",
+  darkaqua: "11806a",
+  darkgreen: "1f8b4c",
+  darkblue: "206694",
+  darkpurple: "71368a",
+  darkvividpink: "ad1457",
+  darkgold: "c27c0e",
+  darkorange: "a84300",
+  darkred: "992d22",
+  darkgrey: "979c9f",
+  darkgray: "979c9f",
+  darkergrey: "7f8c8d",
+  darkergray: "7f8c8d",
+  lightgrey: "bcc0c0",
+  lightgray: "bcc0c0",
+  darknavy: "2c3e50",
+  blurple: "5865f2",
+  greyple: "99aab5",
+  darkbutnotblack: "2c2f33",
+  notquiteblack: "23272a"
+};
+function hexToColor(hex) {
+  if (hex.length === 3 || hex.length === 4)
+    hex = hex.split("").map((c) => c + c).join("");
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+  const a = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1;
+  return new vscode2.Color(r, g, b, a);
+}
+function parseColor(value) {
+  const lower = value.toLowerCase();
+  if (lower === "random") return null;
+  const named = NamedColors[lower];
+  if (named) return hexToColor(named);
+  if (/^\d+$/.test(value)) {
+    const int = Number(value);
+    if (!Number.isSafeInteger(int) || int < 0 || int > 16777215) return null;
+    return hexToColor(int.toString(16).padStart(6, "0"));
+  }
+  if (!HexRegex.test(value)) return null;
+  return hexToColor(value.startsWith("#") ? value.slice(1) : value);
+}
+function formatColor(color, original) {
+  const toByte = (n) => Math.round(Math.max(0, Math.min(1, n)) * 255);
+  const toHex = (n) => toByte(n).toString(16).padStart(2, "0");
+  const lower = original.toLowerCase();
+  if (NamedColors[lower] || lower === "random")
+    return "#" + toHex(color.red) + toHex(color.green) + toHex(color.blue);
+  if (/^\d+$/.test(original))
+    return String(toByte(color.red) << 16 | toByte(color.green) << 8 | toByte(color.blue));
+  const hadHash = original.startsWith("#");
+  const rawHex = hadHash ? original.slice(1) : original;
+  const hadAlpha = rawHex.length === 4 || rawHex.length === 8;
+  let hex = toHex(color.red) + toHex(color.green) + toHex(color.blue);
+  if (hadAlpha) hex += toHex(color.alpha);
+  return (hadHash ? "#" : "") + hex;
+}
+function registerColorPicker(ctx) {
+  ctx.subscriptions.push(
+    vscode2.languages.registerColorProvider(Languages, {
+      async provideDocumentColors(document) {
+        const config = getExtensionConfig();
+        if (!config.features.hoverInfo) return [];
+        const text = document.getText();
+        const results = [];
+        const ScanRegex = cloneRegex(FunctionScanRegex);
+        ScanRegex.lastIndex = 0;
+        let match;
+        while (match = ScanRegex.exec(text)) {
+          const index = match.index;
+          const startPos = document.positionAt(index);
+          if (!locateCodeBlock(document, startPos) || isEscaped(text, index) || isIgnored(text, index)) continue;
+          const full = match[0];
+          if (!full.endsWith("[")) continue;
+          const found = await findFunction(full.slice(0, -1));
+          if (!found?.fn.args) continue;
+          const { fn } = found;
+          const openIndex = index + full.length - 1;
+          const closeIndex = findMatchingBracket(text, openIndex);
+          if (closeIndex === -1) continue;
+          const argString = text.slice(openIndex + 1, closeIndex);
+          const args = splitArgs(argString);
+          const lastArg = fn.args?.at(-1);
+          for (let i = 0; i < args.length; i++) {
+            const meta = fn.args?.[Math.min(i, lastArg?.rest ? fn.args.length - 1 : i)];
+            if (meta?.type !== "Color") continue;
+            const raw = args[i].value;
+            const whitespace = raw.length - raw.trimStart().length;
+            const trimmed = raw.trim();
+            const color = parseColor(trimmed);
+            if (!color) continue;
+            const startOffset = openIndex + 1 + args[i].start + whitespace;
+            const endOffset = startOffset + trimmed.length;
+            results.push(new vscode2.ColorInformation(
+              new vscode2.Range(document.positionAt(startOffset), document.positionAt(endOffset)),
+              color
+            ));
+          }
+        }
+        return results;
+      },
+      provideColorPresentations(color, ctx2) {
+        const original = ctx2.document.getText(ctx2.range);
+        return [new vscode2.ColorPresentation(formatColor(color, original))];
+      }
+    })
+  );
+}
+
+// src/commands.ts
+var vscode3 = __toESM(require("vscode"));
 function registerDefaultCommands(ctx) {
   ctx.subscriptions.push(
     // Open Extension Log
-    vscode2.commands.registerCommand("forgevsc.openExtensionLog", () => {
+    vscode3.commands.registerCommand("forgevsc.openExtensionLog", () => {
       Logger.show();
     }),
     // Open Settings (Backend)
-    vscode2.commands.registerCommand("forgevsc.openSettings", async (setting, user = true) => {
-      await vscode2.commands.executeCommand(
+    vscode3.commands.registerCommand("forgevsc.openSettings", async (setting, user = true) => {
+      await vscode3.commands.executeCommand(
         "workbench.action." + (user ? "openSettings" : "openWorkspaceSettings"),
         setting?.trim() || "@ext:tryforge.forgevsc"
       );
     }),
     // Open Extension Settings (UI)
-    vscode2.commands.registerCommand("forgevsc.openExtensionSettings", async () => {
+    vscode3.commands.registerCommand("forgevsc.openExtensionSettings", async () => {
       const items = [];
-      if (vscode2.workspace.workspaceFolders?.length) {
+      if (vscode3.workspace.workspaceFolders?.length) {
         items.push({
-          label: vscode2.l10n.t("$(folder) Workspace Settings"),
-          detail: vscode2.workspace.name || vscode2.l10n.t("Workspace"),
-          description: vscode2.l10n.t("Folder"),
+          label: vscode3.l10n.t("$(folder) Workspace Settings"),
+          detail: vscode3.workspace.name || vscode3.l10n.t("Workspace"),
+          description: vscode3.l10n.t("Folder"),
           target: "workbench.action.openWorkspaceSettings"
         });
       }
       items.push({
-        label: vscode2.l10n.t("$(account) User Settings"),
-        description: vscode2.l10n.t("Global"),
+        label: vscode3.l10n.t("$(account) User Settings"),
+        description: vscode3.l10n.t("Global"),
         target: "workbench.action.openSettings"
       });
-      const choice = await vscode2.window.showQuickPick(items, {
-        placeHolder: vscode2.l10n.t("Which extension settings would you like to open?")
+      const choice = await vscode3.window.showQuickPick(items, {
+        placeHolder: vscode3.l10n.t("Which extension settings would you like to open?")
       });
       if (!choice) return;
-      await vscode2.commands.executeCommand(choice.target, "@ext:tryforge.forgevsc");
+      await vscode3.commands.executeCommand(choice.target, "@ext:tryforge.forgevsc");
     })
   );
 }
 function registerCommands(ctx) {
   ctx.subscriptions.push(
     // Create Config
-    vscode2.commands.registerCommand("forgevsc.createConfig", async () => {
-      const btnOpenSettings = vscode2.l10n.t("Open Settings");
-      const action = await vscode2.window.showWarningMessage(
-        vscode2.l10n.t("The custom configuration file is deprecated and maintained only for legacy compatibility. Please use extension settings instead."),
+    vscode3.commands.registerCommand("forgevsc.createConfig", async () => {
+      const btnOpenSettings = vscode3.l10n.t("Open Settings");
+      const action = await vscode3.window.showWarningMessage(
+        vscode3.l10n.t("The custom configuration file is deprecated and maintained only for legacy compatibility. Please use extension settings instead."),
         btnOpenSettings,
-        vscode2.l10n.t("Dismiss")
+        vscode3.l10n.t("Dismiss")
       );
       if (action === btnOpenSettings) {
-        await vscode2.commands.executeCommand("forgevsc.openSettings", void 0, false);
+        await vscode3.commands.executeCommand("forgevsc.openSettings", void 0, false);
         return;
       }
-      const folders = vscode2.workspace.workspaceFolders;
+      const folders = vscode3.workspace.workspaceFolders;
       if (!folders?.length) {
-        vscode2.window.showErrorMessage(vscode2.l10n.t("Open a workspace folder first."));
+        vscode3.window.showErrorMessage(vscode3.l10n.t("Open a workspace folder first."));
         return;
       }
       const root = folders[0].uri;
@@ -211797,46 +211924,46 @@ function registerCommands(ctx) {
       let fileName = ".forgevsc.json";
       let uri;
       if (path) {
-        const btnOpen = vscode2.l10n.t("Open");
-        const btnOverwrite = vscode2.l10n.t("Overwrite");
-        const action2 = await vscode2.window.showWarningMessage(
-          vscode2.l10n.t("Extension config file already exists."),
+        const btnOpen = vscode3.l10n.t("Open");
+        const btnOverwrite = vscode3.l10n.t("Overwrite");
+        const action2 = await vscode3.window.showWarningMessage(
+          vscode3.l10n.t("Extension config file already exists."),
           btnOpen,
           btnOverwrite,
-          vscode2.l10n.t("Cancel")
+          vscode3.l10n.t("Cancel")
         );
         if (action2 === btnOpen) {
-          const doc2 = await vscode2.workspace.openTextDocument(path);
-          await vscode2.window.showTextDocument(doc2);
+          const doc2 = await vscode3.workspace.openTextDocument(path);
+          await vscode3.window.showTextDocument(doc2);
           return;
         }
         if (action2 !== btnOverwrite) return;
         uri = path;
       } else {
-        const choice = await vscode2.window.showQuickPick(
+        const choice = await vscode3.window.showQuickPick(
           [
             {
-              label: vscode2.l10n.t("$(root-folder) Workspace Root"),
+              label: vscode3.l10n.t("$(root-folder) Workspace Root"),
               detail: fileName,
-              description: vscode2.l10n.t("Default"),
-              target: vscode2.Uri.joinPath(root, fileName)
+              description: vscode3.l10n.t("Default"),
+              target: vscode3.Uri.joinPath(root, fileName)
             },
             {
-              label: vscode2.l10n.t("$(folder) VSCode Folder"),
+              label: vscode3.l10n.t("$(folder) VSCode Folder"),
               detail: ".vscode/" + fileName,
-              target: vscode2.Uri.joinPath(root, ".vscode", fileName)
+              target: vscode3.Uri.joinPath(root, ".vscode", fileName)
             }
           ],
           {
-            placeHolder: vscode2.l10n.t("Where do you want to create the config file?")
+            placeHolder: vscode3.l10n.t("Where do you want to create the config file?")
           }
         );
         if (!choice) return;
         uri = choice.target;
         if (choice.detail.startsWith(".vscode")) {
-          const dir = vscode2.Uri.joinPath(root, ".vscode");
+          const dir = vscode3.Uri.joinPath(root, ".vscode");
           try {
-            await vscode2.workspace.fs.createDirectory(dir);
+            await vscode3.workspace.fs.createDirectory(dir);
           } catch {
           }
         }
@@ -211844,38 +211971,129 @@ function registerCommands(ctx) {
       const { enabledWorkspaces, rpc: rpc2, ...Config } = Defaults;
       const content = JSON.stringify(Config, null, 2) + "\n";
       const text = new TextEncoder().encode(content);
-      await vscode2.workspace.fs.writeFile(uri, text);
-      const doc = await vscode2.workspace.openTextDocument(uri);
-      await vscode2.window.showTextDocument(doc);
-      vscode2.window.showInformationMessage(
-        path ? vscode2.l10n.t("Config file overwritten successfully!") : vscode2.l10n.t("Successfully created config file!")
+      await vscode3.workspace.fs.writeFile(uri, text);
+      const doc = await vscode3.workspace.openTextDocument(uri);
+      await vscode3.window.showTextDocument(doc);
+      vscode3.window.showInformationMessage(
+        path ? vscode3.l10n.t("Config file overwritten successfully!") : vscode3.l10n.t("Successfully created config file!")
       );
     }),
     // Reload Function Metadata
-    vscode2.commands.registerCommand("forgevsc.reloadFunctionMetadata", async () => {
+    vscode3.commands.registerCommand("forgevsc.reloadFunctionMetadata", async () => {
       await getFunctions(true);
-      vscode2.window.showInformationMessage(vscode2.l10n.t("Successfully fetched function metadata!"));
+      vscode3.window.showInformationMessage(vscode3.l10n.t("Successfully fetched function metadata!"));
     }),
     // Reload Event Metadata
-    vscode2.commands.registerCommand("forgevsc.reloadEventMetadata", async () => {
+    vscode3.commands.registerCommand("forgevsc.reloadEventMetadata", async () => {
       await getEvents(true);
-      vscode2.window.showInformationMessage(vscode2.l10n.t("Successfully fetched event metadata!"));
+      vscode3.window.showInformationMessage(vscode3.l10n.t("Successfully fetched event metadata!"));
     }),
     // Create Guide
-    vscode2.commands.registerCommand("forgevsc.createGuide", async () => {
-      await vscode2.env.openExternal(vscode2.Uri.parse(DocsUrl));
+    vscode3.commands.registerCommand("forgevsc.createGuide", async () => {
+      await vscode3.env.openExternal(vscode3.Uri.parse(DocsUrl));
     }),
     // Reconnect RPC
-    vscode2.commands.registerCommand("forgevsc.reconnectRPC", async () => {
+    vscode3.commands.registerCommand("forgevsc.reconnectRPC", async () => {
       await disconnectRPC();
       const connected = await connectRPC();
-      if (connected) await updateEditorRPC(vscode2.window.activeTextEditor);
+      if (connected) await updateEditorRPC(vscode3.window.activeTextEditor);
+    })
+  );
+}
+
+// src/comment.ts
+var vscode4 = __toESM(require("vscode"));
+var CommentContextKey = "forgevsc.inCodeBlock";
+var CommentOpenRegex = /^\$c\[/i;
+function getIndentUnit(editor) {
+  const { insertSpaces, tabSize } = editor.options;
+  return insertSpaces ? " ".repeat(Number(tabSize) || 4) : "	";
+}
+function getIndent(line) {
+  return line.match(/^[ \t]*/)?.[0] ?? "";
+}
+function outdentLine(line, indentUnit) {
+  if (line.startsWith(indentUnit)) return line.slice(indentUnit.length);
+  const leading = getIndent(line);
+  if (!leading.length) return line;
+  return line.slice(Math.min(leading.length, indentUnit.length));
+}
+function buildWrap(lines, baseIndent, indentUnit) {
+  if (lines.length === 1)
+    return `${baseIndent}$c[${lines[0].slice(baseIndent.length)}]`;
+  const body = lines.map((line) => line.trim().length ? indentUnit + line : line);
+  return [`${baseIndent}$c[`, ...body, `${baseIndent}]`].join("\n");
+}
+function buildUnwrap(lines, baseIndent, indentUnit) {
+  if (lines.length === 1) {
+    const inner = lines[0].trim().replace(CommentOpenRegex, "").slice(0, -1);
+    return `${baseIndent}${inner}`;
+  }
+  return lines.slice(1, -1).map((line) => outdentLine(line, indentUnit)).join("\n");
+}
+function isWrappedBlock(document, docText, range, lines) {
+  if (lines.length === 1) {
+    const trimmed = lines[0].trim();
+    if (!CommentOpenRegex.test(trimmed) || !trimmed.endsWith("]")) return false;
+  } else {
+    if (lines[0].trim().toLowerCase() !== "$c[") return false;
+    if (lines[lines.length - 1].trim() !== "]") return false;
+  }
+  const dollarOffset = document.offsetAt(range.start) + getIndent(lines[0]).length;
+  if (isEscaped(docText, dollarOffset)) return false;
+  const openBracketOffset = dollarOffset + 2;
+  const closeBracketOffset = findMatchingBracket(docText, openBracketOffset);
+  const lastLine = lines[lines.length - 1];
+  const whitespace = lastLine.length - lastLine.trimEnd().length;
+  const lastNonWsOffset = document.offsetAt(range.end) - whitespace - 1;
+  return closeBracketOffset !== -1 && closeBracketOffset === lastNonWsOffset;
+}
+function computeToggle(editor, selection) {
+  const document = editor.document;
+  const docText = document.getText();
+  let startLine = selection.isEmpty ? selection.active.line : selection.start.line;
+  let endLine = selection.isEmpty ? selection.active.line : selection.end.line;
+  if (!selection.isEmpty && selection.end.character === 0 && endLine > startLine) endLine--;
+  const range = new vscode4.Range(
+    new vscode4.Position(startLine, 0),
+    document.lineAt(endLine).range.end
+  );
+  const lines = [];
+  for (let l = startLine; l <= endLine; l++) lines.push(document.lineAt(l).text);
+  if (!lines.some((line) => line.trim().length)) return null;
+  const indentUnit = getIndentUnit(editor);
+  const baseIndent = getIndent(lines[0]);
+  const text = isWrappedBlock(document, docText, range, lines) ? buildUnwrap(lines, baseIndent, indentUnit) : buildWrap(lines, baseIndent, indentUnit);
+  return { range, text };
+}
+function registerCommentToggle(ctx) {
+  const updateContext = (editor) => {
+    const inCodeBlock = !!(editor && Languages.includes(editor.document.languageId) && locateCodeBlock(editor.document, editor.selection.active));
+    vscode4.commands.executeCommand("setContext", CommentContextKey, inCodeBlock);
+  };
+  updateContext(vscode4.window.activeTextEditor);
+  ctx.subscriptions.push(
+    vscode4.window.onDidChangeActiveTextEditor(updateContext),
+    vscode4.window.onDidChangeTextEditorSelection((e) => updateContext(e.textEditor)),
+    // Toggle Comment
+    vscode4.commands.registerCommand("forgevsc.toggleComment", async () => {
+      const editor = vscode4.window.activeTextEditor;
+      if (!editor || !Languages.includes(editor.document.languageId)) return;
+      const document = editor.document;
+      const selections = [...editor.selections].sort((a, b) => b.start.compareTo(a.start));
+      await editor.edit((editBuilder) => {
+        for (const selection of selections) {
+          if (!locateCodeBlock(document, selection.active)) continue;
+          const result = computeToggle(editor, selection);
+          if (result) editBuilder.replace(result.range, result.text);
+        }
+      });
     })
   );
 }
 
 // src/config.ts
-var vscode3 = __toESM(require("vscode"));
+var vscode5 = __toESM(require("vscode"));
 var Defaults = {
   enabledWorkspaces: [],
   customFunctionPaths: [],
@@ -211915,7 +212133,7 @@ var Defaults = {
 };
 var cached = Defaults;
 function getSettingsConfig() {
-  const vs = vscode3.workspace.getConfiguration("forgevsc");
+  const vs = vscode5.workspace.getConfiguration("forgevsc");
   return {
     global: {
       enabledWorkspaces: vs.get("global.enabledWorkspaces")
@@ -211963,14 +212181,14 @@ function getExtensionConfig() {
 }
 async function findExtensionConfig(root) {
   const paths2 = [
-    vscode3.Uri.joinPath(root, "forgevsc.json"),
-    vscode3.Uri.joinPath(root, ".forgevsc.json"),
-    vscode3.Uri.joinPath(root, ".vscode", "forgevsc.json"),
-    vscode3.Uri.joinPath(root, ".vscode", ".forgevsc.json")
+    vscode5.Uri.joinPath(root, "forgevsc.json"),
+    vscode5.Uri.joinPath(root, ".forgevsc.json"),
+    vscode5.Uri.joinPath(root, ".vscode", "forgevsc.json"),
+    vscode5.Uri.joinPath(root, ".vscode", ".forgevsc.json")
   ];
   for (const uri of paths2) {
     try {
-      await vscode3.workspace.fs.stat(uri);
+      await vscode5.workspace.fs.stat(uri);
       return uri;
     } catch {
     }
@@ -211978,7 +212196,7 @@ async function findExtensionConfig(root) {
   return null;
 }
 async function loadExtensionConfig() {
-  const folders = vscode3.workspace.workspaceFolders;
+  const folders = vscode5.workspace.workspaceFolders;
   const vs = getSettingsConfig();
   let file = {};
   if (folders?.length) {
@@ -211986,7 +212204,7 @@ async function loadExtensionConfig() {
     const uri = await findExtensionConfig(root);
     if (uri) {
       try {
-        const raw = await vscode3.workspace.fs.readFile(uri);
+        const raw = await vscode5.workspace.fs.readFile(uri);
         const text = new TextDecoder().decode(raw);
         file = JSON.parse(text);
       } catch {
@@ -212042,7 +212260,7 @@ async function loadExtensionConfig() {
 }
 
 // src/decorations.ts
-var vscode4 = __toESM(require("vscode"));
+var vscode6 = __toESM(require("vscode"));
 var decoFn = null;
 var decoDollar = null;
 var decoSemi = null;
@@ -212103,20 +212321,20 @@ function ensureDecorations() {
   for (const d of [decoFn, decoDollar, decoSemi, decoCond, decoOpNeg, decoOpSilent, decoOpCount, decoOpCountDelim]) {
     d?.dispose();
   }
-  decoFn = vscode4.window.createTextEditorDecorationType({
+  decoFn = vscode6.window.createTextEditorDecorationType({
     color: fnColor,
     ...fnStyle
   });
-  decoDollar = vscode4.window.createTextEditorDecorationType({
+  decoDollar = vscode6.window.createTextEditorDecorationType({
     color: dollarColor,
     ...fnStyle
   });
-  decoSemi = vscode4.window.createTextEditorDecorationType({ color: semiColor });
-  decoCond = vscode4.window.createTextEditorDecorationType({ color: condColor });
-  decoOpNeg = vscode4.window.createTextEditorDecorationType({ color: negColor });
-  decoOpSilent = vscode4.window.createTextEditorDecorationType({ color: silentColor });
-  decoOpCount = vscode4.window.createTextEditorDecorationType({ color: countColor });
-  decoOpCountDelim = vscode4.window.createTextEditorDecorationType({ color: countDelimColor });
+  decoSemi = vscode6.window.createTextEditorDecorationType({ color: semiColor });
+  decoCond = vscode6.window.createTextEditorDecorationType({ color: condColor });
+  decoOpNeg = vscode6.window.createTextEditorDecorationType({ color: negColor });
+  decoOpSilent = vscode6.window.createTextEditorDecorationType({ color: silentColor });
+  decoOpCount = vscode6.window.createTextEditorDecorationType({ color: countColor });
+  decoOpCountDelim = vscode6.window.createTextEditorDecorationType({ color: countDelimColor });
 }
 async function applyDecorations(editor) {
   ensureDecorations();
@@ -212151,16 +212369,16 @@ async function applyDecorations(editor) {
     const nameLength = Math.max(matchedText.length - prefixMatch.length, 0);
     if (nameLength <= 0) continue;
     const nameStart = matchIndex + prefixMatch.length;
-    fnRanges.push(new vscode4.Range(doc.positionAt(nameStart), doc.positionAt(nameStart + nameLength)));
-    dollarRanges.push(new vscode4.Range(doc.positionAt(matchIndex), doc.positionAt(matchIndex + 1)));
+    fnRanges.push(new vscode6.Range(doc.positionAt(nameStart), doc.positionAt(nameStart + nameLength)));
+    dollarRanges.push(new vscode6.Range(doc.positionAt(matchIndex), doc.positionAt(matchIndex + 1)));
     const prefix = prefixMatch;
     for (let i = 0; i < prefix.length; i++) {
       const c = prefix[i];
       const abs = matchIndex + i;
       if (c === "!") {
-        opNegRanges.push(new vscode4.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
+        opNegRanges.push(new vscode6.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
       } else if (c === "#") {
-        opSilentRanges.push(new vscode4.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
+        opSilentRanges.push(new vscode6.Range(doc.positionAt(abs), doc.positionAt(abs + 1)));
       } else if (c === "@") {
         const j = prefix.indexOf("@[", i);
         const k = j !== -1 ? prefix.indexOf("]", j) : -1;
@@ -212170,11 +212388,11 @@ async function applyDecorations(editor) {
           const hasDelim = k === j + 3;
           if (hasDelim) {
             const delimAbs = absStart + 2;
-            opCountRanges.push(new vscode4.Range(doc.positionAt(absStart), doc.positionAt(absStart + 2)));
-            opCountRanges.push(new vscode4.Range(doc.positionAt(absEnd - 1), doc.positionAt(absEnd)));
-            opCountDelimRanges.push(new vscode4.Range(doc.positionAt(delimAbs), doc.positionAt(delimAbs + 1)));
+            opCountRanges.push(new vscode6.Range(doc.positionAt(absStart), doc.positionAt(absStart + 2)));
+            opCountRanges.push(new vscode6.Range(doc.positionAt(absEnd - 1), doc.positionAt(absEnd)));
+            opCountDelimRanges.push(new vscode6.Range(doc.positionAt(delimAbs), doc.positionAt(delimAbs + 1)));
           } else {
-            opCountRanges.push(new vscode4.Range(doc.positionAt(absStart), doc.positionAt(absEnd)));
+            opCountRanges.push(new vscode6.Range(doc.positionAt(absStart), doc.positionAt(absEnd)));
           }
         }
         break;
@@ -212195,7 +212413,7 @@ async function applyDecorations(editor) {
       if (op) {
         const start = openIndex + 1 + arg.start + op.start;
         const end = start + op.operator.length;
-        condRanges.push(new vscode4.Range(doc.positionAt(start), doc.positionAt(end)));
+        condRanges.push(new vscode6.Range(doc.positionAt(start), doc.positionAt(end)));
       }
     }
     let depth = 0;
@@ -212205,7 +212423,7 @@ async function applyDecorations(editor) {
       if (ch === "[" && isOpeningBracket(text, i)) depth++;
       else if (ch === "]" && depth > 0 && !escaped) depth--;
       else if (ch === ";" && depth === 0 && !escaped) {
-        semiRanges.push(new vscode4.Range(doc.positionAt(i), doc.positionAt(i + 1)));
+        semiRanges.push(new vscode6.Range(doc.positionAt(i), doc.positionAt(i + 1)));
       }
     }
   }
@@ -212221,7 +212439,7 @@ async function applyDecorations(editor) {
 function registerDecorations(ctx) {
   ensureDecorations();
   const updateAll = () => {
-    for (const editor of vscode4.window.visibleTextEditors) {
+    for (const editor of vscode6.window.visibleTextEditors) {
       if (!Languages.includes(editor.document.languageId)) continue;
       applyDecorations(editor);
     }
@@ -212234,9 +212452,9 @@ function registerDecorations(ctx) {
         }
       }
     },
-    vscode4.window.onDidChangeVisibleTextEditors(() => updateAll()),
-    vscode4.workspace.onDidChangeTextDocument((e) => {
-      for (const editor of vscode4.window.visibleTextEditors) {
+    vscode6.window.onDidChangeVisibleTextEditors(() => updateAll()),
+    vscode6.workspace.onDidChangeTextDocument((e) => {
+      for (const editor of vscode6.window.visibleTextEditors) {
         if (editor.document !== e.document) continue;
         applyDecorations(editor);
       }
@@ -212246,7 +212464,7 @@ function registerDecorations(ctx) {
 }
 
 // src/diagnostics.ts
-var vscode5 = __toESM(require("vscode"));
+var vscode7 = __toESM(require("vscode"));
 async function validateDocument(document, collection) {
   const config = getExtensionConfig();
   if (!document || !Languages.includes(document.languageId) || !config.features.diagnostics) return;
@@ -212267,24 +212485,24 @@ async function validateDocument(document, collection) {
     const { fn, matchedText } = found;
     const end = document.positionAt(index + matchedText.length);
     if (fn.deprecated) {
-      const hint = new vscode5.Diagnostic(
-        new vscode5.Range(start, end),
-        vscode5.l10n.t("This function is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available."),
-        vscode5.DiagnosticSeverity.Hint
+      const hint = new vscode7.Diagnostic(
+        new vscode7.Range(start, end),
+        vscode7.l10n.t("This function is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available."),
+        vscode7.DiagnosticSeverity.Hint
       );
-      const warning = new vscode5.Diagnostic(
-        new vscode5.Range(start, end),
-        vscode5.l10n.t("Function `{0}` is deprecated. Use an available alternative instead", fn.name),
-        vscode5.DiagnosticSeverity.Warning
+      const warning = new vscode7.Diagnostic(
+        new vscode7.Range(start, end),
+        vscode7.l10n.t("Function `{0}` is deprecated. Use an available alternative instead", fn.name),
+        vscode7.DiagnosticSeverity.Warning
       );
-      warning.tags = [vscode5.DiagnosticTag.Deprecated];
+      warning.tags = [vscode7.DiagnosticTag.Deprecated];
       diagnostics.push(hint, warning);
     }
     if (fn.experimental) {
-      const diagnostic = new vscode5.Diagnostic(
-        new vscode5.Range(start, end),
-        vscode5.l10n.t("This is an experimental function. It may not work as expected and is not guaranteed to be stable. Expect bugs, changes, or removal."),
-        vscode5.DiagnosticSeverity.Hint
+      const diagnostic = new vscode7.Diagnostic(
+        new vscode7.Range(start, end),
+        vscode7.l10n.t("This is an experimental function. It may not work as expected and is not guaranteed to be stable. Expect bugs, changes, or removal."),
+        vscode7.DiagnosticSeverity.Hint
       );
       diagnostics.push(diagnostic);
     }
@@ -212293,10 +212511,10 @@ async function validateDocument(document, collection) {
       const offset = rawPrefix.length;
       const opStart = document.positionAt(index + 1);
       const opEnd = document.positionAt(index + offset);
-      diagnostics.push(new vscode5.Diagnostic(
-        new vscode5.Range(opStart, opEnd),
-        vscode5.l10n.t("Function `{0}` has invalid operator order", fn.name),
-        vscode5.DiagnosticSeverity.Error
+      diagnostics.push(new vscode7.Diagnostic(
+        new vscode7.Range(opStart, opEnd),
+        vscode7.l10n.t("Function `{0}` has invalid operator order", fn.name),
+        vscode7.DiagnosticSeverity.Error
       ));
       continue;
     }
@@ -212304,10 +212522,10 @@ async function validateDocument(document, collection) {
     if (rawPrefix.length > strictPrefix.length) {
       const extraStart = document.positionAt(index + strictPrefix.length);
       const extraEnd = document.positionAt(index + rawPrefix.length);
-      diagnostics.push(new vscode5.Diagnostic(
-        new vscode5.Range(extraStart, extraEnd),
-        vscode5.l10n.t("Function `{0}` has duplicated operators supplied", fn.name),
-        vscode5.DiagnosticSeverity.Error
+      diagnostics.push(new vscode7.Diagnostic(
+        new vscode7.Range(extraStart, extraEnd),
+        vscode7.l10n.t("Function `{0}` has duplicated operators supplied", fn.name),
+        vscode7.DiagnosticSeverity.Error
       ));
       continue;
     }
@@ -212316,12 +212534,12 @@ async function validateDocument(document, collection) {
     const args = fn.args ?? [];
     const acceptsArgs = fn.brackets !== void 0 && args.length > 0;
     const requiresArgs = fn.brackets;
-    const range = new vscode5.Range(start, end);
+    const range = new vscode7.Range(start, end);
     if (requiresArgs && !hasOpeningAttached) {
-      diagnostics.push(new vscode5.Diagnostic(
+      diagnostics.push(new vscode7.Diagnostic(
         range,
-        vscode5.l10n.t("Function `{0}` requires brackets", fn.name),
-        vscode5.DiagnosticSeverity.Error
+        vscode7.l10n.t("Function `{0}` requires brackets", fn.name),
+        vscode7.DiagnosticSeverity.Error
       ));
       continue;
     }
@@ -212330,10 +212548,10 @@ async function validateDocument(document, collection) {
       const openIndex = index + full.length - 1;
       const closeIndex = findMatchingBracket(text, openIndex);
       if (closeIndex === -1) {
-        diagnostics.push(new vscode5.Diagnostic(
+        diagnostics.push(new vscode7.Diagnostic(
           range,
-          vscode5.l10n.t("Function `{0}` is missing brace closure", fn.name),
-          vscode5.DiagnosticSeverity.Error
+          vscode7.l10n.t("Function `{0}` is missing brace closure", fn.name),
+          vscode7.DiagnosticSeverity.Error
         ));
         continue;
       }
@@ -212345,33 +212563,33 @@ async function validateDocument(document, collection) {
         if (expected.required && provided === void 0) {
           const argStart = document.positionAt(openIndex + 1);
           const argEnd = document.positionAt(closeIndex);
-          diagnostics.push(new vscode5.Diagnostic(
-            new vscode5.Range(argStart, argEnd),
-            vscode5.l10n.t("Function `{0}` is missing argument `{1}`", fn.name, expected.name),
-            vscode5.DiagnosticSeverity.Error
+          diagnostics.push(new vscode7.Diagnostic(
+            new vscode7.Range(argStart, argEnd),
+            vscode7.l10n.t("Function `{0}` is missing argument `{1}`", fn.name, expected.name),
+            vscode7.DiagnosticSeverity.Error
           ));
         }
       }
       if (providedArgs.length > args.length && !args.at(-1)?.rest) {
         const end2 = document.positionAt(closeIndex + 1);
-        diagnostics.push(new vscode5.Diagnostic(
-          new vscode5.Range(start, end2),
-          args.length === 1 ? vscode5.l10n.t("Function `{0}` expects 1 argument at most, received {1}", fn.name, providedArgs.length) : vscode5.l10n.t("Function `{0}` expects {1} arguments at most, received {2}", fn.name, args.length, providedArgs.length),
-          vscode5.DiagnosticSeverity.Error
+        diagnostics.push(new vscode7.Diagnostic(
+          new vscode7.Range(start, end2),
+          args.length === 1 ? vscode7.l10n.t("Function `{0}` expects 1 argument at most, received {1}", fn.name, providedArgs.length) : vscode7.l10n.t("Function `{0}` expects {1} arguments at most, received {2}", fn.name, args.length, providedArgs.length),
+          vscode7.DiagnosticSeverity.Error
         ));
       }
     }
   }
+  await validateEventTypes(document, diagnostics);
   collection.set(document.uri, diagnostics);
 }
 
 // src/events.ts
-var vscode6 = __toESM(require("vscode"));
+var vscode8 = __toESM(require("vscode"));
 var import_typescript = __toESM(require_typescript());
-function findEventTypeLiteral(sf, offset) {
-  let result = null;
+function collectEventTypeLiterals(sf) {
+  const literals = [];
   function visit(node) {
-    if (result) return;
     if (import_typescript.default.isObjectLiteralExpression(node)) {
       const hasCode = node.properties.some(
         (p) => import_typescript.default.isPropertyAssignment(p) && (import_typescript.default.isIdentifier(p.name) || import_typescript.default.isStringLiteral(p.name)) && p.name.text === "code"
@@ -212382,23 +212600,43 @@ function findEventTypeLiteral(sf, offset) {
           if (!import_typescript.default.isIdentifier(prop.name) && !import_typescript.default.isStringLiteral(prop.name)) continue;
           if (prop.name.text !== "type") continue;
           if (!import_typescript.default.isStringLiteral(prop.initializer)) continue;
-          const start = prop.initializer.getStart(sf) + 1;
-          const end = prop.initializer.getEnd() - 1;
-          if (offset >= start && offset <= end) {
-            result = prop.initializer;
-            return;
-          }
+          literals.push(prop.initializer);
         }
       }
     }
     import_typescript.default.forEachChild(node, visit);
   }
   visit(sf);
-  return result;
+  return literals;
+}
+async function validateEventTypes(document, diagnostics) {
+  const text = document.getText();
+  const kind = document.fileName.endsWith(".tsx") ? import_typescript.default.ScriptKind.TSX : document.fileName.endsWith(".ts") ? import_typescript.default.ScriptKind.TS : document.fileName.endsWith(".jsx") ? import_typescript.default.ScriptKind.JSX : import_typescript.default.ScriptKind.JS;
+  const sf = import_typescript.default.createSourceFile(document.fileName, text, import_typescript.default.ScriptTarget.Latest, true, kind);
+  const literals = collectEventTypeLiterals(sf);
+  for (const literal of literals) {
+    const events2 = await findEvents(literal.text);
+    if (!events2.length || !events2.every((x) => x.deprecated)) continue;
+    const start = document.positionAt(literal.getStart(sf) + 1);
+    const end = document.positionAt(literal.getEnd() - 1);
+    const range = new vscode8.Range(start, end);
+    const hint = new vscode8.Diagnostic(
+      range,
+      vscode8.l10n.t("This event is deprecated and its use is discouraged. It may be removed in upcoming releases. Use a supported alternative if available."),
+      vscode8.DiagnosticSeverity.Hint
+    );
+    const warning = new vscode8.Diagnostic(
+      range,
+      vscode8.l10n.t("Event `{0}` is deprecated. Use an available alternative instead", literal.text),
+      vscode8.DiagnosticSeverity.Warning
+    );
+    warning.tags = [vscode8.DiagnosticTag.Deprecated];
+    diagnostics.push(hint, warning);
+  }
 }
 function registerEventHover(ctx) {
   ctx.subscriptions.push(
-    vscode6.languages.registerHoverProvider(Languages, {
+    vscode8.languages.registerHoverProvider(Languages, {
       async provideHover(document, position) {
         const config = getExtensionConfig();
         if (!config.features.hoverInfo) return;
@@ -212407,42 +212645,42 @@ function registerEventHover(ctx) {
         if (isIgnored(text, offset)) return;
         const kind = document.fileName.endsWith(".tsx") ? import_typescript.default.ScriptKind.TSX : document.fileName.endsWith(".ts") ? import_typescript.default.ScriptKind.TS : document.fileName.endsWith(".jsx") ? import_typescript.default.ScriptKind.JSX : import_typescript.default.ScriptKind.JS;
         const sf = import_typescript.default.createSourceFile(document.fileName, text, import_typescript.default.ScriptTarget.Latest, true, kind);
-        const literal = findEventTypeLiteral(sf, offset);
+        const literals = collectEventTypeLiterals(sf);
+        const literal = literals.find((x) => offset >= x.getStart(sf) + 1 && offset <= x.getEnd() - 1);
         if (!literal) return;
         const events2 = await findEvents(literal.text);
         if (!events2.length) return;
-        const range = new vscode6.Range(
+        const range = new vscode8.Range(
           document.positionAt(literal.getStart(sf) + 1),
           document.positionAt(literal.getEnd() - 1)
         );
         const contents = await Promise.all(
           events2.map(async (event) => {
-            const { name, description, version, source, deprecated } = event;
-            const md = new vscode6.MarkdownString();
+            const { name, description, version, source, intents } = event;
+            const md = new vscode8.MarkdownString();
             md.appendCodeblock(name);
             md.appendText(`${description}
 `);
-            if (deprecated) md.appendMarkdown(`
-**\u{1F6D1} Deprecated**
+            if (intents?.length) md.appendMarkdown(`**Intents:** \`${intents.join("`, `")}\`
 
 `);
             if (version) {
               const links = [];
               const sourceUrl = await buildEventURL(event);
-              if (sourceUrl) links.push(`[$(github) ${vscode6.l10n.t("Source")}](${sourceUrl})`);
+              if (sourceUrl) links.push(`[$(github) ${vscode8.l10n.t("Source")}](${sourceUrl})`);
               const guide = await findGuide({ targetType: "event", targetName: name });
               const pkgName = guide?.packageName || getPackageName(source);
-              if (pkgName) links.push(`[$(extensions) ${vscode6.l10n.t("Documentation")}](https://docs.botforge.org/event/${name}?p=${pkgName})`);
+              if (pkgName) links.push(`[$(extensions) ${vscode8.l10n.t("Documentation")}](https://docs.botforge.org/event/${name}?p=${pkgName})`);
               if (guide) {
-                const cmd = vscode6.Uri.parse(
+                const cmd = vscode8.Uri.parse(
                   `command:forgevsc.previewGuide?${encodeURIComponent(JSON.stringify([guide.id]))}`
                 );
-                links.push(`[$(book) ${vscode6.l10n.t("Guide")}](${cmd})`);
+                links.push(`[$(book) ${vscode8.l10n.t("Guide")}](${cmd})`);
               }
               md.appendMarkdown(`---
 `);
               md.appendMarkdown(
-                `##### $(package) ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? " | " + links.join(" | ") : "")
+                `##### $(package) ${pkgName ? `${pkgName} ` : ""}v${version}` + (links.length ? ` | ${links.join(" | ")}` : "")
               );
             }
             md.isTrusted = true;
@@ -212450,17 +212688,17 @@ function registerEventHover(ctx) {
             return md;
           })
         );
-        return new vscode6.Hover(contents, range);
+        return new vscode8.Hover(contents, range);
       }
     })
   );
 }
 
 // src/folding.ts
-var vscode7 = __toESM(require("vscode"));
+var vscode9 = __toESM(require("vscode"));
 function registerFolding(ctx) {
   ctx.subscriptions.push(
-    vscode7.languages.registerFoldingRangeProvider(Languages, {
+    vscode9.languages.registerFoldingRangeProvider(Languages, {
       provideFoldingRanges(document) {
         const config = getExtensionConfig();
         if (!config.features.folding) return null;
@@ -212477,7 +212715,7 @@ function registerFolding(ctx) {
           const startLine = document.positionAt(openIndex).line;
           const endLine = document.positionAt(closeIndex).line - 1;
           if (endLine > startLine) {
-            ranges.push(new vscode7.FoldingRange(startLine, endLine, vscode7.FoldingRangeKind.Region));
+            ranges.push(new vscode9.FoldingRange(startLine, endLine, vscode9.FoldingRangeKind.Region));
           }
         }
         return ranges;
@@ -212527,7 +212765,7 @@ var ArgType = /* @__PURE__ */ ((ArgType2) => {
 })(ArgType || {});
 
 // src/functions.ts
-var vscode8 = __toESM(require("vscode"));
+var vscode10 = __toESM(require("vscode"));
 var import_typescript2 = __toESM(require_typescript());
 var DefaultParam = {
   type: "String",
@@ -212790,7 +213028,7 @@ async function getCustomFunctionLocation(name) {
   const all = await getFunctions();
   const fn = all.find((x) => x.name.toLowerCase() === name.toLowerCase());
   if (!fn?.location) return;
-  return new vscode8.Location(vscode8.Uri.file(fn.location.file), fn.location.position);
+  return new vscode10.Location(vscode10.Uri.file(fn.location.file), fn.location.position);
 }
 function extractCustomFunctions(text, fileName) {
   const kind = fileName.endsWith(".ts") || fileName.endsWith(".tsx") ? import_typescript2.default.ScriptKind.TS : fileName.endsWith(".jsx") ? import_typescript2.default.ScriptKind.JSX : import_typescript2.default.ScriptKind.JS;
@@ -212804,7 +213042,7 @@ function extractCustomFunctions(text, fileName) {
       const { line, character } = sf.getLineAndCharacterOfPosition(target.getStart());
       meta.location = {
         file: fileName,
-        position: new vscode8.Position(line, character)
+        position: new vscode10.Position(line, character)
       };
       found.push(meta);
     }
@@ -212829,14 +213067,14 @@ function isAbsolutePath(p) {
   return /^(?:[a-zA-Z]:[\\/]|\/)/.test(p);
 }
 function resolveWorkspacePath(p) {
-  const folders = vscode8.workspace.workspaceFolders;
+  const folders = vscode10.workspace.workspaceFolders;
   if (!folders?.length) return null;
-  if (isAbsolutePath(p)) return vscode8.Uri.file(p);
-  return vscode8.Uri.joinPath(folders[0].uri, p);
+  if (isAbsolutePath(p)) return vscode10.Uri.file(p);
+  return vscode10.Uri.joinPath(folders[0].uri, p);
 }
 async function safeReadDirectory(uri) {
   try {
-    return await vscode8.workspace.fs.readDirectory(uri);
+    return await vscode10.workspace.fs.readDirectory(uri);
   } catch (e) {
     if (e?.code === "FileNotFound" || e?.code === "ENOENT") return [];
     throw e;
@@ -212845,8 +213083,8 @@ async function safeReadDirectory(uri) {
 async function collectFiles(dir, out = []) {
   const entries = await safeReadDirectory(dir);
   for (const [name, type] of entries) {
-    const uri = vscode8.Uri.joinPath(dir, name);
-    if (type === vscode8.FileType.Directory) await collectFiles(uri, out);
+    const uri = vscode10.Uri.joinPath(dir, name);
+    if (type === vscode10.FileType.Directory) await collectFiles(uri, out);
     else if (/\.(ts|js|tsx|jsx)$/.test(name)) out.push(uri);
   }
   return out;
@@ -212860,7 +213098,7 @@ async function loadCustomFunctions(customFunctionsPath) {
     if (!dirUri) continue;
     const files = await collectFiles(dirUri);
     for (const file of files) {
-      const buf = await vscode8.workspace.fs.readFile(file);
+      const buf = await vscode10.workspace.fs.readFile(file);
       const text = new TextDecoder().decode(buf);
       meta.push(...extractCustomFunctions(text, file.path));
     }
@@ -212869,7 +213107,7 @@ async function loadCustomFunctions(customFunctionsPath) {
 }
 
 // src/guides.ts
-var vscode9 = __toESM(require("vscode"));
+var vscode11 = __toESM(require("vscode"));
 var GuideTargetTypes = ["function", "event", "enum", "none"];
 var GuideScheme = "forge-guide";
 var FavoriteGuidesKey = "forgevsc.favoriteGuides";
@@ -212926,7 +213164,7 @@ function markdownForGuide(guide) {
   lines.push("");
   lines.push("---");
   lines.push("");
-  lines.push(guide.content || vscode9.l10n.t("*No guide content available.*"));
+  lines.push(guide.content || vscode11.l10n.t("*No guide content available.*"));
   return lines.join("\n");
 }
 function getFavoriteGuideIds() {
@@ -213088,11 +213326,11 @@ function collectValues(guides2) {
 async function searchGuides() {
   const guides2 = await getGuides();
   if (!guides2.length) {
-    vscode9.window.showInformationMessage(vscode9.l10n.t("No guides available."));
+    vscode11.window.showInformationMessage(vscode11.l10n.t("No guides available."));
     return;
   }
-  const qp = vscode9.window.createQuickPick();
-  qp.placeholder = vscode9.l10n.t("Search guides... (e.g. author:Nicky package:ForgeScript)");
+  const qp = vscode11.window.createQuickPick();
+  qp.placeholder = vscode11.l10n.t("Search guides... (e.g. author:Nicky package:ForgeScript)");
   const values = collectValues(guides2);
   const update = (input) => {
     const { text, filters, activeKey, activeValue } = parseGuideQuery(input);
@@ -213111,17 +213349,17 @@ async function searchGuides() {
       label: displayGuideTitle(guide),
       description: guide.packageName,
       detail: guide.targetType !== "none" ? toTitleCase(guide.targetType) : [guide.category, guide.subCategory].filter(Boolean).join(" \u2022 "),
-      iconPath: new vscode9.ThemeIcon("book"),
+      iconPath: new vscode11.ThemeIcon("book"),
       alwaysShow: true,
       guide
     }));
     const usedKeys = Object.keys(filters);
     const keyItems = keys.filter((key) => !usedKeys.includes(key)).map((key) => ({
       label: key + ":",
-      description: vscode9.l10n.t("Filter"),
+      description: vscode11.l10n.t("Filter"),
       action: "key",
       alwaysShow: true,
-      iconPath: new vscode9.ThemeIcon("filter")
+      iconPath: new vscode11.ThemeIcon("filter")
     }));
     let suggestionItems = [];
     if (!!activeKey && activeKey && values[activeKey]) {
@@ -213159,13 +213397,13 @@ async function searchGuides() {
       qp.value = newParts.join(" ") + " ";
       return;
     }
-    await vscode9.commands.executeCommand("forgevsc.openGuide", item.guide);
+    await vscode11.commands.executeCommand("forgevsc.openGuide", item.guide);
     qp.hide();
   });
   qp.show();
 }
 var ForgeGuidesProvider = class {
-  onDidChangeTreeDataEmitter = new vscode9.EventEmitter();
+  onDidChangeTreeDataEmitter = new vscode11.EventEmitter();
   onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
   refresh() {
     this.onDidChangeTreeDataEmitter.fire();
@@ -213174,10 +213412,10 @@ var ForgeGuidesProvider = class {
     if (element.kind === "guide" && element.guide) {
       const guide = element.guide;
       const label = displayGuideTitle(guide);
-      const item2 = new vscode9.TreeItem(label, vscode9.TreeItemCollapsibleState.None);
+      const item2 = new vscode11.TreeItem(label, vscode11.TreeItemCollapsibleState.None);
       item2.id = `guide:${element.key}`;
       item2.contextValue = isFavoriteGuide(guide.id) ? "guide.favorite" : "guide";
-      item2.iconPath = new vscode9.ThemeIcon("book");
+      item2.iconPath = new vscode11.ThemeIcon("book");
       if (element.isFavorite) item2.description = guide.packageName;
       item2.command = {
         command: "forgevsc.openGuide",
@@ -213187,16 +213425,16 @@ var ForgeGuidesProvider = class {
       return item2;
     }
     if (element.kind === "favorites") {
-      const item2 = new vscode9.TreeItem(element.label, vscode9.TreeItemCollapsibleState.Expanded);
+      const item2 = new vscode11.TreeItem(element.label, vscode11.TreeItemCollapsibleState.Expanded);
       item2.id = "guides:favorites";
       item2.contextValue = "favorites";
-      item2.tooltip = vscode9.l10n.t("Favorited Guides");
-      item2.iconPath = new vscode9.ThemeIcon("star-full");
+      item2.tooltip = vscode11.l10n.t("Favorited Guides");
+      item2.iconPath = new vscode11.ThemeIcon("star-full");
       return item2;
     }
-    const item = new vscode9.TreeItem(
+    const item = new vscode11.TreeItem(
       element.label,
-      vscode9.TreeItemCollapsibleState.Collapsed
+      vscode11.TreeItemCollapsibleState.Collapsed
     );
     let iconPath;
     if (element.kind === "package") iconPath = "package";
@@ -213205,7 +213443,7 @@ var ForgeGuidesProvider = class {
     item.id = `${element.kind}:${element.key}`;
     item.contextValue = element.kind;
     item.tooltip = element.label;
-    item.iconPath = new vscode9.ThemeIcon(iconPath);
+    item.iconPath = new vscode11.ThemeIcon(iconPath);
     return item;
   }
   async getChildren(element) {
@@ -213221,7 +213459,7 @@ var ForgeGuidesProvider = class {
       const favoritesNode = {
         kind: "favorites",
         key: "favorites",
-        label: vscode9.l10n.t("Favorites")
+        label: vscode11.l10n.t("Favorites")
       };
       return [favoritesNode, ...packages];
     }
@@ -213282,7 +213520,7 @@ var ForgeGuidesProvider = class {
 };
 function registerGuidePreview(ctx) {
   ctx.subscriptions.push(
-    vscode9.workspace.registerTextDocumentContentProvider(GuideScheme, {
+    vscode11.workspace.registerTextDocumentContentProvider(GuideScheme, {
       async provideTextDocumentContent(uri) {
         const raw = decodeURIComponent(uri.path.replace(/^\//, "").replace(/\.md$/i, ""));
         let guide = null;
@@ -213290,13 +213528,13 @@ function registerGuidePreview(ctx) {
         if (!Number.isNaN(id)) guide = await findGuide({ id });
         if (!guide) guide = await findGuide(raw);
         if (!guide) {
-          return vscode9.l10n.t("# 404: Guide Not Found\n\nNo metadata was found for this guide.");
+          return vscode11.l10n.t("# 404: Guide Not Found\n\nNo metadata was found for this guide.");
         }
         return markdownForGuide(guide);
       }
     }),
     // Preview Guide
-    vscode9.commands.registerCommand("forgevsc.previewGuide", async (input) => {
+    vscode11.commands.registerCommand("forgevsc.previewGuide", async (input) => {
       let guide = null;
       if (typeof input === "object" && input) {
         guide = input;
@@ -213308,67 +213546,67 @@ function registerGuidePreview(ctx) {
         guide = !Number.isNaN(id) ? await findGuide({ id }) : await findGuide(trimmed);
       }
       if (!guide) {
-        vscode9.window.showErrorMessage(vscode9.l10n.t("No guide found for this function."));
+        vscode11.window.showErrorMessage(vscode11.l10n.t("No guide found for this function."));
         return;
       }
-      const uri = vscode9.Uri.parse(`${GuideScheme}:/${encodeURIComponent(String(guide.id))}.md`);
-      await vscode9.commands.executeCommand("markdown.showPreview", uri);
+      const uri = vscode11.Uri.parse(`${GuideScheme}:/${encodeURIComponent(String(guide.id))}.md`);
+      await vscode11.commands.executeCommand("markdown.showPreview", uri);
     }),
     // Open Guide
-    vscode9.commands.registerCommand("forgevsc.openGuide", async (guide) => {
-      await vscode9.commands.executeCommand("forgevsc.previewGuide", guide);
+    vscode11.commands.registerCommand("forgevsc.openGuide", async (guide) => {
+      await vscode11.commands.executeCommand("forgevsc.previewGuide", guide);
     })
   );
 }
 function registerGuidesView(ctx) {
   ExtensionContext = ctx;
   const provider = new ForgeGuidesProvider();
-  const tree = vscode9.window.createTreeView("forge.guidesView", {
+  const tree = vscode11.window.createTreeView("forge.guidesView", {
     treeDataProvider: provider,
     showCollapseAll: true
   });
   ctx.subscriptions.push(
     tree,
     // Favorite Guide
-    vscode9.commands.registerCommand("forgevsc.favoriteGuide", async (node) => {
+    vscode11.commands.registerCommand("forgevsc.favoriteGuide", async (node) => {
       if (!node.guide) return;
       await addFavoriteGuide(node.guide.id);
       provider.refresh();
     }),
     // Unfavorite Guide
-    vscode9.commands.registerCommand("forgevsc.unfavoriteGuide", async (node) => {
+    vscode11.commands.registerCommand("forgevsc.unfavoriteGuide", async (node) => {
       if (!node.guide) return;
       await removeFavoriteGuide(node.guide.id);
       provider.refresh();
     }),
     // Open Guide Externally
-    vscode9.commands.registerCommand("forgevsc.openGuideExternal", async (node) => {
+    vscode11.commands.registerCommand("forgevsc.openGuideExternal", async (node) => {
       if (!node?.guide) return;
-      await vscode9.env.openExternal(vscode9.Uri.parse(buildGuideURL(node.guide)));
+      await vscode11.env.openExternal(vscode11.Uri.parse(buildGuideURL(node.guide)));
     }),
     // Search Guides
-    vscode9.commands.registerCommand("forgevsc.searchGuides", async () => {
+    vscode11.commands.registerCommand("forgevsc.searchGuides", async () => {
       try {
         await searchGuides();
       } catch (err) {
         Logger?.error(`Guide search failed: ${String(err)}`);
-        vscode9.window.showErrorMessage(vscode9.l10n.t("Could not open guide search."));
+        vscode11.window.showErrorMessage(vscode11.l10n.t("Could not open guide search."));
       }
     }),
     // Reload Guide Metadata
-    vscode9.commands.registerCommand("forgevsc.reloadGuideMetadata", async () => {
+    vscode11.commands.registerCommand("forgevsc.reloadGuideMetadata", async () => {
       const guides2 = await getGuides(true);
       provider.refresh();
-      if (guides2.length) vscode9.window.showInformationMessage(vscode9.l10n.t("Successfully fetched guide metadata!"));
+      if (guides2.length) vscode11.window.showInformationMessage(vscode11.l10n.t("Successfully fetched guide metadata!"));
     })
   );
 }
 
 // src/hover.ts
-var vscode10 = __toESM(require("vscode"));
+var vscode12 = __toESM(require("vscode"));
 function registerFunctionHover(ctx) {
   ctx.subscriptions.push(
-    vscode10.languages.registerHoverProvider(Languages, {
+    vscode12.languages.registerHoverProvider(Languages, {
       async provideHover(document, position) {
         const config = getExtensionConfig();
         if (!locateCodeBlock(document, position) || !config.features.hoverInfo) return;
@@ -213396,13 +213634,13 @@ function registerFunctionHover(ctx) {
             if (offset < start || offset > end) continue;
             const info = ConditionOperatorInfo[op.operator];
             if (!info) return;
-            const md = new vscode10.MarkdownString();
+            const md = new vscode12.MarkdownString();
             md.appendMarkdown(`**${info.name} (\`${op.operator}\`)**
 
 ${info.description}`);
-            return new vscode10.Hover(
+            return new vscode12.Hover(
               md,
-              new vscode10.Range(document.positionAt(start), document.positionAt(end))
+              new vscode12.Range(document.positionAt(start), document.positionAt(end))
             );
           }
         }
@@ -213410,7 +213648,7 @@ ${info.description}`);
         if (operatorRange && operatorRange.contains(position)) {
           const line2 = document.lineAt(position.line).text;
           const opStart = operatorRange.start.character;
-          const offset2 = document.offsetAt(new vscode10.Position(position.line, opStart));
+          const offset2 = document.offsetAt(new vscode12.Position(position.line, opStart));
           if (isIgnored(text, offset2)) return;
           const dollar = line2.lastIndexOf("$", opStart);
           if (dollar === -1 || isEscaped(line2, dollar)) return;
@@ -213425,18 +213663,18 @@ ${info.description}`);
           const op = opStr.startsWith("@") ? "@" : opStr;
           const doc = OperatorInfo[op];
           if (!doc) return;
-          const md = new vscode10.MarkdownString();
+          const md = new vscode12.MarkdownString();
           md.appendMarkdown(`**${doc.name} (\`${opStr}\`)**
 
 ${doc.description}`);
-          return new vscode10.Hover(md, operatorRange);
+          return new vscode12.Hover(md, operatorRange);
         }
         const line = document.lineAt(position.line).text;
         const Regex = /\$!?#?(?:@\[[^\]]?\])?[a-zA-Z0-9]+(\[)?/g;
         let match;
         while (match = Regex.exec(line)) {
           const start = match.index;
-          const offset2 = document.offsetAt(new vscode10.Position(position.line, start));
+          const offset2 = document.offsetAt(new vscode12.Position(position.line, start));
           if (isEscaped(line, start) || isIgnored(text, offset2)) continue;
           const hasOpening = match[1] === "[";
           let end = start + match[0].length;
@@ -213452,7 +213690,7 @@ ${doc.description}`);
             const acceptsArgs = brackets !== void 0;
             const bracketIndex = start + matchedText.length;
             const hasBracket = acceptsArgs && line[bracketIndex] === "[";
-            const md = new vscode10.MarkdownString();
+            const md = new vscode12.MarkdownString();
             md.appendCodeblock(
               (brackets || hasBracket ? generateUsage(fn) : name) + (output ? `: ${output.join(", ")}` : "")
             );
@@ -213461,15 +213699,15 @@ ${doc.description}`);
             if (version) {
               const links = [];
               const sourceUrl = await buildFunctionURL(fn);
-              if (sourceUrl) links.push(`[$(github) ${vscode10.l10n.t("Source")}](${sourceUrl})`);
+              if (sourceUrl) links.push(`[$(github) ${vscode12.l10n.t("Source")}](${sourceUrl})`);
               const guide = await findGuide({ targetType: "function", targetName: name });
               const pkgName = guide?.packageName || getPackageName(source);
-              if (pkgName) links.push(`[$(extensions) ${vscode10.l10n.t("Documentation")}](https://docs.botforge.org/function/${name}?p=${pkgName})`);
+              if (pkgName) links.push(`[$(extensions) ${vscode12.l10n.t("Documentation")}](https://docs.botforge.org/function/${name}?p=${pkgName})`);
               if (guide) {
-                const cmd = vscode10.Uri.parse(
+                const cmd = vscode12.Uri.parse(
                   `command:forgevsc.previewGuide?${encodeURIComponent(JSON.stringify([guide.id]))}`
                 );
-                links.push(`[$(book) ${vscode10.l10n.t("Guide")}](${cmd})`);
+                links.push(`[$(book) ${vscode12.l10n.t("Guide")}](${cmd})`);
               }
               md.appendMarkdown(`---
 `);
@@ -213480,8 +213718,8 @@ ${doc.description}`);
             md.isTrusted = true;
             md.supportThemeIcons = true;
             const hoverEnd = Math.min(end, start + matchedText.length);
-            const range = new vscode10.Range(position.line, start, position.line, hoverEnd);
-            return new vscode10.Hover(md, range);
+            const range = new vscode12.Range(position.line, start, position.line, hoverEnd);
+            return new vscode12.Hover(md, range);
           }
         }
       }
@@ -213490,7 +213728,7 @@ ${doc.description}`);
 }
 
 // src/rpc.ts
-var vscode11 = __toESM(require("vscode"));
+var vscode13 = __toESM(require("vscode"));
 var CLIENT_ID = "1511962883993374791";
 var rpc = null;
 var rpcModule = null;
@@ -213498,12 +213736,12 @@ var connectingInterval = null;
 var statusBar = null;
 var startTimestamp = Date.now();
 async function getRepoUrl() {
-  const folders = vscode11.workspace.workspaceFolders;
+  const folders = vscode13.workspace.workspaceFolders;
   if (!folders?.length) return null;
   try {
     const root = folders[0].uri;
-    const uri = vscode11.Uri.joinPath(root, ".git", "config");
-    const raw = await vscode11.workspace.fs.readFile(uri);
+    const uri = vscode13.Uri.joinPath(root, ".git", "config");
+    const raw = await vscode13.workspace.fs.readFile(uri);
     const config = new TextDecoder().decode(raw);
     const match = config.match(/url = (.+)/);
     if (!match) return null;
@@ -213515,7 +213753,7 @@ async function getRepoUrl() {
   }
 }
 async function loadRPC() {
-  if (vscode11.env.uiKind === vscode11.UIKind.Web) {
+  if (vscode13.env.uiKind === vscode13.UIKind.Web) {
     Logger.info("[RPC] Discord RPC disabled in web environment.");
     return null;
   }
@@ -213525,19 +213763,19 @@ async function loadRPC() {
   return rpcModule.Client;
 }
 function createRPCStatusBar(ctx) {
-  statusBar = vscode11.window.createStatusBarItem(vscode11.StatusBarAlignment.Left, 50);
+  statusBar = vscode13.window.createStatusBarItem(vscode13.StatusBarAlignment.Left, 50);
   statusBar.show();
   ctx.subscriptions.push(statusBar);
 }
 function updateRPCStatusBar(connected) {
   if (!statusBar) return;
   if (connected) {
-    statusBar.text = vscode11.l10n.t("$(plug) RPC Connected");
-    statusBar.tooltip = vscode11.l10n.t("Discord RPC Connected");
+    statusBar.text = vscode13.l10n.t("$(plug) RPC Connected");
+    statusBar.tooltip = vscode13.l10n.t("Discord RPC Connected");
     statusBar.command = void 0;
   } else {
-    statusBar.text = vscode11.l10n.t("$(debug-disconnect) Reconnect RPC");
-    statusBar.tooltip = vscode11.l10n.t("Reconnect Discord RPC");
+    statusBar.text = vscode13.l10n.t("$(debug-disconnect) Reconnect RPC");
+    statusBar.tooltip = vscode13.l10n.t("Reconnect Discord RPC");
     statusBar.command = "forgevsc.reconnectRPC";
   }
 }
@@ -213547,8 +213785,8 @@ function startConnectingAnimation() {
   let i = 0;
   connectingInterval = setInterval(() => {
     if (!statusBar) return;
-    statusBar.text = vscode11.l10n.t("$(sync~spin) Connecting RPC") + ".".repeat(i % 4);
-    statusBar.tooltip = vscode11.l10n.t("Connecting to Discord RPC...");
+    statusBar.text = vscode13.l10n.t("$(sync~spin) Connecting RPC") + ".".repeat(i % 4);
+    statusBar.tooltip = vscode13.l10n.t("Connecting to Discord RPC...");
     i++;
   }, 400);
 }
@@ -213559,7 +213797,7 @@ function stopConnectingAnimation() {
   }
 }
 async function connectRPC() {
-  if (vscode11.env.uiKind === vscode11.UIKind.Web) return false;
+  if (vscode13.env.uiKind === vscode13.UIKind.Web) return false;
   if (rpc) return true;
   try {
     startConnectingAnimation();
@@ -213665,7 +213903,7 @@ async function updateEditorRPC(editor) {
   } : getLanguageAsset(document.languageId);
   await updateRPC({
     details: `Editing ${fileName}`,
-    state: `Workspace: ${vscode11.workspace.name}`,
+    state: `Workspace: ${vscode13.workspace.name}`,
     smallImageKey: asset?.key,
     smallImageText: asset?.text
   });
@@ -213673,13 +213911,13 @@ async function updateEditorRPC(editor) {
 async function registerRPC(ctx) {
   const connected = await connectRPC();
   if (!connected) return;
-  await updateEditorRPC(vscode11.window.activeTextEditor);
+  await updateEditorRPC(vscode13.window.activeTextEditor);
   ctx.subscriptions.push(
-    vscode11.window.onDidChangeActiveTextEditor(async (editor) => {
+    vscode13.window.onDidChangeActiveTextEditor(async (editor) => {
       await updateEditorRPC(editor);
     }),
-    vscode11.workspace.onDidSaveTextDocument(async (document) => {
-      const editor = vscode11.window.activeTextEditor;
+    vscode13.workspace.onDidSaveTextDocument(async (document) => {
+      const editor = vscode13.window.activeTextEditor;
       if (editor?.document === document) {
         await updateEditorRPC(editor);
       }
@@ -213693,10 +213931,10 @@ async function registerRPC(ctx) {
 }
 
 // src/signature.ts
-var vscode12 = __toESM(require("vscode"));
+var vscode14 = __toESM(require("vscode"));
 function registerSignatureHelp(ctx) {
   ctx.subscriptions.push(
-    vscode12.languages.registerSignatureHelpProvider(
+    vscode14.languages.registerSignatureHelpProvider(
       Languages,
       new ForgeSignatureHelpProvider(),
       "[",
@@ -213727,15 +213965,15 @@ var ForgeSignatureHelpProvider = class {
     const argsTyped = text.slice(openIndex + 1);
     const args = fn.args ?? [];
     if (args.length === 0) return null;
-    const help = new vscode12.SignatureHelp();
-    const sig = new vscode12.SignatureInformation(generateUsage(fn, true));
+    const help = new vscode14.SignatureHelp();
+    const sig = new vscode14.SignatureInformation(generateUsage(fn, true));
     sig.documentation = fn.description;
     sig.parameters = args.map((arg) => {
-      const param = new vscode12.ParameterInformation(
+      const param = new vscode14.ParameterInformation(
         `${arg.rest ? "..." : ""}${arg.name}${arg.required ? "" : "?"}: ${arg.type}`,
-        new vscode12.MarkdownString(`${arg.description}${arg.condition ? `
+        new vscode14.MarkdownString(`${arg.description}${arg.condition ? `
 
-${vscode12.l10n.t("*(Conditional)*")}` : ""}
+${vscode14.l10n.t("*(Conditional)*")}` : ""}
 
 ---`)
       );
@@ -213754,10 +213992,10 @@ ${vscode12.l10n.t("*(Conditional)*")}` : ""}
 };
 
 // src/suggestions.ts
-var vscode13 = __toESM(require("vscode"));
+var vscode15 = __toESM(require("vscode"));
 function registerSuggestions(ctx) {
   ctx.subscriptions.push(
-    vscode13.languages.registerInlineCompletionItemProvider(
+    vscode15.languages.registerInlineCompletionItemProvider(
       Languages,
       new ForgeInlineCompletionItemProvider()
     )
@@ -213771,7 +214009,7 @@ var ForgeInlineCompletionItemProvider = class {
     const text = document.getText();
     if (isIgnored(text, document.offsetAt(position))) return;
     const slice = code.slice.replace(/[ \t\r]+$/g, "");
-    const nextChar = document.getText(new vscode13.Range(position, position.translate(0, 1)));
+    const nextChar = document.getText(new vscode15.Range(position, position.translate(0, 1)));
     if (nextChar !== "[") {
       const match = slice.match(FunctionHeadRegex);
       if (match) {
@@ -213779,7 +214017,7 @@ var ForgeInlineCompletionItemProvider = class {
         if (startIndex !== -1 && isEscaped(slice, startIndex)) return null;
         const found = await findFunction(match[1]);
         if (found?.fn.brackets !== void 0) {
-          return [new vscode13.InlineCompletionItem("[]", new vscode13.Range(position, position))];
+          return [new vscode15.InlineCompletionItem("[]", new vscode15.Range(position, position))];
         }
       }
     }
@@ -213794,7 +214032,7 @@ var ForgeInlineCompletionItemProvider = class {
           const close = findMatchingBracket(block, openIndex);
           const missingClosing = bracketDepth(block) > 0;
           if (close === -1 || missingClosing) {
-            return [new vscode13.InlineCompletionItem("]", new vscode13.Range(position, position))];
+            return [new vscode15.InlineCompletionItem("]", new vscode15.Range(position, position))];
           }
         }
       }
@@ -213804,7 +214042,7 @@ var ForgeInlineCompletionItemProvider = class {
 };
 
 // src/extension.ts
-var vscode14 = __toESM(require("vscode"));
+var vscode16 = __toESM(require("vscode"));
 var functions = null;
 var functionsPromise = null;
 var events = null;
@@ -213838,42 +214076,42 @@ var EventsStorageKey = "forgevsc.eventsCache.v1";
 var GuidesStorageKey = "forgevsc.guidesCache.v1";
 var OperatorInfo = {
   "!": {
-    name: vscode14.l10n.t("Negation Operator"),
-    description: vscode14.l10n.t(`The negation operator disables any possible output of a function. This can be useful for functions that return a "status" after execution, such as booleans or numbers.`)
+    name: vscode16.l10n.t("Negation Operator"),
+    description: vscode16.l10n.t(`The negation operator disables any possible output of a function. This can be useful for functions that return a "status" after execution, such as booleans or numbers.`)
   },
   "#": {
-    name: vscode14.l10n.t("Silent Operator"),
-    description: vscode14.l10n.t("The silent operator will suppress any error a function might throw and stops further code execution as well.")
+    name: vscode16.l10n.t("Silent Operator"),
+    description: vscode16.l10n.t("The silent operator will suppress any error a function might throw and stops further code execution as well.")
   },
   "@": {
-    name: vscode14.l10n.t("Count Operator"),
-    description: vscode14.l10n.t("The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**.")
+    name: vscode16.l10n.t("Count Operator"),
+    description: vscode16.l10n.t("The count operator directly counts the values of a possible array output from a function using a delimiter (separator). This operator only takes in **1 character**.")
   }
 };
 var ConditionOperatorInfo = {
   "==": {
-    name: vscode14.l10n.t("Equal Operator"),
-    description: vscode14.l10n.t("Checks whether the left value is **exactly equal** to the right value.")
+    name: vscode16.l10n.t("Equal Operator"),
+    description: vscode16.l10n.t("Checks whether the left value is **exactly equal** to the right value.")
   },
   "!=": {
-    name: vscode14.l10n.t("Not Equal Operator"),
-    description: vscode14.l10n.t("Checks whether the left value is **different** from the right value.")
+    name: vscode16.l10n.t("Not Equal Operator"),
+    description: vscode16.l10n.t("Checks whether the left value is **different** from the right value.")
   },
   "<": {
-    name: vscode14.l10n.t("Less Than Operator"),
-    description: vscode14.l10n.t("Checks whether the left value is **less than** the right value.")
+    name: vscode16.l10n.t("Less Than Operator"),
+    description: vscode16.l10n.t("Checks whether the left value is **less than** the right value.")
   },
   "<=": {
-    name: vscode14.l10n.t("Less Than or Equal Operator"),
-    description: vscode14.l10n.t("Checks whether the left value is **less than or equal** to the right value.")
+    name: vscode16.l10n.t("Less Than or Equal Operator"),
+    description: vscode16.l10n.t("Checks whether the left value is **less than or equal** to the right value.")
   },
   ">": {
-    name: vscode14.l10n.t("Greater Than Operator"),
-    description: vscode14.l10n.t("Checks whether the left value is **greater than** the right value.")
+    name: vscode16.l10n.t("Greater Than Operator"),
+    description: vscode16.l10n.t("Checks whether the left value is **greater than** the right value.")
   },
   ">=": {
-    name: vscode14.l10n.t("Greater Than or Equal Operator"),
-    description: vscode14.l10n.t("Checks whether the left value is **greater than or equal** to the right value.")
+    name: vscode16.l10n.t("Greater Than or Equal Operator"),
+    description: vscode16.l10n.t("Checks whether the left value is **greater than or equal** to the right value.")
   }
 };
 async function activate(ctx) {
@@ -213892,17 +214130,17 @@ async function activate(ctx) {
     config.customFunctionPaths
   );
   const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC";
-  Logger = vscode14.window.createOutputChannel(name, { log: true });
+  Logger = vscode16.window.createOutputChannel(name, { log: true });
   ctx.subscriptions.push(Logger);
   registerDefaultCommands(ctx);
   if (!isEnabled) {
     Logger.info("Extension is disabled for this workspace.");
-    const status = vscode14.window.createStatusBarItem(vscode14.StatusBarAlignment.Left);
-    status.text = vscode14.l10n.t("$(circle-slash) {0} Disabled", name);
-    status.tooltip = vscode14.l10n.t("Open Extension Settings");
+    const status = vscode16.window.createStatusBarItem(vscode16.StatusBarAlignment.Left);
+    status.text = vscode16.l10n.t("$(circle-slash) {0} Disabled", name);
+    status.tooltip = vscode16.l10n.t("Open Extension Settings");
     status.command = {
       command: "forgevsc.openSettings",
-      title: vscode14.l10n.t("Open Extension Settings"),
+      title: vscode16.l10n.t("Open Extension Settings"),
       arguments: ["forgevsc.global.enabledWorkspaces"]
     };
     status.show();
@@ -213910,7 +214148,7 @@ async function activate(ctx) {
   } else {
     await initialize(ctx);
   }
-  const watcher = vscode14.workspace.createFileSystemWatcher(
+  const watcher = vscode16.workspace.createFileSystemWatcher(
     "**/{.forgevsc.json,forgevsc.json,.vscode/.forgevsc.json,.vscode/forgevsc.json}"
   );
   ctx.subscriptions.push(
@@ -213918,7 +214156,7 @@ async function activate(ctx) {
     watcher.onDidCreate(reload),
     watcher.onDidChange(reload),
     watcher.onDidDelete(reload),
-    vscode14.workspace.onDidChangeConfiguration(async (e) => {
+    vscode16.workspace.onDidChangeConfiguration(async (e) => {
       if (e.affectsConfiguration("forgevsc")) await reload();
     })
   );
@@ -213927,7 +214165,7 @@ async function initialize(ctx) {
   Logger.show(true);
   Logger.info("Starting extension...");
   const config = getExtensionConfig();
-  if (vscode14.env.uiKind === vscode14.UIKind.Desktop && config.rpc.enabled) {
+  if (vscode16.env.uiKind === vscode16.UIKind.Desktop && config.rpc.enabled) {
     createRPCStatusBar(ctx);
     await registerRPC(ctx);
   }
@@ -213935,43 +214173,45 @@ async function initialize(ctx) {
   registerGuidePreview(ctx);
   registerGuidesView(ctx);
   registerDecorations(ctx);
+  registerColorPicker(ctx);
   registerFunctionHover(ctx);
   registerEventHover(ctx);
   registerFolding(ctx);
+  registerCommentToggle(ctx);
   registerAutocompletion(ctx);
   registerSignatureHelp(ctx);
   registerSuggestions(ctx);
-  const diagnostics = vscode14.languages.createDiagnosticCollection("forge");
+  const diagnostics = vscode16.languages.createDiagnosticCollection("forge");
   ctx.subscriptions.push(diagnostics);
-  for (const editor of vscode14.window.visibleTextEditors) {
+  for (const editor of vscode16.window.visibleTextEditors) {
     validateDocument(editor.document, diagnostics);
   }
   setTimeout(async () => {
-    const files = await vscode14.workspace.findFiles("**/*.{js,ts,jsx,tsx}", "**/node_modules/**");
+    const files = await vscode16.workspace.findFiles("**/*.{js,ts,jsx,tsx}", "**/node_modules/**");
     for (const file of files) {
       try {
-        const doc = await vscode14.workspace.openTextDocument(file);
+        const doc = await vscode16.workspace.openTextDocument(file);
         validateDocument(doc, diagnostics);
       } catch {
       }
     }
   }, 0);
   ctx.subscriptions.push(
-    vscode14.workspace.onDidChangeTextDocument((event) => {
+    vscode16.workspace.onDidChangeTextDocument((event) => {
       validateDocument(event.document, diagnostics);
-      const editor = vscode14.window.activeTextEditor;
+      const editor = vscode16.window.activeTextEditor;
       if (!editor || event.document !== editor.document) return;
       for (const change of event.contentChanges) {
         if (change.text === "" || change.text.includes(";")) {
-          vscode14.commands.executeCommand("editor.action.triggerParameterHints");
+          vscode16.commands.executeCommand("editor.action.triggerParameterHints");
           break;
         }
       }
     }),
-    vscode14.workspace.onDidOpenTextDocument((doc) => validateDocument(doc, diagnostics))
+    vscode16.workspace.onDidOpenTextDocument((doc) => validateDocument(doc, diagnostics))
   );
   ctx.subscriptions.push(
-    vscode14.languages.registerDefinitionProvider(Languages, {
+    vscode16.languages.registerDefinitionProvider(Languages, {
       provideDefinition(document, position) {
         const range = document.getWordRangeAtPosition(position, /\$[a-zA-Z0-9]+/);
         if (!range) return;
@@ -213981,10 +214221,10 @@ async function initialize(ctx) {
     })
   );
   const name = ctx.extension.packageJSON.displayName ?? "ForgeVSC";
-  const status = vscode14.window.createStatusBarItem(vscode14.StatusBarAlignment.Left, 100);
+  const status = vscode16.window.createStatusBarItem(vscode16.StatusBarAlignment.Left, 100);
   status.text = `$(package) ${name} v` + ctx.extension.packageJSON.version;
   status.command = "forgevsc.openExtensionLog";
-  status.tooltip = vscode14.l10n.t("{0} Extension Details", name);
+  status.tooltip = vscode16.l10n.t("{0} Extension Details", name);
   status.show();
   ctx.subscriptions.push(status);
   Logger.info("Extension started successfully!");
@@ -214001,18 +214241,18 @@ async function reload() {
   const packagesChanged = oldKey !== null && oldKey !== newKey;
   const newState = isWorkspaceEnabled();
   const showInformationMessage = async (message, openSettings = true) => {
-    const btnReload = vscode14.l10n.t("Reload");
-    const btnLater = vscode14.l10n.t("Later");
-    const btnOpenSettings = vscode14.l10n.t("Open Settings");
-    const action = await vscode14.window.showInformationMessage(
+    const btnReload = vscode16.l10n.t("Reload");
+    const btnLater = vscode16.l10n.t("Later");
+    const btnOpenSettings = vscode16.l10n.t("Open Settings");
+    const action = await vscode16.window.showInformationMessage(
       message,
       ...openSettings ? [btnReload, btnOpenSettings] : [btnReload, btnLater]
     );
     if (action === btnReload) {
-      if (openSettings) await vscode14.commands.executeCommand("workbench.action.reloadWindow");
-      else await vscode14.commands.executeCommand("forgevsc.reloadFunctionMetadata");
+      if (openSettings) await vscode16.commands.executeCommand("workbench.action.reloadWindow");
+      else await vscode16.commands.executeCommand("forgevsc.reloadFunctionMetadata");
     } else if (action === btnOpenSettings) {
-      await vscode14.commands.executeCommand(
+      await vscode16.commands.executeCommand(
         "forgevsc.openSettings",
         "forgevsc.global.enabledWorkspaces"
       );
@@ -214022,16 +214262,16 @@ async function reload() {
     isEnabled = newState;
     if (!isEnabled) {
       Logger.info("Extension disabled after configuration change.");
-      await showInformationMessage(vscode14.l10n.t("Extension is disabled for this workspace. Reload recommended."));
+      await showInformationMessage(vscode16.l10n.t("Extension is disabled for this workspace. Reload recommended."));
       return;
     }
     Logger.info("Extension enabled after configuration change.");
-    await showInformationMessage(vscode14.l10n.t("Extension has been enabled. Reload to fully activate."));
+    await showInformationMessage(vscode16.l10n.t("Extension has been enabled. Reload to fully activate."));
     return;
   }
   if (packagesChanged) {
     await showInformationMessage(
-      vscode14.l10n.t("Package sources or custom function paths have changed. Reload to refresh function metadata."),
+      vscode16.l10n.t("Package sources or custom function paths have changed. Reload to refresh function metadata."),
       false
     );
   }
@@ -214048,12 +214288,12 @@ function buildCacheKey(installed, additional = [], customPaths) {
   });
 }
 function getCacheUri(storageKey) {
-  return vscode14.Uri.joinPath(Context.globalStorageUri, `${storageKey}.json`);
+  return vscode16.Uri.joinPath(Context.globalStorageUri, `${storageKey}.json`);
 }
 async function readMetadataCache(storageKey, key) {
   try {
     const uri = getCacheUri(storageKey);
-    const raw = await vscode14.workspace.fs.readFile(uri);
+    const raw = await vscode16.workspace.fs.readFile(uri);
     const data = JSON.parse(new TextDecoder().decode(raw));
     if (!data || data.version !== 1 || data.key !== key) return null;
     return data.metadata;
@@ -214068,19 +214308,19 @@ async function writeMetadataCache(storageKey, key, data) {
     timestamp: Date.now(),
     metadata: data
   };
-  await vscode14.workspace.fs.createDirectory(Context.globalStorageUri);
+  await vscode16.workspace.fs.createDirectory(Context.globalStorageUri);
   const uri = getCacheUri(storageKey);
   const json = new TextEncoder().encode(JSON.stringify(payload));
-  await vscode14.workspace.fs.writeFile(uri, json);
+  await vscode16.workspace.fs.writeFile(uri, json);
 }
 async function clearMetadataCache(storageKey) {
   try {
-    await vscode14.workspace.fs.delete(getCacheUri(storageKey));
+    await vscode16.workspace.fs.delete(getCacheUri(storageKey));
   } catch {
   }
 }
 function isWorkspaceEnabled() {
-  const folders = vscode14.workspace.workspaceFolders;
+  const folders = vscode16.workspace.workspaceFolders;
   if (!folders?.length) return true;
   const config = getExtensionConfig();
   const enabled = config.enabledWorkspaces ?? [];
@@ -214088,12 +214328,12 @@ function isWorkspaceEnabled() {
   return folders.some((folder) => enabled.includes(folder.name));
 }
 async function getForgePackages() {
-  const folders = vscode14.workspace.workspaceFolders;
+  const folders = vscode16.workspace.workspaceFolders;
   if (!folders?.length) return [];
-  const pkgUri = vscode14.Uri.joinPath(folders[0].uri, "package.json");
+  const pkgUri = vscode16.Uri.joinPath(folders[0].uri, "package.json");
   let data;
   try {
-    data = await vscode14.workspace.fs.readFile(pkgUri);
+    data = await vscode16.workspace.fs.readFile(pkgUri);
   } catch {
     return [];
   }
@@ -214166,9 +214406,9 @@ async function resolveInstalledPackage(root, pkg) {
   const { name, value } = pkg;
   const direct = normalizeRepo(value);
   if (direct) return buildPackage(direct.repo, direct.branch, name);
-  const pkgUri = vscode14.Uri.joinPath(root, "node_modules", name, "package.json");
+  const pkgUri = vscode16.Uri.joinPath(root, "node_modules", name, "package.json");
   try {
-    const data = await vscode14.workspace.fs.readFile(pkgUri);
+    const data = await vscode16.workspace.fs.readFile(pkgUri);
     const pkg2 = JSON.parse(new TextDecoder().decode(data));
     const repo = pkg2.repository;
     const ref = typeof repo === "string" ? normalizeRepo(repo) : normalizeRepo(repo?.url);
@@ -214209,7 +214449,7 @@ function overwriteNative(native, custom) {
   return [...map.values()];
 }
 async function fetchFunctions(force = false) {
-  const folders = vscode14.workspace.workspaceFolders;
+  const folders = vscode16.workspace.workspaceFolders;
   if (!folders?.length) return [];
   const { additionalPackages, customFunctionPaths } = getExtensionConfig();
   const root = folders[0].uri;
@@ -214248,8 +214488,8 @@ async function fetchFunctions(force = false) {
     const pkgName = pkgSource.label;
     let handled = false;
     try {
-      const localMetaUri = vscode14.Uri.joinPath(root, "node_modules", pkgName, "metadata", "functions.json");
-      const data = await vscode14.workspace.fs.readFile(localMetaUri);
+      const localMetaUri = vscode16.Uri.joinPath(root, "node_modules", pkgName, "metadata", "functions.json");
+      const data = await vscode16.workspace.fs.readFile(localMetaUri);
       const json = JSON.parse(new TextDecoder().decode(data));
       extensionFunctions.push(...json.map((x) => ({ ...x, source: pkgSource })));
       fetched.add(pkgName);
@@ -214297,7 +214537,7 @@ async function fetchFunctions(force = false) {
   if (failed) {
     const text = `Fetching function metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
     Logger.error(text);
-    vscode14.window.showErrorMessage(text);
+    vscode16.window.showErrorMessage(text);
   }
   const merged = overwriteNative(metadata, customFunctions);
   await writeMetadataCache(FunctionsStorageKey, cacheKey, merged);
@@ -214317,7 +214557,7 @@ async function getFunctions(force = false) {
   return functionsPromise;
 }
 async function fetchEvents(force = false) {
-  const folders = vscode14.workspace.workspaceFolders;
+  const folders = vscode16.workspace.workspaceFolders;
   if (!folders?.length) return [];
   const { additionalPackages } = getExtensionConfig();
   const root = folders[0].uri;
@@ -214356,8 +214596,8 @@ async function fetchEvents(force = false) {
     const pkgName = pkgSource.label;
     let handled = false;
     try {
-      const localMetaUri = vscode14.Uri.joinPath(root, "node_modules", pkgName, "metadata", "events.json");
-      const data = await vscode14.workspace.fs.readFile(localMetaUri);
+      const localMetaUri = vscode16.Uri.joinPath(root, "node_modules", pkgName, "metadata", "events.json");
+      const data = await vscode16.workspace.fs.readFile(localMetaUri);
       const json = JSON.parse(new TextDecoder().decode(data));
       extensionEvents.push(...json.map((x) => ({ ...x, source: pkgSource })));
       fetched.add(pkgName);
@@ -214403,7 +214643,7 @@ async function fetchEvents(force = false) {
   if (failed) {
     const text = `Fetching event metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ");
     Logger.error(text);
-    vscode14.window.showErrorMessage(text);
+    vscode16.window.showErrorMessage(text);
   }
   await writeMetadataCache(EventsStorageKey, cacheKey, metadata);
   return metadata;
@@ -214434,14 +214674,14 @@ async function fetchGuides(force = false) {
   const res = await fetch(url).catch((err) => {
     const text = "Fetching guides failed: " + err;
     Logger.error(text);
-    vscode14.window.showErrorMessage(text);
+    vscode16.window.showErrorMessage(text);
     return void 0;
   });
   if (!res) return [];
   if (!res.ok) {
     const text = `Fetching guides failed: ${res.status} ${res.statusText}`;
     Logger.error(text);
-    vscode14.window.showErrorMessage(text);
+    vscode16.window.showErrorMessage(text);
     return [];
   }
   const data = await res.json();
