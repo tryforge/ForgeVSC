@@ -1,5 +1,14 @@
 # Change Log
 
+## v1.2.13 <sub>(October 10, 2026)</sub>
+
+### Added
+- Added progress notification when fetching functions and events
+- Added various customization settings for RPC
+
+### Changed
+- Changed function output separator
+
 ## v1.2.12 <sub>(September 26, 2026)</sub>
 
 ### Added

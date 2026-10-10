@@ -1,3 +1,8 @@
+/*
+* SPDX-License-Identifier: LGPL-3.0-or-later
+* Copyright © 2026 BotForge
+*/
+
 import { buildEventURL, findEvents, findGuide, getExtensionConfig, getPackageName, isIgnored, Languages } from "."
 import * as vscode from "vscode"
 import ts from "typescript"

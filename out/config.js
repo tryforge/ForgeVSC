@@ -1,4 +1,8 @@
 "use strict";
+/*
+* SPDX-License-Identifier: LGPL-3.0-or-later
+* Copyright © 2026 BotForge
+*/
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74,7 +78,19 @@ exports.Defaults = {
         autocompletion: true,
     },
     rpc: {
-        enabled: true
+        enabled: true,
+        details: "Editing {file_name}",
+        state: "Workspace: {workspace}",
+        detailsIdling: "Idling...",
+        stateIdling: "",
+        largeImageText: "BotForge",
+        smallImageText: "{language}",
+        swapImages: false,
+        timestamp: "session",
+        idleTimeout: 5,
+        showRepositoryButton: true,
+        buttons: [],
+        ignoredWorkspaces: []
     },
 };
 let cached = exports.Defaults;
@@ -122,6 +138,18 @@ function getSettingsConfig() {
             },
             rpc: {
                 enabled: vs.get("workspace.rpc.enabled"),
+                details: vs.get("workspace.rpc.details"),
+                state: vs.get("workspace.rpc.state"),
+                detailsIdling: vs.get("workspace.rpc.detailsIdling"),
+                stateIdling: vs.get("workspace.rpc.stateIdling"),
+                largeImageText: vs.get("workspace.rpc.largeImageText"),
+                smallImageText: vs.get("workspace.rpc.smallImageText"),
+                swapImages: vs.get("workspace.rpc.swapImages"),
+                timestamp: vs.get("workspace.rpc.timestamp"),
+                idleTimeout: vs.get("workspace.rpc.idleTimeout"),
+                showRepositoryButton: vs.get("workspace.rpc.showRepositoryButton"),
+                buttons: vs.get("workspace.rpc.buttons"),
+                ignoredWorkspaces: vs.get("workspace.rpc.ignoredWorkspaces"),
             }
         }
     };
@@ -214,8 +242,9 @@ async function loadExtensionConfig() {
             autocompletion: file.features?.autocompletion ?? vs.workspace.features?.autocompletion ?? exports.Defaults.features.autocompletion,
         },
         rpc: {
-            enabled: vs.workspace.rpc.enabled ?? exports.Defaults.rpc.enabled,
-        }
+            ...exports.Defaults.rpc,
+            ...Object.fromEntries(Object.entries(vs.workspace.rpc).filter(([, v]) => v !== undefined))
+        },
     };
     return cached;
 }

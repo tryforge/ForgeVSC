@@ -1,7 +1,34 @@
+/*
+* SPDX-License-Identifier: LGPL-3.0-or-later
+* Copyright © 2026 BotForge
+*/
+
 import { toArray } from "."
 import * as vscode from "vscode"
 
 export type FunctionStyle = "normal" | "bold" | "italic" | "bold-italic"
+export type RPCTimestampMode = "session" | "file" | "none"
+
+export interface IRPCButton {
+    label: string
+    url: string
+}
+
+export interface IRPCConfig {
+    enabled?: boolean
+    details?: string
+    state?: string
+    detailsIdling?: string
+    stateIdling?: string
+    largeImageText?: string
+    smallImageText?: string
+    swapImages?: boolean
+    timestamp?: RPCTimestampMode
+    idleTimeout?: number
+    showRepositoryButton?: boolean
+    buttons?: IRPCButton[]
+    ignoredWorkspaces?: string[]
+}
 
 export interface IExtensionConfig {
     enabledWorkspaces?: string[]
@@ -36,9 +63,7 @@ export interface IExtensionConfig {
         diagnostics?: boolean
         autocompletion?: boolean
     }
-    rpc?: {
-        enabled?: boolean
-    }
+    rpc?: IRPCConfig
 }
 
 export const Defaults: Required<IExtensionConfig> = {
@@ -75,7 +100,19 @@ export const Defaults: Required<IExtensionConfig> = {
         autocompletion: true,
     },
     rpc: {
-        enabled: true
+        enabled: true,
+        details: "Editing {file_name}",
+        state: "Workspace: {workspace}",
+        detailsIdling: "Idling...",
+        stateIdling: "",
+        largeImageText: "BotForge",
+        smallImageText: "{language}",
+        swapImages: false,
+        timestamp: "session",
+        idleTimeout: 5,
+        showRepositoryButton: true,
+        buttons: [],
+        ignoredWorkspaces: []
     },
 }
 
@@ -126,6 +163,18 @@ export function getSettingsConfig() {
             },
             rpc: {
                 enabled: vs.get<boolean>("workspace.rpc.enabled"),
+                details: vs.get<string>("workspace.rpc.details"),
+                state: vs.get<string>("workspace.rpc.state"),
+                detailsIdling: vs.get<string>("workspace.rpc.detailsIdling"),
+                stateIdling: vs.get<string>("workspace.rpc.stateIdling"),
+                largeImageText: vs.get<string>("workspace.rpc.largeImageText"),
+                smallImageText: vs.get<string>("workspace.rpc.smallImageText"),
+                swapImages: vs.get<boolean>("workspace.rpc.swapImages"),
+                timestamp: vs.get<RPCTimestampMode>("workspace.rpc.timestamp"),
+                idleTimeout: vs.get<number>("workspace.rpc.idleTimeout"),
+                showRepositoryButton: vs.get<boolean>("workspace.rpc.showRepositoryButton"),
+                buttons: vs.get<IRPCButton[]>("workspace.rpc.buttons"),
+                ignoredWorkspaces: vs.get<string[]>("workspace.rpc.ignoredWorkspaces"),
             }
         }
     }
@@ -226,8 +275,11 @@ export async function loadExtensionConfig() {
             autocompletion: file.features?.autocompletion ?? vs.workspace.features?.autocompletion ?? Defaults.features.autocompletion,
         },
         rpc: {
-            enabled: vs.workspace.rpc.enabled ?? Defaults.rpc.enabled,
-        }
+            ...Defaults.rpc,
+            ...Object.fromEntries(
+                Object.entries(vs.workspace.rpc).filter(([, v]) => v !== undefined)
+            )
+        } as IRPCConfig,
     }
 
     return cached

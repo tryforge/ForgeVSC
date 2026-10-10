@@ -1,4 +1,8 @@
 "use strict";
+/*
+* SPDX-License-Identifier: LGPL-3.0-or-later
+* Copyright © 2026 BotForge
+*/
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -140,7 +144,7 @@ function registerFunctionHover(ctx) {
                     const bracketIndex = start + matchedText.length;
                     const hasBracket = acceptsArgs && line[bracketIndex] === "[";
                     const md = new vscode.MarkdownString();
-                    md.appendCodeblock(((brackets || hasBracket) ? (0, _1.generateUsage)(fn) : name) + (output ? `: ${output.join(", ")}` : ""));
+                    md.appendCodeblock(((brackets || hasBracket) ? (0, _1.generateUsage)(fn) : name) + (output ? `: ${output.join(" | ")}` : ""));
                     md.appendText(`${description}\n`);
                     if (version) {
                         const links = [];

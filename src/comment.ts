@@ -1,3 +1,8 @@
+/*
+* SPDX-License-Identifier: LGPL-3.0-or-later
+* Copyright © 2026 BotForge
+*/
+
 import { findMatchingBracket, isEscaped, Languages, locateCodeBlock } from "."
 import * as vscode from "vscode"
 

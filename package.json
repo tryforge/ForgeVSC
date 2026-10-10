@@ -3,7 +3,7 @@
   "displayName": "ForgeVSC",
   "description": "%extension.description%",
   "publisher": "tryforge",
-  "version": "1.2.12",
+  "version": "1.2.13",
   "icon": "./assets/ForgeScript.png",
   "main": "./out/extension.js",
   "browser": "./out/web/extension.js",
@@ -411,6 +411,117 @@
           "type": "boolean",
           "default": true,
           "description": "%config.workspace.rpc.enabled.description%"
+        },
+        "forgevsc.workspace.rpc.details": {
+          "order": 51,
+          "type": "string",
+          "default": "Editing {file_name}",
+          "markdownDescription": "%config.workspace.rpc.details.description%"
+        },
+        "forgevsc.workspace.rpc.state": {
+          "order": 52,
+          "type": "string",
+          "default": "Workspace: {workspace}",
+          "markdownDescription": "%config.workspace.rpc.state.description%"
+        },
+        "forgevsc.workspace.rpc.detailsIdling": {
+          "order": 53,
+          "type": "string",
+          "default": "Idling...",
+          "markdownDescription": "%config.workspace.rpc.detailsIdling.description%"
+        },
+        "forgevsc.workspace.rpc.stateIdling": {
+          "order": 54,
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.workspace.rpc.stateIdling.description%"
+        },
+        "forgevsc.workspace.rpc.largeImageText": {
+          "order": 55,
+          "type": "string",
+          "default": "BotForge",
+          "markdownDescription": "%config.workspace.rpc.largeImageText.description%"
+        },
+        "forgevsc.workspace.rpc.smallImageText": {
+          "order": 56,
+          "type": "string",
+          "default": "{language}",
+          "markdownDescription": "%config.workspace.rpc.smallImageText.description%"
+        },
+        "forgevsc.workspace.rpc.swapImages": {
+          "order": 57,
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.workspace.rpc.swapImages.description%"
+        },
+        "forgevsc.workspace.rpc.timestamp": {
+          "order": 58,
+          "type": "string",
+          "default": "session",
+          "enum": [
+            "session",
+            "file",
+            "none"
+          ],
+          "markdownEnumDescriptions": [
+            "%config.workspace.rpc.timestamp.enum.session.description%",
+            "%config.workspace.rpc.timestamp.enum.file.description%",
+            "%config.workspace.rpc.timestamp.enum.none.description%"
+          ],
+          "markdownDescription": "%config.workspace.rpc.timestamp.description%"
+        },
+        "forgevsc.workspace.rpc.idleTimeout": {
+          "order": 59,
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "markdownDescription": "%config.workspace.rpc.idleTimeout.description%"
+        },
+        "forgevsc.workspace.rpc.showRepositoryButton": {
+          "order": 60,
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.workspace.rpc.showRepositoryButton.description%"
+        },
+        "forgevsc.workspace.rpc.buttons": {
+          "order": 61,
+          "type": "array",
+          "default": [],
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "label",
+              "url"
+            ],
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "markdownDescription": "%config.workspace.rpc.buttons.label.description%"
+              },
+              "url": {
+                "type": "string",
+                "pattern": "^https?://",
+                "patternErrorMessage": "%config.workspace.rpc.buttons.url.patternError%",
+                "markdownDescription": "%config.workspace.rpc.buttons.url.description%"
+              }
+            }
+          },
+          "markdownDescription": "%config.workspace.rpc.buttons.description%"
+        },
+        "forgevsc.workspace.rpc.ignoredWorkspaces": {
+          "order": 62,
+          "type": "array",
+          "default": [],
+          "uniqueItems": true,
+          "scope": "machine",
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "%config.workspace.rpc.ignoredWorkspaces.description%"
         }
       }
     }
@@ -423,23 +534,24 @@
     "vscode:prepublish": "npm run build",
     "compile": "tsc -p ./",
     "build:web": "node scripts/esbuild.mjs",
-    "build": "npm run compile && npm run build:web",
+    "build:license": "tsc -p tsconfig.build.json && node out/@build/license",
+    "build": "npm run build:license && npm run compile && npm run build:web",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run build && npm run lint",
     "lint": "eslint src"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.6.4",
     "@types/vscode": "^1.106.0",
-    "@typescript-eslint/eslint-plugin": "^8.70.0",
-    "@typescript-eslint/parser": "^8.70.0",
+    "@typescript-eslint/eslint-plugin": "^8.71.1",
+    "@typescript-eslint/parser": "^8.71.1",
     "@vscode/l10n-dev": "^0.0.35",
     "@vscode/test-web": "^0.0.81",
-    "@vscode/vsce": "^3.9.2",
+    "@vscode/vsce": "^4.0.0",
     "dotenv-cli": "^11.0.0",
     "esbuild": "^0.28.2",
-    "eslint": "^10.9.1",
+    "eslint": "^10.12.0",
     "ovsx": "^1.2.0"
   },
   "dependencies": {
