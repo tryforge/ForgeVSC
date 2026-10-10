@@ -1,3 +1,8 @@
+/*
+* SPDX-License-Identifier: LGPL-3.0-or-later
+* Copyright © 2026 BotForge
+*/
+
 import {
 	createRPCStatusBar,
 	disconnectRPC,
@@ -7,6 +12,7 @@ import {
 	type GuideMetadata,
 	loadCustomFunctions,
 	loadExtensionConfig,
+	refreshRPC,
 	registerAutocompletion,
 	registerColorPicker,
 	registerCommands,
@@ -214,8 +220,7 @@ async function initialize(ctx: vscode.ExtensionContext) {
 	Logger.show(true)
 	Logger.info("Starting extension...")
 
-	const config = getExtensionConfig()
-	if (vscode.env.uiKind === vscode.UIKind.Desktop && config.rpc.enabled) {
+	if (vscode.env.uiKind === vscode.UIKind.Desktop) {
 		createRPCStatusBar(ctx)
 		await registerRPC(ctx)
 	}
@@ -347,6 +352,8 @@ async function reload() {
 		await showInformationMessage(vscode.l10n.t("Extension has been enabled. Reload to fully activate."))
 		return
 	}
+
+	if (isEnabled) await refreshRPC()
 
 	if (packagesChanged) {
 		await showInformationMessage(
@@ -697,7 +704,7 @@ export async function fetchFunctions(force: boolean = false) {
 
 	const rawInstalled = await getForgePackages()
 	const rawAdditional = additionalPackages?.filter(Boolean) ?? []
-	let failedFetch = []
+	let failedFetch = new Array()
 
 	const def = buildPackage("tryforge/ForgeScript", "main", "@tryforge/forgescript")
 	const getId = (source: PackageSource) => getPackageId(source)
@@ -729,75 +736,82 @@ export async function fetchFunctions(force: boolean = false) {
 		}
 	}
 
-	let extensionFunctions: FunctionMetadata[] = []
-	let fetched = new Set()
-	let fetchMain = false
+	const merged = await vscode.window.withProgress({
+		location: vscode.ProgressLocation.Notification,
+		title: vscode.l10n.t("Fetching function metadata..."),
+		cancellable: false
+	}, async () => {
+		let extensionFunctions: FunctionMetadata[] = []
+		let fetched = new Set()
+		let fetchMain = false
 
-	for (const pkgSource of uniqueInstalled) {
-		const pkgName = pkgSource.label!
-		let handled = false
+		for (const pkgSource of uniqueInstalled) {
+			const pkgName = pkgSource.label!
+			let handled = false
 
-		try {
-			const localMetaUri = vscode.Uri.joinPath(root, "node_modules", pkgName, "metadata", "functions.json")
-			const data = await vscode.workspace.fs.readFile(localMetaUri)
-			const json = JSON.parse(new TextDecoder().decode(data)) as FunctionMetadata[]
+			try {
+				const localMetaUri = vscode.Uri.joinPath(root, "node_modules", pkgName, "metadata", "functions.json")
+				const data = await vscode.workspace.fs.readFile(localMetaUri)
+				const json = JSON.parse(new TextDecoder().decode(data)) as FunctionMetadata[]
 
-			extensionFunctions.push(...json.map((x) => ({ ...x, source: pkgSource })))
-			fetched.add(pkgName)
-			handled = true
-		} catch { }
+				extensionFunctions.push(...json.map((x) => ({ ...x, source: pkgSource })))
+				fetched.add(pkgName)
+				handled = true
+			} catch { }
 
-		if (!handled) {
-			const data = await fetchFunctionMetadata(pkgSource)
+			if (!handled) {
+				const data = await fetchFunctionMetadata(pkgSource)
+				if (data) {
+					extensionFunctions.push(...data)
+					fetched.add(pkgName)
+				} else {
+					if (pkgName !== def.label) failedFetch.push(pkgName)
+					else fetchMain = true
+				}
+			}
+		}
+
+		for (const source of uniqueAdditional) {
+			const data = await fetchFunctionMetadata(source)
 			if (data) {
 				extensionFunctions.push(...data)
-				fetched.add(pkgName)
+				fetched.add(source.label)
 			} else {
-				if (pkgName !== def.label) failedFetch.push(pkgName)
+				if (getId(source) !== getId(def)) failedFetch.push(source.label)
 				else fetchMain = true
 			}
 		}
-	}
 
-	for (const source of uniqueAdditional) {
-		const data = await fetchFunctionMetadata(source)
-		if (data) {
-			extensionFunctions.push(...data)
-			fetched.add(source.label)
-		} else {
-			if (getId(source) !== getId(def)) failedFetch.push(source.label)
-			else fetchMain = true
+		const hasDefaultInstalled = uniqueInstalled.some((x) => getId(x) === getId(def))
+		const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def))
+
+		let main: FunctionMetadata[] = []
+		if ((!hasDefaultInstalled && !hasDefaultAdditional) || fetchMain) {
+			const data = await fetchFunctionMetadata(def)
+			if (data) {
+				main = data
+				fetched.add(def.label)
+			}
+			else failedFetch.unshift(def.label)
 		}
-	}
 
-	const hasDefaultInstalled = uniqueInstalled.some((x) => getId(x) === getId(def))
-	const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def))
+		const customFunctions = await loadCustomFunctions(customFunctionPaths)
+		const metadata = [...main, ...extensionFunctions]
 
-	let main: FunctionMetadata[] = []
-	if ((!hasDefaultInstalled && !hasDefaultAdditional) || fetchMain) {
-		const data = await fetchFunctionMetadata(def)
-		if (data) {
-			main = data
-			fetched.add(def.label)
+		failedFetch = [...new Set(failedFetch)]
+		const failed = failedFetch.length
+		const count = fetched.size
+
+		Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}. (${Array.from(fetched).join(", ")})`)
+		if (customFunctionPaths.length) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`)
+		if (failed) {
+			const text = `Fetching function metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")
+			Logger.error(text)
+			vscode.window.showErrorMessage(text)
 		}
-		else failedFetch.unshift(def.label)
-	}
 
-	const customFunctions = await loadCustomFunctions(customFunctionPaths)
-	const metadata = [...main, ...extensionFunctions]
-
-	failedFetch = [...new Set(failedFetch)]
-	const failed = failedFetch.length
-	const count = fetched.size
-
-	Logger.info(`Fetched metadata from ${metadata.length} functions across ${count} package${count === 1 ? "" : "s"}. (${Array.from(fetched).join(", ")})`)
-	if (customFunctionPaths.length) Logger.info(`Fetched metadata from ${customFunctions.length} custom function${customFunctions.length === 1 ? "" : "s"}.`)
-	if (failed) {
-		const text = `Fetching function metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")
-		Logger.error(text)
-		vscode.window.showErrorMessage(text)
-	}
-	const merged = overwriteNative(metadata, customFunctions as FunctionMetadata[])
+		return overwriteNative(metadata, customFunctions as FunctionMetadata[])
+	})
 
 	await writeMetadataCache(FunctionsStorageKey, cacheKey, merged)
 	return merged
@@ -836,7 +850,7 @@ export async function fetchEvents(force: boolean = false) {
 
 	const rawInstalled = await getForgePackages()
 	const rawAdditional = additionalPackages?.filter(Boolean) ?? []
-	let failedFetch = []
+	let failedFetch = new Array()
 
 	const def = buildPackage("tryforge/ForgeScript", "main", "@tryforge/forgescript")
 	const getId = (source: PackageSource) => getPackageId(source)
@@ -868,75 +882,83 @@ export async function fetchEvents(force: boolean = false) {
 		}
 	}
 
-	let extensionEvents: EventMetadata[] = []
-	let fetched = new Set()
-	let fetchMain = false
+	const merged = await vscode.window.withProgress({
+		location: vscode.ProgressLocation.Notification,
+		title: vscode.l10n.t("Fetching event metadata..."),
+		cancellable: false
+	}, async () => {
+		let extensionEvents: EventMetadata[] = []
+		let fetched = new Set()
+		let fetchMain = false
 
-	for (const pkgSource of uniqueInstalled) {
-		const pkgName = pkgSource.label!
-		let handled = false
+		for (const pkgSource of uniqueInstalled) {
+			const pkgName = pkgSource.label!
+			let handled = false
 
-		try {
-			const localMetaUri = vscode.Uri.joinPath(root, "node_modules", pkgName, "metadata", "events.json")
-			const data = await vscode.workspace.fs.readFile(localMetaUri)
-			const json = JSON.parse(new TextDecoder().decode(data)) as EventMetadata[]
+			try {
+				const localMetaUri = vscode.Uri.joinPath(root, "node_modules", pkgName, "metadata", "events.json")
+				const data = await vscode.workspace.fs.readFile(localMetaUri)
+				const json = JSON.parse(new TextDecoder().decode(data)) as EventMetadata[]
 
-			extensionEvents.push(...json.map((x) => ({ ...x, source: pkgSource })))
-			fetched.add(pkgName)
-			handled = true
-		} catch { }
+				extensionEvents.push(...json.map((x) => ({ ...x, source: pkgSource })))
+				fetched.add(pkgName)
+				handled = true
+			} catch { }
 
-		if (!handled) {
-			const data = await fetchEventMetadata(pkgSource)
+			if (!handled) {
+				const data = await fetchEventMetadata(pkgSource)
+				if (data) {
+					extensionEvents.push(...data)
+					if (data.length) fetched.add(pkgName)
+				} else {
+					if (pkgName !== def.label) failedFetch.push(pkgName)
+					else fetchMain = true
+				}
+			}
+		}
+
+		for (const source of uniqueAdditional) {
+			const data = await fetchEventMetadata(source)
 			if (data) {
 				extensionEvents.push(...data)
-				if (data.length) fetched.add(pkgName)
+				if (data.length) fetched.add(source.label)
 			} else {
-				if (pkgName !== def.label) failedFetch.push(pkgName)
+				if (getId(source) !== getId(def)) failedFetch.push(source.label)
 				else fetchMain = true
 			}
 		}
-	}
 
-	for (const source of uniqueAdditional) {
-		const data = await fetchEventMetadata(source)
-		if (data) {
-			extensionEvents.push(...data)
-			if (data.length) fetched.add(source.label)
-		} else {
-			if (getId(source) !== getId(def)) failedFetch.push(source.label)
-			else fetchMain = true
+		const hasDefaultInstalled = uniqueInstalled.some((x) => getId(x) === getId(def))
+		const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def))
+
+		let main: EventMetadata[] = []
+		if ((!hasDefaultInstalled && !hasDefaultAdditional) || fetchMain) {
+			const data = await fetchEventMetadata(def)
+			if (data) {
+				main = data
+				fetched.add(def.label)
+			}
+			else failedFetch.unshift(def.label)
 		}
-	}
 
-	const hasDefaultInstalled = uniqueInstalled.some((x) => getId(x) === getId(def))
-	const hasDefaultAdditional = uniqueAdditional.some((x) => getId(x) === getId(def))
+		const metadata = [...main, ...extensionEvents]
 
-	let main: EventMetadata[] = []
-	if ((!hasDefaultInstalled && !hasDefaultAdditional) || fetchMain) {
-		const data = await fetchEventMetadata(def)
-		if (data) {
-			main = data
-			fetched.add(def.label)
+		failedFetch = [...new Set(failedFetch)]
+		const failed = failedFetch.length
+		const count = fetched.size
+
+		Logger.info(`Fetched metadata from ${metadata.length} events across ${count} package${count === 1 ? "" : "s"}. (${Array.from(fetched).join(", ")})`)
+		if (failed) {
+			const text = `Fetching event metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")
+			Logger.error(text)
+			vscode.window.showErrorMessage(text)
 		}
-		else failedFetch.unshift(def.label)
-	}
 
-	const metadata = [...main, ...extensionEvents]
+		return metadata
+	})
 
-	failedFetch = [...new Set(failedFetch)]
-	const failed = failedFetch.length
-	const count = fetched.size
-
-	Logger.info(`Fetched metadata from ${metadata.length} events across ${count} package${count === 1 ? "" : "s"}. (${Array.from(fetched).join(", ")})`)
-	if (failed) {
-		const text = `Fetching event metadata failed for following ${failed} package${failed === 1 ? "" : "s"}: ` + failedFetch.join(", ")
-		Logger.error(text)
-		vscode.window.showErrorMessage(text)
-	}
-
-	await writeMetadataCache(EventsStorageKey, cacheKey, metadata)
-	return metadata
+	await writeMetadataCache(EventsStorageKey, cacheKey, merged)
+	return merged
 }
 
 /**

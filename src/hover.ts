@@ -1,3 +1,8 @@
+/*
+* SPDX-License-Identifier: LGPL-3.0-or-later
+* Copyright © 2026 BotForge
+*/
+
 import {
     buildFunctionURL,
     ConditionOperatorInfo,
@@ -136,7 +141,7 @@ export function registerFunctionHover(ctx: vscode.ExtensionContext) {
 
                         const md = new vscode.MarkdownString()
                         md.appendCodeblock(
-                            ((brackets || hasBracket) ? generateUsage(fn) : name) + (output ? `: ${output.join(", ")}` : "")
+                            ((brackets || hasBracket) ? generateUsage(fn) : name) + (output ? `: ${output.join(" | ")}` : "")
                         )
                         md.appendText(`${description}\n`)
                         if (version) {
