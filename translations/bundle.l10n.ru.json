@@ -12,6 +12,8 @@
   "Open Extension Settings": "Открыть настройки расширения",
   "Later": "Позже",
   "Open Settings": "Открыть настройки",
+  "Fetching function metadata...": "Получение метаданных функции...",
+  "Fetching event metadata...": "Получение метаданных события...",
   "Folder": "Папка",
   "$(account) User Settings": "$(account) Настройки пользователя",
   "Open": "Открыть",
