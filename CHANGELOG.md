@@ -1,5 +1,16 @@
 # Change Log
 
+## v1.2.14 <sub>(October 17, 2026)</sub>
+
+### Added
+- Redesigned and improved guide preview
+
+### Changed
+- Reduced extension size and improved startup time
+
+### Fixed
+- Fixed `folder` RPC placeholder not returning current directory
+
 ## v1.2.13 <sub>(October 10, 2026)</sub>
 
 ### Added

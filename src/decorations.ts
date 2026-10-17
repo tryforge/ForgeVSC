@@ -47,7 +47,7 @@ function isValidHex(input: string) {
  * @param fallback The color fallback value.
  * @returns 
  */
-function resolveColor(input: unknown, fallback: string) {
+export function resolveColor(input: unknown, fallback: string) {
     if (typeof input !== "string") return fallback
     const hex = input.trim()
     if (!isValidHex(hex)) return fallback

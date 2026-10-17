@@ -50,12 +50,14 @@ function render(template: string | undefined, ctx: RPCContext) {
 
 /**
  * Returns the branch of current GitHub workspace.
+ * @param folder The current workspace folder.
  */
-async function getGitBranch() {
-    const folders = vscode.workspace.workspaceFolders
-    if (!folders?.length) return undefined
+async function getGitBranch(folder?: vscode.WorkspaceFolder) {
+    folder ??= vscode.workspace.workspaceFolders?.[0]
+    if (!folder) return undefined
+
     try {
-        const raw = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folders[0].uri, ".git", "HEAD"))
+        const raw = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folder.uri, ".git", "HEAD"))
         return new TextDecoder().decode(raw).match(/ref: refs\/heads\/(.+)/)?.[1]?.trim()
     } catch {
         return undefined
@@ -70,17 +72,18 @@ async function getGitBranch() {
 async function buildContext(editor?: vscode.TextEditor, asset?: RPCAsset): Promise<RPCContext> {
     const doc = editor?.document
     const fileName = doc?.fileName.split(/[\\/]/).pop()
+    const folder = doc?.uri.path.split("/").slice(-2, -1)[0]
 
     return {
         file_name: fileName,
         file_extension: fileName?.includes(".") ? fileName.split(".").pop() : "",
         language: asset?.text ?? doc?.languageId,
         workspace: vscode.workspace.name,
-        folder: vscode.workspace.workspaceFolders?.[0]?.name,
+        folder,
         line: editor ? editor.selection.active.line + 1 : undefined,
         column: editor ? editor.selection.active.character + 1 : undefined,
         total_lines: doc?.lineCount,
-        git_branch: await getGitBranch(),
+        git_branch: await getGitBranch(doc ? vscode.workspace.getWorkspaceFolder(doc.uri) : undefined),
         extension_version: vscode.extensions.getExtension("tryforge.forgevsc")?.packageJSON.version
     }
 }

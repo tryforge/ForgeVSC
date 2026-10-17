@@ -16,7 +16,7 @@
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"
 			],
-			"preLaunchTask": "${defaultBuildTask}"
+			"preLaunchTask": "watch"
 		},
 		{
 			"name": "Run Web Extension",
@@ -30,7 +30,8 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionDevelopmentKind=web",
 				"--disable-extensions"
-			]
+			],
+			"preLaunchTask": "build:web"
 		}
 	]
 }

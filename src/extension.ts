@@ -1466,7 +1466,6 @@ export function bracketDepth(input: string) {
 
 /**
  * Deactivates the extension.
- * @param ctx The extension context.
  */
 export async function deactivate() {
 	await disconnectRPC()
