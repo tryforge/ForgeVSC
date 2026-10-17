@@ -3,8 +3,14 @@
 * Copyright © 2026 BotForge
 */
 
-import { DocsUrl, getGuides, Logger } from "."
+import MarkdownIt, { MarkdownIt as Markdown } from "markdown-it"
+import { DocsUrl, getExtensionConfig, getGuides, isEscaped, Logger, resolveColor } from "."
 import * as vscode from "vscode"
+
+import hljs from "highlight.js/lib/core"
+import javascript from "highlight.js/lib/languages/javascript"
+import typescript from "highlight.js/lib/languages/typescript"
+import json from "highlight.js/lib/languages/json"
 
 export const GuideTypes = ["specific", "dedicated"] as const
 export const GuideTargetTypes = ["function", "event", "enum", "none"] as const
@@ -67,16 +73,33 @@ export type GuideFindQuery =
         where?: (g: GuideMetadata) => boolean
     }
 
-const GuideScheme = "forge-guide"
 const FavoriteGuidesKey = "forgevsc.favoriteGuides"
 
-const IconPaths: Record<string, string> = {
-    functions: "symbol-function",
-    events: "symbol-event",
-    enums: "symbol-enum"
+const ForgeLangs = new Set(["forge", "forgescript", "fs"])
+const ShellLangs = new Set(["bash", "sh", "zsh", "shell", "console"])
+const ShellKeywords = new Set(["if", "then", "else", "elif", "fi", "for", "while", "do", "done", "case", "esac", "function", "in"])
+
+const OperatorToken = /!|#|@\[([^\]]?)\]/g
+const FunctionToken = /\$((?:[!#]|@\[[^\]]?\])*)([a-zA-Z0-9]+)(\[)?|;|\]/g
+const ShellToken = /(#.*$)|("(?:[^"\\]|\\.)*"|'[^']*')|(\$\{?[\w@#?*!-]+\}?)|(\s+)|(&&|\|\||[|;&<>]+)|([^\s|;&<>"'$]+)/gm
+
+const IconPaths: Record<string, { icon: string, label: () => string }> = {
+    function: {
+        icon: "symbol-function",
+        label: () => vscode.l10n.t("Function")
+    },
+    event: {
+        icon: "symbol-event",
+        label: () => vscode.l10n.t("Event")
+    },
+    enum: {
+        icon: "symbol-enum",
+        label: () => vscode.l10n.t("Enum")
+    }
 }
 
 let ExtensionContext: vscode.ExtensionContext
+let WebviewPanel: vscode.WebviewPanel | undefined
 
 type GuideNodeKind = "favorites" | "package" | "category" | "subCategory" | "guide"
 type GuideNode = {
@@ -89,6 +112,13 @@ type GuideNode = {
     guide?: GuideMetadata
     isFavorite?: boolean
 }
+
+hljs.registerLanguage("javascript", javascript)
+hljs.registerLanguage("typescript", typescript)
+hljs.registerLanguage("json", json)
+hljs.registerAliases(["js", "jsx", "mjs", "cjs"], { languageName: "javascript" })
+hljs.registerAliases(["ts", "tsx"], { languageName: "typescript" })
+hljs.registerAliases(["jsonc"], { languageName: "json" })
 
 /**
  * Converts a value to title case.
@@ -143,22 +173,335 @@ function formatDate(value?: string) {
     })
 }
 
-function markdownForGuide(guide: GuideMetadata) {
-    const lines: string[] = []
+function formatDay(value?: string) {
+    if (!value) return null
 
-    lines.push(`# ${displayGuideTitle(guide)}`)
-    lines.push("")
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
 
-    lines.push(`> **Approved:** \`${formatDate(guide.approvedAt)}\`${guide.approver ? ` by \`${guide.approver.username}\`` : ""}\\`)
-    const contributors = guide.contributors.map((x) => `\`${x.username}\``)
-    lines.push(`> **Contributor${contributors.length === 1 ? "" : "s"}:** ${contributors.join(", ")}`)
+    const day = date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+    const time = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
 
-    lines.push("")
-    lines.push("---")
-    lines.push("")
-    lines.push(guide.content || vscode.l10n.t("*No guide content available.*"))
+    return `${day}, ${time}`
+}
 
-    return lines.join("\n")
+function formatRelative(value?: string) {
+    if (!value) return null
+
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return null
+
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
+    const days = Math.round((date.getTime() - Date.now()) / 86_400_000)
+
+    if (Math.abs(days) < 30) return rtf.format(days, "day")
+    if (Math.abs(days) < 365) return rtf.format(Math.round(days / 30), "month")
+    return rtf.format(Math.round(days / 365), "year")
+}
+
+function resolveAvatarURL(url: string) {
+    try {
+        return new URL(url, DocsUrl).toString()
+    } catch {
+        return ""
+    }
+}
+
+function userTooltip(user: GuideUser) {
+    const extras = [user.role && toTitleCase(user.role), user.Label].filter(Boolean)
+    return esc(user.username + (extras.length ? ` (${extras.join(", ")})` : ""))
+}
+
+function renderAvatar(user: GuideUser, size: "small" | "large" = "small") {
+    const cls = `avatar avatar-${size}`
+    const src = user.avatarUrl ? resolveAvatarURL(user.avatarUrl) : ""
+
+    return src
+        ? `<img class="${cls}" src="${esc(src)}" alt="" loading="lazy" draggable="false">`
+        : `<span class="${cls} avatar-fallback">${esc(user.username.charAt(0).toUpperCase())}</span>`
+}
+
+function renderUser(user: GuideUser) {
+    return `<span class="user" title="${userTooltip(user)}">${renderAvatar(user)}<span class="user-name">${esc(user.username)}</span></span>`
+}
+
+function renderStack(users: GuideUser[]) {
+    return `<span class="stack">
+        ${users.map((x) =>
+        `<span class="stack-item" title="${userTooltip(x)}">${renderAvatar(x)}</span>`
+    ).join("")}
+    </span>`
+}
+
+function renderBadge(guide: GuideMetadata) {
+    const type = IconPaths[guide.targetType]
+    if (!type) return ""
+
+    return `<span class="badge badge-type badge-${guide.targetType}">
+        <span class="codicon codicon-${type.icon}"></span>
+        ${esc(type.label())}
+    </span>`
+}
+
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+const span = (cls: string, text: string) => `<span class="${cls}">${esc(text)}</span>`
+
+function highlightOperators(prefix: string) {
+    let out = ""
+
+    for (const match of prefix.matchAll(OperatorToken)) {
+        if (match[0] === "!") out += span("fn-op-neg", "!")
+        else if (match[0] === "#") out += span("fn-op-silent", "#")
+        else if (match[1]) {
+            out += span("fn-op-count", "@[") + span("fn-op-count-delim", match[1]) + span("fn-op-count", "]")
+        } else out += span("fn-op-count", match[0])
+    }
+
+    return out
+}
+
+function highlightForge(code: string) {
+    let out = ""
+    let last = 0
+    let depth = 0
+
+    const br = (c: string, d: number) => `<span class="br br-${d % 3}">${c}</span>`
+
+    for (const match of code.matchAll(FunctionToken)) {
+        const i = match.index!
+        out += esc(code.slice(last, i))
+        last = i + match[0].length
+
+        if (match[0] === ";") {
+            out += (depth && !isEscaped(code, i) ? `<span class="fn-semi">;</span>` : ";")
+        } else if (match[0] === "]") {
+            if (depth === 0 || isEscaped(code, i)) out += "]"
+            else out += br("]", --depth)
+        } else if (isEscaped(code, i)) {
+            out += esc(match[0])
+        } else {
+            out += `<span class="fn-dollar">$</span>`
+                + (match[1] ? highlightOperators(match[1]) : "")
+                + `<span class="fn-name">${esc(match[2])}</span>`
+            if (match[3]) out += br("[", depth++)
+        }
+    }
+
+    return out + esc(code.slice(last))
+}
+
+function highlightShell(code: string) {
+    return code.split("\n").map((line) => {
+        let out = ""
+        let expectCmd = true
+
+        const prompt = line.match(/^(\s*[$>]\s)/)
+        if (prompt) {
+            out += `<span class="sh-prompt">${esc(prompt[1])}</span>`
+            line = line.slice(prompt[1].length)
+        }
+
+        for (const match of line.matchAll(ShellToken)) {
+            const [text, comment, str, variable, space, op, word] = match
+
+            if (comment) out += `<span class="sh-comment">${esc(text)}</span>`
+            else if (str) out += `<span class="sh-string">${esc(text)}</span>`
+            else if (variable) out += `<span class="sh-var">${esc(text)}</span>`
+            else if (space) out += text
+            else if (op) {
+                out += `<span class="sh-op">${esc(text)}</span>`
+                expectCmd = true
+            } else if (word) {
+                if (ShellKeywords.has(word)) out += `<span class="sh-keyword">${esc(word)}</span>`
+                else if (expectCmd) {
+                    out += `<span class="sh-cmd">${esc(word)}</span>`
+                    expectCmd = false
+                } else if (word.startsWith("-")) out += `<span class="sh-flag">${esc(word)}</span>`
+                else out += `<span class="sh-string">${esc(word)}</span>`
+                if (ShellKeywords.has(word) && word !== "in") expectCmd = true
+            }
+        }
+        return out
+    }).join("\n")
+}
+
+function highlightCode(code: string, language: string) {
+    const lang = language.trim().toLowerCase().split(/\s+/)[0]
+    if (ForgeLangs.has(lang)) return highlightForge(code)
+    if (ShellLangs.has(lang)) return highlightShell(code)
+    if (hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang, ignoreIllegals: true }).value
+    return ""
+}
+
+function slug(text: string) {
+    return text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-")
+}
+
+function alertTitles() {
+    return {
+        note: vscode.l10n.t("Note"),
+        tip: vscode.l10n.t("Tip"),
+        important: vscode.l10n.t("Important"),
+        warning: vscode.l10n.t("Warning"),
+        caution: vscode.l10n.t("Caution")
+    }
+}
+
+function alertsPlugin(md: Markdown) {
+    md.core.ruler.after("block", "forge_alerts", (state) => {
+        const tokens = state.tokens
+        const titles = alertTitles()
+
+        for (let i = 0; i < tokens.length; i++) {
+            const open = tokens[i]
+            const inline = tokens[i + 2]
+            if (open.type !== "blockquote_open" || tokens[i + 1]?.type !== "paragraph_open" || inline?.type !== "inline") continue
+
+            const m = inline.content.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*(?:\n|$)/i)
+            if (!m) continue
+            const kind = m[1].toLowerCase() as keyof typeof titles
+
+            let depth = 0, close = -1
+            for (let j = i; j < tokens.length; j++) {
+                if (tokens[j].type === "blockquote_open") depth++
+                else if (tokens[j].type === "blockquote_close" && --depth === 0) { close = j; break }
+            }
+            if (close === -1) continue
+
+            open.tag = "div"
+            open.attrSet("class", `alert alert-${kind}`)
+            tokens[close].tag = "div"
+            inline.content = inline.content.slice(m[0].length)
+
+            const title = new state.Token("html_block", "", 0)
+            title.content = `<p class="alert-title">${esc(titles[kind])}</p>\n`
+            tokens.splice(i + 1, 0, title)
+        }
+    })
+
+    md.core.ruler.after("inline", "forge_heading_ids", (state) => {
+        const seen = new Map<string, number>()
+        state.tokens.forEach((t, i) => {
+            if (t.type !== "heading_open") return
+            const base = slug(state.tokens[i + 1].content)
+            const n = seen.get(base) ?? 0
+            seen.set(base, n + 1)
+            t.attrSet("id", n ? `${base}-${n}` : base)
+        })
+    })
+}
+
+function codiconPlugin(md: Markdown) {
+    md.inline.ruler.before("escape", "codicon", (state, silent) => {
+        if (state.src.charCodeAt(state.pos) !== 0x24 || state.src.charCodeAt(state.pos + 1) !== 0x28) return false
+        const match = /^\$\(([a-z0-9-]+)(~spin)?\)/i.exec(state.src.slice(state.pos))
+        if (!match) return false
+        if (!silent) {
+            const t = state.push("codicon", "", 0)
+            t.content = match[1]
+            t.meta = { spin: !!match[2] }
+        }
+        state.pos += match[0].length
+        return true
+    })
+
+    md.renderer.rules.codicon = (tokens, i) =>
+        `<span class="codicon codicon-${esc(tokens[i].content)}${tokens[i].meta?.spin ? " codicon-modifier-spin" : ""}"></span>`
+}
+
+const md = new MarkdownIt({
+    html: true,
+    linkify: true,
+    highlight: (code, lang) => highlightCode(code, lang)
+}).use(alertsPlugin).use(codiconPlugin)
+
+function renderHeader(guide: GuideMetadata) {
+    const words = guide.content.split(/\s+/).filter(Boolean).length
+    const minutes = Math.max(1, Math.ceil(words / 200))
+    const author = guide.contributors.find((x) => x.isOriginalAuthor) ?? guide.contributors[0]
+    const others = guide.contributors.filter((x) => x !== author)
+    const favorite = isFavoriteGuide(guide.id)
+
+    return `<header>
+        <div class="badges">
+            <span class="badge${favorite ? " badge-favorite" : ""}">
+                <span class="codicon codicon-${favorite ? "star-full" : "package"}"></span>
+                ${esc(guide.packageName)}
+            </span>
+            ${renderBadge(guide)}
+        </div>
+        <h1>${esc(displayGuideTitle(guide))}</h1>
+
+        <div class="byline">
+            ${author ? `<div class="author">
+                ${renderAvatar(author, "large")}
+                <div>
+                    <div class="name" title="${userTooltip(author)}">${esc(author.username)}</div>
+                    <div class="sub">${vscode.l10n.t("Author")} · ${vscode.l10n.t("{0} min read", minutes)}</div>
+                </div>
+            </div>` : ""}
+
+            ${others.length ? `<div class="contributors">
+                ${renderStack(others)}
+                <div>
+                    <div class="sub">${others.length === 1 ? vscode.l10n.t("1 Contributor") : vscode.l10n.t("{0} Contributors", others.length)}</div>
+                </div>
+            </div>` : ""}
+
+            <a class="docs-link" href="${esc(buildGuideURL(guide))}">
+                <span class="codicon codicon-link-external"></span> ${vscode.l10n.t("Open in Docs")}
+            </a>
+        </div>
+
+        <div class="approval">
+            <span class="codicon codicon-verified-filled approval-icon"></span>
+            <div class="approval-body">
+                <div class="approval-title">
+                    <span>${guide.approver ? vscode.l10n.t("Approved by") : vscode.l10n.t("Approved")}</span>
+                    ${guide.approver ? renderUser(guide.approver) : ""}
+                </div>
+                <div class="sub" title="${esc(formatDate(guide.approvedAt) ?? "")}">
+                    ${esc(formatRelative(guide.approvedAt) ?? "")} · ${esc(formatDay(guide.approvedAt) ?? "")}
+                </div>
+            </div>
+        </div>
+    </header>`
+}
+
+function getHtml(guide: GuideMetadata, webview: vscode.Webview, media: vscode.Uri) {
+    const nonce = Math.random().toString(36).slice(2)
+    const colors = getExtensionConfig().colors
+    const body = md.render(guide.content || vscode.l10n.t("*No guide content available.*"))
+
+    const css = (file: string) => webview.asWebviewUri(vscode.Uri.joinPath(media, file))
+
+    return `<!DOCTYPE html>
+        <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta
+                    http-equiv="Content-Security-Policy"
+	                content="default-src 'none'; img-src https: data:; font-src ${webview.cspSource}; style-src ${webview.cspSource} 'nonce-${nonce}';"
+                />
+                <link rel="stylesheet" href="${css("codicon.css")}">
+                <link rel="stylesheet" href="${css("preview.css")}">
+                <style nonce="${nonce}">
+	                :root {
+		                --fn-name: ${resolveColor(colors.function?.name, "#AC75FF")};
+		                --fn-dollar: ${resolveColor(colors.function?.dollar, "#FE7CEB")};
+		                --fn-semi: ${resolveColor(colors.function?.semicolon, "#C586C0")};
+		                --fn-op-neg: ${resolveColor(colors.operators?.negation, "#4FA3FF")};
+                        --fn-op-silent: ${resolveColor(colors.operators?.silent, "#FF9F43")};
+                        --fn-op-count: ${resolveColor(colors.operators?.count, "#33D17A")};
+                        --fn-op-count-delim: ${resolveColor(colors.operators?.countDelimiter, "#76E3A0")};
+	                }
+                </style>
+            </head>
+        <body>
+	        ${renderHeader(guide)}
+	        <main>${body}</main>
+        </body>
+    </html>`
 }
 
 function getFavoriteGuideIds() {
@@ -526,7 +869,8 @@ class ForgeGuidesProvider implements vscode.TreeDataProvider<GuideNode> {
 
         let iconPath
         if (element.kind === "package") iconPath = "package"
-        else if (element.kind === "category" && element.category) iconPath = IconPaths[element.category] || "folder"
+        else if (element.kind === "category" && element.category)
+            iconPath = IconPaths[element.category.slice(0, -1)]?.icon || "folder"
         else iconPath = "folder"
 
         item.id = `${element.kind}:${element.key}`
@@ -643,30 +987,30 @@ class ForgeGuidesProvider implements vscode.TreeDataProvider<GuideNode> {
     }
 }
 
+function showGuidePreview(guide: GuideMetadata, extensionUri: vscode.Uri) {
+    const media = vscode.Uri.joinPath(extensionUri, "styles")
+    const title = displayGuideTitle(guide)
+
+    if (!WebviewPanel) {
+        WebviewPanel = vscode.window.createWebviewPanel("forge.guidePreview", title, vscode.ViewColumn.Active, {
+            enableFindWidget: true,
+            localResourceRoots: [media]
+        })
+        WebviewPanel.onDidDispose(() => (WebviewPanel = undefined))
+    } else {
+        WebviewPanel.title = title
+        WebviewPanel.reveal(undefined, true)
+    }
+
+    WebviewPanel.webview.html = getHtml(guide, WebviewPanel.webview, media)
+}
+
 /**
  * Registers the preview for guides.
  * @param ctx The extension context.
  */
 export function registerGuidePreview(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(
-        vscode.workspace.registerTextDocumentContentProvider(GuideScheme, {
-            async provideTextDocumentContent(uri) {
-                const raw = decodeURIComponent(uri.path.replace(/^\//, "").replace(/\.md$/i, ""))
-
-                let guide: GuideMetadata | null = null
-                const id = Number(raw)
-
-                if (!Number.isNaN(id)) guide = await findGuide({ id })
-                if (!guide) guide = await findGuide(raw)
-
-                if (!guide) {
-                    return vscode.l10n.t("# 404: Guide Not Found\n\nNo metadata was found for this guide.")
-                }
-
-                return markdownForGuide(guide)
-            }
-        }),
-
         // Preview Guide
         vscode.commands.registerCommand("forgevsc.previewGuide", async (input: GuideMetadata | number | string) => {
             let guide: GuideMetadata | null = null
@@ -689,8 +1033,7 @@ export function registerGuidePreview(ctx: vscode.ExtensionContext) {
                 return
             }
 
-            const uri = vscode.Uri.parse(`${GuideScheme}:/${encodeURIComponent(String(guide.id))}.md`)
-            await vscode.commands.executeCommand("markdown.showPreview", uri)
+            showGuidePreview(guide, ctx.extensionUri)
         }),
 
         // Open Guide
@@ -706,6 +1049,8 @@ export function registerGuidePreview(ctx: vscode.ExtensionContext) {
  */
 export function registerGuidesView(ctx: vscode.ExtensionContext) {
     ExtensionContext = ctx
+
+    ctx.globalState.setKeysForSync([FavoriteGuidesKey])
 
     const provider = new ForgeGuidesProvider()
     const tree = vscode.window.createTreeView("forge.guidesView", {

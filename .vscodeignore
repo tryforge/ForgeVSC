@@ -2,13 +2,13 @@
 .vscode/**
 .vscode-test/**
 .vscode-test-web/**
+node_modules/**
 src/**
 scripts/**
 **/@build/**
 .gitignore
 vsc-extension-quickstart.md
-**/tsconfig.json
-**/tsconfig.build.json
+tsconfig*.json
 **/eslint.config.mjs
 **/*.map
 **/*.ts
